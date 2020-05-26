@@ -38,9 +38,9 @@ control MyIngress(inout headers hdr,
                   inout standard_metadata_t standard_metadata) {    
     apply {
         if (standard_metadata.ingress_port == 0) {
-            standard_metadata.ingress_port = 1;
+            standard_metadata.egress_spec = 1;
         } else {
-            standard_metadata.ingress_port = 0;
+            standard_metadata.egress_spec = 0;
         }
     }
 }

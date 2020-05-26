@@ -1,6 +1,6 @@
 SHELL := /bin/bash
 
-run: build simple_switch control_plane packets.pid
+run: build simple_switch control_plane packets
 
 build: basic.json
 
@@ -55,15 +55,21 @@ p = Ether()/IP(dst="20.20.0.1")/UDP()\n\
 sendp(p, iface="veth1")\n\
 p = Ether()/IP(dst="20.20.0.2")/UDP()\n\
 sendp(p, iface="veth1")\n\
+# this should show up once \n\
 p = Ether()/IP(dst="10.10.0.1")/UDP()\n\
-sendp(p, iface="veth1")\n # wont show
+sendp(p, iface="veth3")\n\
+# this should not show up \n\
+p = Ether()/IP(dst="10.10.0.1")/UDP()\n\
+sendp(p, iface="veth1")\n
 endef
 
 packets.pid:
 	@sudo tcpdump -n -i veth3 & echo $$! > packets.pid
+
+packets: packets.pid
 	@sudo scapy <<< $$'$(PACKETS)' > /dev/null
 
 clean:
 	@rm -f *.json *.p4i *.log
 
-.PHONY: build run stop simple_switch veth kill control_plane clean
+.PHONY: build run stop simple_switch veth kill control_plane clean packets
