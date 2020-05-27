@@ -1,0 +1,4 @@
+*.json
+*.p4i
+*.logs
+*.pid
