@@ -5,6 +5,9 @@
 ;; Table output parameters
 (declare-const vrf Int)
 
+;; Final output attributes
+(declare-const egress_spec Int)
+
 ;; Table Matches
 ;; port_to_vrf
 (define-fun port_to_vrf0 () Bool (= ingress_port 0))
@@ -34,11 +37,30 @@
 
 ;; link vrf value to table match
 ;;
-;; Better way:
-;; define all the different values for each row using a reasonable naming convention
-;; our code knows to use value<i> exactly for combinations with match<i>
-(define-fun vrf0 () Bool (= vrf 10))
-(define-fun vrf1 () Bool (= vrf 20))
+(assert (=> port_to_vrf0 (= vrf 10)))
+(assert (=> port_to_vrf1 (= vrf 20)))
+(assert (=> (and (not port_to_vrf0) (not port_to_vrf1)) (= vrf -1)))
+
+;; link output values to their paths/traces
+(assert (=> set_port_if1_then (= egress_spec 0)))
+(assert (=> (and set_port_if1_else vrf_ip_to_port0) (= egress_spec 1)))
+(assert (=> (and set_port_if1_else vrf_ip_to_port1) (= egress_spec 2)))
+(assert (=> (and set_port_if1_else vrf_ip_to_port2) (= egress_spec 3)))
+(assert (=>
+    (and (not vrf_ip_to_port0) (not vrf_ip_to_port1) (not vrf_ip_to_port2))
+    (= egress_spec -1)
+))
+
+;; what does not being dropped mean in this program
+(define-fun not_dropped () Bool (not (= egress_spec -1)))
+
+;; Optimization/Idea to consider:
+;; perhaps setting vrf and egress_spec to -1 is not needed as an assert
+;; but only as part of the not_dropped or other similar aliases?
+;; this means that the smt solver will not need to assert it for
+;; complete queries, which will be valid by definition, and only
+;; assert them (and have to do more work) for some of the partial
+;; queries.
 
 ;; Combinations
 ;;
@@ -52,7 +74,7 @@
 ;;
 (push)
 (echo "combination 1")
-(assert (and port_to_vrf0 vrf0 vrf_ip_to_port0 set_port_if1_then))
+(assert (and port_to_vrf0 vrf_ip_to_port0 set_port_if1_then))
 (check-sat)
 (get-model)
 (echo "")
@@ -60,7 +82,7 @@
 
 (push)
 (echo "combination 2")
-(assert (and port_to_vrf0 vrf0 vrf_ip_to_port0 set_port_if1_else))
+(assert (and port_to_vrf0 vrf_ip_to_port0 set_port_if1_else))
 (check-sat)
 (get-model)
 (echo "")
@@ -68,7 +90,7 @@
 
 (push)
 (echo "combination 3")
-(assert (and port_to_vrf0 vrf0 vrf_ip_to_port1 set_port_if1_then))
+(assert (and port_to_vrf0 vrf_ip_to_port1 set_port_if1_then))
 (check-sat)
 (get-model)
 (echo "")
@@ -76,7 +98,7 @@
 
 (push)
 (echo "combination 4")
-(assert (and port_to_vrf0 vrf0 vrf_ip_to_port1 set_port_if1_else))
+(assert (and port_to_vrf0 vrf_ip_to_port1 set_port_if1_else))
 (check-sat)
 (get-model)
 (echo "")
@@ -84,7 +106,7 @@
 
 (push)
 (echo "combination 5")
-(assert (and port_to_vrf1 vrf1 vrf_ip_to_port2 set_port_if1_then))
+(assert (and port_to_vrf1 vrf_ip_to_port2 set_port_if1_then))
 (check-sat)
 (get-model)
 (echo "")
@@ -92,9 +114,49 @@
 
 (push)
 (echo "combination 6")
-(assert (and port_to_vrf1 vrf1 vrf_ip_to_port2 set_port_if1_else))
+(assert (and port_to_vrf1 vrf_ip_to_port2 set_port_if1_else))
 (check-sat)
 (get-model)
 (echo "")
 (pop)
 
+
+;; Alternatively, you can have partial queries
+;; For example:
+;; Give me any valid packet
+;;
+(push)
+(echo "Any valid packet")
+(assert not_dropped)
+(check-sat)
+(get-model)
+(echo "")
+(pop)
+
+;; Give me a packet that will have output port 3
+(push)
+(echo "output = 3")
+(assert (= egress_spec 3))
+(check-sat)
+(get-model)
+(echo "")
+(pop)
+
+
+;; Give me a packet with output port 2 and vrf 10
+(push)
+(echo "output = 2 and vrf = 10")
+(assert (and (= egress_spec 2) (= vrf 10)))
+(check-sat)
+(get-model)
+(echo "")
+(pop)
+
+;; Partial Trace plus output port is 1
+(push)
+(echo "output = 1 and port to vrf entry 0 is hit")
+(assert (and (= egress_spec 1) port_to_vrf0))
+(check-sat)
+(get-model)
+(echo "")
+(pop)

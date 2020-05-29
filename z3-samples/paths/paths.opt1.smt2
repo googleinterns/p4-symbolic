@@ -5,6 +5,9 @@
 ;; Table output parameters
 (declare-const vrf Int)
 
+;; Final output attributes
+(declare-const egress_spec Int)
+
 ;; Table Matches
 ;; port_to_vrf
 (define-fun port_to_vrf0 () Bool (= ingress_port 0))
@@ -58,6 +61,22 @@
         )
     )
 ))
+
+;; Similarly, link output actions to the rest of the follow
+(assert (= egress_spec
+    (ite set_port_if1_then 0
+        (ite vrf_ip_to_port0 1
+            (ite vrf_ip_to_port1 2
+                (ite vrf_ip_to_port2 3
+                    -1
+                )
+            )
+        )
+    )
+))
+
+;; Validity: that a packet is not dropped
+(define-fun not_dropped () Bool (not (= egress_spec -1)))
 
 ;; Combinations
 ;;
@@ -159,3 +178,42 @@
 (echo "")
 (pop)
 
+;; Alternatively, you can have partial queries
+;; For example:
+;; Give me any valid packet
+;;
+(push)
+(echo "Any valid packet")
+(assert not_dropped)
+(check-sat)
+(get-model)
+(echo "")
+(pop)
+
+;; Give me a packet that will have output port 3
+(push)
+(echo "output = 3")
+(assert (= egress_spec 3))
+(check-sat)
+(get-model)
+(echo "")
+(pop)
+
+
+;; Give me a packet with output port 2 and vrf 10
+(push)
+(echo "output = 2 and vrf = 10")
+(assert (and (= egress_spec 2) (= vrf 10)))
+(check-sat)
+(get-model)
+(echo "")
+(pop)
+
+;; Partial Trace plus output port is 1
+(push)
+(echo "output = 1 and port to vrf entry 0 is hit")
+(assert (and (= egress_spec 1) port_to_vrf0))
+(check-sat)
+(get-model)
+(echo "")
+(pop)
