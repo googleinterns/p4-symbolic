@@ -16,7 +16,7 @@ COMPILED_FILE_NAMES := $(SOURCE_FILE_NAMES:.p4=.json)
 build: $(COMPILED_FILE_NAMES)
 
 %.json: %.p4
-	p4c --std p4_16 --target bmv2 --arch v1model $<
+	p4c --std p4_16 --target bmv2 --arch v1model --p4runtime-files $(basename $@).info.json $<
 
 #
 # bmv2 simulation
@@ -61,7 +61,7 @@ kill:
 	@sudo kill `cat $(TCPDUMP_PID)` && rm $(TCPDUMP_PID)
 
 clean:
-	@rm -f *.json *.p4i *.log
+	@rm -f *.json *.p4i *.log *.info.*
 
 # PHONY rules with names that do not correspond to files
 .PHONY: build simple_switch veth control_plane packets stop kill clean

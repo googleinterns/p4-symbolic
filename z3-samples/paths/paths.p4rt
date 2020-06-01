@@ -1,0 +1,6 @@
+table_add port_to_vrf set_vrf 0 => 10
+table_add port_to_vrf set_vrf 1 => 20
+
+table_add vrf_ip_to_port set_vrf 10.10.0.0/24 10 => 1
+table_add vrf_ip_to_port set_vrf 10.10.0.0/16 10 => 2
+table_add vrf_ip_to_port set_vrf 20.20.0.0/16 20 => 3
