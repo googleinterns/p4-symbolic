@@ -1,0 +1,32 @@
+syntax = "proto3";
+
+import "src/protobuf/bmv2/primitives.proto";
+
+message Parser {
+  string name = 1;
+  int32 id = 2;
+  string init_state = 3;
+  repeated ParserState parse_states = 4;
+}
+
+message ParserState {
+  string name = 1;
+  int32 id = 2;
+  // TODO parser_ops: an array of operations
+  repeated ParserTransition transitions = 4;
+  // TODO transition_key
+}
+
+message ParserTransition {
+  string value = 1;
+  string type = 2;
+  string mask = 3;
+  int32 next_state = 4;
+}
+
+message Deparser {
+  string name = 1;
+  int32 id = 2;
+  SourceInfo source_info = 3;
+  // TODO order array
+}

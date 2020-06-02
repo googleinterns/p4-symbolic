@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+// A value/expression is a struct
+// it contains a type: field, hexstr, regular, runtime_data, header, expression, op, assign
+// and a value: array, string, string, int, string, (nested expression), (struct with op, left, and right), (no value only parameters)
+
+message RuntimeData {
+  string name = 1;
+  int32 bitwidth = 2;
+}
+
+message SourceInfo {
+  string filename = 1;
+  int32 line= 2;
+  int32 column = 3;
+  string source_fragment = 4;
+}

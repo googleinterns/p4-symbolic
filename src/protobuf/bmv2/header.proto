@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+import "google/protobuf/struct.proto";
+
+message HeaderType {
+  string name = 1;
+  int32 id = 2;
+  repeated google.protobuf.ListValue fields = 3;
+}
+
+message Header {
+  int32 id = 1;
+  string header_type = 2;
+  bool metadata = 3;
+  bool pi_omit = 4;
+}

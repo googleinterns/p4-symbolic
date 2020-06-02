@@ -1,0 +1,43 @@
+syntax = "proto3";
+
+import "google/protobuf/struct.proto";
+
+import "src/protobuf/bmv2/primitives.proto";
+
+message Action {
+  string name = 1;
+  int32 id = 2;
+  repeated RuntimeData runtime_data = 3;
+  repeated google.protobuf.Struct primitives = 4;  
+}
+
+message Pipeline {
+  string name = 1;
+  int32 id = 2;
+  SourceInfo source_info = 3;
+  string init_table = 4;
+  repeated Table tables = 5;
+  // TODO action_profiles
+  // TODO conditionals
+}
+
+message Table {
+  string name = 1;
+  int32 id = 2;
+  SourceInfo source_info = 3;
+  repeated TableKey key = 4;
+  string match_type = 5; // make into an enum
+  string type = 6; // simple
+  int32 max_size = 7;
+  repeated int32 action_ids = 8;
+  repeated string actions = 9;
+  // TODO next_tables
+  // TODO default_entry
+}
+
+message TableKey {
+  string match_type = 1;
+  string name = 2;
+  string mask = 3;
+  repeated string target = 4;
+}

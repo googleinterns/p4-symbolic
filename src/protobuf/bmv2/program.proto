@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+import "src/protobuf/bmv2/header.proto";
+import "src/protobuf/bmv2/parser.proto";
+import "src/protobuf/bmv2/table.proto";
+
+message P4Program {
+  repeated HeaderType header_types = 1;
+  repeated Header headers = 2;
+  repeated Parser parsers = 3;
+  repeated Deparser deparsers = 4;
+  repeated Action actions = 5;
+  repeated Pipeline pipelines = 6; 
+}
