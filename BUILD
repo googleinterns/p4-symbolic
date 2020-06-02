@@ -6,5 +6,6 @@ cc_binary(
     deps = [
         "//src/protobuf:p4_test_cc_proto",
         "@com_google_absl//absl/strings"
-    ]
+    ],
+    visibility = ["//testing:__pkg__"]
 )
