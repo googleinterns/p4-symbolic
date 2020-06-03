@@ -2,20 +2,20 @@ def _subset_diff_impl(ctx):
     # diff expected with tmp file
     ctx.actions.write(
         output = ctx.outputs.executable,
-        content = "{binary} < {expected} | python {py_file} {expected}".format(
-            py_file = ctx.file.py_file.short_path,
-            binary = ctx.file.actual.short_path,
-            expected = ctx.file.expected.short_path
+        content = "{binary} < {input} | python {py_file} {input}".format(
+            py_file = ctx.file._py_file.short_path,
+            binary = ctx.file._binary.short_path,
+            input = ctx.file.input.short_path
         )
     )
 
-    runfiles = [ctx.file.py_file, ctx.file.actual, ctx.file.expected]
+    runfiles = [ctx.file._py_file, ctx.file._binary, ctx.file.input]
     return DefaultInfo(
         runfiles = ctx.runfiles(files = runfiles),
     )
 
 subset_diff_test = rule(
-    doc = """Computes a smart subset diff of two JSON files, checking that they agree.
+    doc = """Computes a smart subset diff between two JSON objects.
     A smart diff in this context is a super set diff: the expected file contains
     a superset of attributes. The diff checks that for the ones that do exist
     in the actual output, the same value is assigned in the expected file.
@@ -23,26 +23,31 @@ subset_diff_test = rule(
     rejected.
     Finally, this subset notion is recursive. It applies to JSON objects
     nested within other JSON objects.
+    This rule takes a single argument: input. This is the json input file,
+    or a rule that produces this json input file.
+    The rule passes this input file in to src/main.cc which parses it with
+    protobuf and then dumps it back to JSON.
+    The rule checks that the dumped output is a proper subset of the input.
     """,
     implementation = _subset_diff_impl,
     test = True,
     attrs = {
-        "actual": attr.label(
-            doc = "'Actual' file, typically containing the output of some command.",
+        "input": attr.label(
+            doc = "The input JSON file, or a rule producing it (typically invoking p4c)",
             mandatory = True,
-            allow_single_file = True,
+            allow_single_file = True
         ),
-        "expected": attr.label(
-            doc = """Expected file.""",
-            mandatory = True,
-            allow_single_file = True,
-        ),
-        "py_file": attr.label(
-            doc = """The diff python script file. 
-                     Do not override this unless you know what you are doing.""",
+        "_py_file": attr.label(
+            doc = "The diff python script file.",
             mandatory = False,
             allow_single_file = True,
             default = "sdiff.py"
+        ),
+        "_binary": attr.label(
+            doc = "src/main.cc binary that uses the protobuf definitions",
+            mandatory = False,
+            allow_single_file = True,
+            default = "//:main"
         )
-    },
+    }
 )
