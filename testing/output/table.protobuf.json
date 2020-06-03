@@ -1,0 +1,247 @@
+{
+ "header_types": [
+  {
+   "name": "scalars_0",
+   "id": 0,
+   "fields": []
+  },
+  {
+   "name": "standard_metadata",
+   "id": 1,
+   "fields": [
+    [
+     "ingress_port",
+     9,
+     false
+    ],
+    [
+     "egress_spec",
+     9,
+     false
+    ],
+    [
+     "egress_port",
+     9,
+     false
+    ],
+    [
+     "instance_type",
+     32,
+     false
+    ],
+    [
+     "packet_length",
+     32,
+     false
+    ],
+    [
+     "enq_timestamp",
+     32,
+     false
+    ],
+    [
+     "enq_qdepth",
+     19,
+     false
+    ],
+    [
+     "deq_timedelta",
+     32,
+     false
+    ],
+    [
+     "deq_qdepth",
+     19,
+     false
+    ],
+    [
+     "ingress_global_timestamp",
+     48,
+     false
+    ],
+    [
+     "egress_global_timestamp",
+     48,
+     false
+    ],
+    [
+     "mcast_grp",
+     16,
+     false
+    ],
+    [
+     "egress_rid",
+     16,
+     false
+    ],
+    [
+     "checksum_error",
+     1,
+     false
+    ],
+    [
+     "parser_error",
+     32,
+     false
+    ],
+    [
+     "priority",
+     3,
+     false
+    ],
+    [
+     "_padding",
+     3,
+     false
+    ]
+   ]
+  }
+ ],
+ "headers": [
+  {
+   "id": 0,
+   "header_type": "scalars_0",
+   "metadata": true
+  },
+  {
+   "id": 1,
+   "header_type": "standard_metadata",
+   "metadata": true
+  }
+ ],
+ "parsers": [
+  {
+   "name": "parser",
+   "id": 0,
+   "init_state": "start",
+   "parse_states": [
+    {
+     "name": "start",
+     "id": 0,
+     "transitions": [
+      {
+       "value": "default",
+       "type": "",
+       "mask": "",
+       "next_state": 0
+      }
+     ]
+    }
+   ]
+  }
+ ],
+ "deparsers": [
+  {
+   "name": "deparser",
+   "id": 0,
+   "source_info": {
+    "filename": "table.p4",
+    "line": 31,
+    "column": 8,
+    "source_fragment": "UselessDeparser"
+   }
+  }
+ ],
+ "actions": [
+  {
+   "name": "NoAction",
+   "id": 0,
+   "runtime_data": [],
+   "primitives": []
+  },
+  {
+   "name": "MyIngress.set_egress_spec",
+   "id": 1,
+   "runtime_data": [
+    {
+     "name": "port",
+     "bitwidth": 9
+    }
+   ],
+   "primitives": [
+    {
+     "source_info": {
+      "source_fragment": "standard_metadata.egress_spec = port",
+      "filename": "table.p4",
+      "column": 8,
+      "line": 42
+     },
+     "parameters": [
+      {
+       "type": "field",
+       "value": [
+        "standard_metadata",
+        "egress_spec"
+       ]
+      },
+      {
+       "value": 0,
+       "type": "runtime_data"
+      }
+     ],
+     "op": "assign"
+    }
+   ]
+  }
+ ],
+ "pipelines": [
+  {
+   "name": "ingress",
+   "id": 0,
+   "source_info": {
+    "filename": "table.p4",
+    "line": 36,
+    "column": 8,
+    "source_fragment": "MyIngress"
+   },
+   "init_table": "MyIngress.ports_exact",
+   "tables": [
+    {
+     "name": "MyIngress.ports_exact",
+     "id": 0,
+     "source_info": {
+      "filename": "table.p4",
+      "line": 46,
+      "column": 10,
+      "source_fragment": "ports_exact"
+     },
+     "key": [
+      {
+       "match_type": "exact",
+       "name": "standard_metadata.ingress_port",
+       "mask": "",
+       "target": [
+        "standard_metadata",
+        "ingress_port"
+       ]
+      }
+     ],
+     "match_type": "exact",
+     "type": "simple",
+     "max_size": 1024,
+     "action_ids": [
+      1,
+      0
+     ],
+     "actions": [
+      "MyIngress.set_egress_spec",
+      "NoAction"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "egress",
+   "id": 1,
+   "source_info": {
+    "filename": "table.p4",
+    "line": 21,
+    "column": 8,
+    "source_fragment": "UselessEgress"
+   },
+   "init_table": "",
+   "tables": []
+  }
+ ]
+}
+
