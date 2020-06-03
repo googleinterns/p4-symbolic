@@ -12,9 +12,9 @@ message Parser {
 message ParserState {
   string name = 1;
   int32 id = 2;
-  // TODO parser_ops: an array of operations
+  // TODO(babman): parser_ops: an array of operations
   repeated ParserTransition transitions = 4;
-  // TODO transition_key
+  // TODO(babman): transition_key
 }
 
 message ParserTransition {
@@ -28,5 +28,5 @@ message Deparser {
   string name = 1;
   int32 id = 2;
   SourceInfo source_info = 3;
-  // TODO order array
+  // TODO(babman): order array
 }

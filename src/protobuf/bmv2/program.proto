@@ -4,11 +4,41 @@ import "src/protobuf/bmv2/header.proto";
 import "src/protobuf/bmv2/parser.proto";
 import "src/protobuf/bmv2/table.proto";
 
+
+// Specifies the overal structure of a p4 program json
+// file outputed by p4c when bmv2 is targeted
+// Several fields may not be present in this specification
+// because they are irrelevant to our tool
+// Furthermore, certain parts of the json program
+// are extermely flexible or generic which are hard
+// to model accurately via protobuf
+// We use unconstrained protobuf constructs (e.g. Struct)
+// to initially parse those when the entire program is parsed
+// Then, our c++ traversal code dynamically discovers the type
+// of these constructs, and parses them into the appropriate
+// constrained protobuf definitions
+// For example, expressions in P4 look very different according
+// to their type, they may have a different set of fields
+// and may assign different type to the same field
 message P4Program {
+  // Defined header types (e.g. ipv4 headers)
+  // includes built-in types
   repeated HeaderType header_types = 1;
+  // The packet overall header, usually defined
+  // as a collection of the above header type
   repeated Header headers = 2;
+  // All parsers defined in the program
   repeated Parser parsers = 3;
+  // All de-parsers defined in the program
   repeated Deparser deparsers = 4;
+  // All actions defined in the program, including their names
+  // paramters, and bodies
+  // Eventhough actions are typically attached to tables
+  // they are defined seperatly in the JSON format
+  // and the tables refer to them via id
   repeated Action actions = 5;
+  // Pipelines (e.g. control constructs) defined in the program
+  // including all their tables, and the mapping of tables
+  // to actions via match keys
   repeated Pipeline pipelines = 6; 
 }

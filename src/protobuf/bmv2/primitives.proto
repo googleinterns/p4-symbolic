@@ -1,17 +1,27 @@
 syntax = "proto3";
 
+// This file contains some general primitives that are used in various places
+// in the p4 bmv2 JSON format
+
 // A value/expression is a struct
 // it contains a type: field, hexstr, regular, runtime_data, header, expression, op, assign
 // and a value: array, string, string, int, string, (nested expression), (struct with op, left, and right), (no value only parameters)
 
+// Describes the definition of a variable or action parameter
 message RuntimeData {
+  // Programmer defined name of the variable
   string name = 1;
+  // bitwidth (representing the type)
   int32 bitwidth = 2;
 }
 
+// Contains source code information about the location
+// in the source where the relevant construct was defined
 message SourceInfo {
   string filename = 1;
-  int32 line= 2;
+  int32 line = 2;
   int32 column = 3;
+  // Qualified name of parent construct
+  // (e.g. a pipeline or action etc)
   string source_fragment = 4;
 }
