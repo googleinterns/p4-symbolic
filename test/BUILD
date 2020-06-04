@@ -15,16 +15,6 @@
 load("//test:bmv2_parsing_check.bzl", "subset_diff_test")
 load("//:p4c.bzl", "run_p4c")
 
-test_suite(
-    name = "parsing",
-    tests = [
-      ":port_table_test",
-      ":hardcoded_test",
-      ":reflector_test",
-      ":ipv4_test"
-    ]
-)
-
 # subset diff tests that check
 # dumped parsed json is a subset of p4c output json
 subset_diff_test(

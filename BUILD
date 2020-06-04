@@ -23,10 +23,3 @@ cc_binary(
     ],
     visibility = ["//test:__pkg__"]
 )
-
-test_suite(
-    name = "test",
-    tests = [
-      "//test:parsing"
-    ]
-)
