@@ -15,27 +15,35 @@
 syntax = "proto3";
 
 // This file contains some general primitives that are used in various places
-// in the p4 bmv2 JSON format
+// in the p4 bmv2 JSON format.
 
-// A value/expression is a struct
-// it contains a type: field, hexstr, regular, runtime_data, header, expression, op, assign
-// and a value: array, string, string, int, string, (nested expression), (struct with op, left, and right), (no value only parameters)
+// A value/expression is a struct.
+// It contains a type, which can be one of:
+// field, hexstr, regular, runtime_data, header, expression, op, or assign.
+// It also contains a value, which can be one of these option respectively
+// according to its type:
+// array, string, string, int, string, nested expression, 
+// struct containing op, left, and right, 
+// or an expression with no value and only parameters.
 
-// Describes the definition of a variable or action parameter
-message RuntimeData {
-  // Programmer defined name of the variable
+// Describes the definition of a variable or action parameter.
+message VariableDefinition {
+  // Programmer defined name of the variable.
   string name = 1;
-  // bitwidth (representing the type)
+  // The bitwidth (representing the type).
   int32 bitwidth = 2;
 }
 
 // Contains source code information about the location
-// in the source where the relevant construct was defined
-message SourceInfo {
+// in the source where the relevant construct was defined.
+message SourceLocation {
   string filename = 1;
   int32 line = 2;
   int32 column = 3;
-  // Qualified name of parent construct
-  // (e.g. a pipeline or action etc)
+  // If the direct parent of this construct (where the construct was parsed)
+  // has a name (e.g. it is a pipeline or a parser), this will be the name
+  // of that parent.
+  // Otherwise, this will be the actual code fragment that was parsed
+  // into the attached construct (e.g. in the case of a nested expression).
   string source_fragment = 4;
 }

@@ -16,31 +16,52 @@ syntax = "proto3";
 
 import "src/protobuf/bmv2/primitives.proto";
 
+// Defines a P4 parser flow.
 message Parser {
+  // The name of the parser.
   string name = 1;
+  // A numeric id.
   int32 id = 2;
+  // The name of the start state of the parser.
   string init_state = 3;
+  // A list of all parser states.
   repeated ParserState parse_states = 4;
 }
 
+// Defines a parser state.
 message ParserState {
+  // The user defined name of the state (not qualified).
   string name = 1;
+  // A numeric id assigned to the state (usually its index).
   int32 id = 2;
   // TODO(babman): parser_ops: an array of operations
+  // All the possible transitions from this state to different states.
   repeated ParserTransition transitions = 4;
-  // TODO(babman): transition_key
+  // TODO(babman): add "transition_key" representing what value
+  // is matched to determine the next transition.
 }
 
+// Defines a transition between two parser states.
 message ParserTransition {
+  // The value of the condition/match dictating whether
+  // this transition is applied or not.
   string value = 1;
+  // The type of the value above, usually a hex string.
   string type = 2;
+  // Any mask applied by the transition, if no mask is applied,
+  // protobuf will parse this as "".
   string mask = 3;
+  // The name of the state this transition points to.
   string next_state = 4;
 }
 
+// Defines a P4 deparser flow.
 message Deparser {
+  // The name of the deparser.
   string name = 1;
+  // A numeric id.
   int32 id = 2;
-  SourceInfo source_info = 3;
+  // Information on the source code location of the deparser definition.
+  SourceLocation source_info = 3;
   // TODO(babman): order array
 }
