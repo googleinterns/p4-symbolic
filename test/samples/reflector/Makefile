@@ -12,25 +12,27 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("@rules_cc//cc:defs.bzl", "cc_proto_library")
-load("@rules_proto//proto:defs.bzl", "proto_library")
+SHELL := /bin/bash
 
-cc_proto_library(
-    name = "p4_test_cc_proto",
-    deps = [":p4_test_proto"],
-    visibility = ["//:__pkg__"]
-)
+run: build simple_switch packets
 
-proto_library(
-    name = "p4_test_proto",
-    srcs = [
-      "bmv2/header.proto",
-      "bmv2/parser.proto",
-      "bmv2/primitives.proto",
-      "bmv2/program.proto",
-      "bmv2/table.proto"
-    ],
-    deps = [
-      "@com_google_protobuf//:struct_proto",
-    ]
-)
+#
+# Sending Test Packets
+#
+define PACKETS =
+# These wont show up \n\
+p = Ether()/IP(dst="20.20.0.1")/UDP()\n\
+sendp(p, iface="veth1")\n\
+p = Ether()/IP(dst="20.20.0.2")/UDP()\n\
+sendp(p, iface="veth1")\n\
+# These will show up twice each \n\
+p = Ether()/IP(dst="20.20.0.3")/UDP()\n\
+sendp(p, iface="veth3")\n\
+p = Ether()/IP(dst="20.20.0.4")/UDP()\n\
+sendp(p, iface="veth3")\n\
+q = Ether()/IP(dst="20.20.0.8")/UDP()\n\
+sendp(q, iface="veth3")\n
+endef
+
+# include main Makefile with rules
+include ../Makefile
