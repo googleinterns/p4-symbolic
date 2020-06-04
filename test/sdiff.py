@@ -17,10 +17,7 @@ import json
 
 def sdiff(actual, expected, path):
   try:
-    if expected is None and (
-        actual == 0 or actual == "" or actual == False or \
-        actual is None or actual == [] or actual == {}
-    ):  # equate default values to None
+    if expected is None and not actual:  # equate default values to None
       return (True, "")
 
     if type(actual) != type(expected):
@@ -33,8 +30,7 @@ def sdiff(actual, expected, path):
       for i in range(len(actual)):
         status, rpath = sdiff(actual[i], expected[i], "%s/%d" % (path, i))
         if not status:
-          return (False, rpath)
-
+          return (status, rpath)
       return (True, "")
 
     if isinstance(actual, dict):
@@ -43,8 +39,7 @@ def sdiff(actual, expected, path):
                               expected.get(k, None),
                               "%s/%s" % (path, str(k)))
         if not status:
-          return (False, rpath)
-
+          return (status, rpath)
       return (True, "")
 
     return (actual == expected, path)

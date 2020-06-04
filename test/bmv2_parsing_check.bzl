@@ -30,18 +30,38 @@ def _subset_diff_impl(ctx):
 
 subset_diff_test = rule(
     doc = """Computes a smart subset diff between two JSON objects.
-    A smart diff in this context is a super set diff: the expected file contains
-    a superset of attributes. The diff checks that for the ones that do exist
-    in the actual output, the same value is assigned in the expected file.
-    Attributes appearing in the actual file but not in the expected file are
-    rejected.
-    Finally, this subset notion is recursive. It applies to JSON objects
-    nested within other JSON objects.
-    This rule takes a single argument: input. This is the json input file,
-    or a rule that produces this json input file.
-    The rule passes this input file in to src/main.cc which parses it with
-    protobuf and then dumps it back to JSON.
-    The rule checks that the dumped output is a proper subset of the input.
+
+    A subset diff is defined as follows:
+    1. We allow every sub-dict in the expected file to contain additional keys
+    that the actual file does not contain, but not the other way around.
+    This should hold recursively.
+    2. For leaf fields present in both files, that are primitive types
+    (e.g. strings or numbers), their values must be equal.
+    3. Corresponding lists must have the same number of elements (no sublists),
+    and corresponding elements (index-wise) must satisify the subset relation.
+    4. Finally, null/undefined values in the expected files are accepted to be
+    equal to default values in actual of their respective types (e.g. "", []).
+
+    Rational:
+    1. Our protobuf definitions being tested here are incomplete: we
+       intentionally ignore certain fields that are not useful to our tool.
+       This means that in many cases, actual != expected.
+    2. This behavior is not exhibited with lists: either protobuf parses
+       the entire list when its part of the definition, or ignores it
+       completely if it is not defined.
+    3. Any null values in the expected json is parsed by protobuf as a
+       default value of the corresponding type (e.g. 0 for ints). Our
+       tool can either find out that the default value is a placeholder
+       for null using the context, or does not exhibit a semnatic difference
+       between null and the default value for the particular field.
+
+    This rule takes a single argument: input.
+    This is the json input file, or a rule that produces this json input file.
+    The rule passes this input file in to the compiled src/main.cc which parses
+    it with protobuf and then dumps it back to JSON.
+
+    The rule checks that the dumped output (called actual) is a proper subset
+    of the input (called exact).
     """,
     implementation = _subset_diff_impl,
     test = True,

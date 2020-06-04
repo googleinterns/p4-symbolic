@@ -15,8 +15,6 @@
 #include <iostream>
 #include <string>
 
-// #include "absl/strings/str_cat.h"
-// #include "absl/strings/string_view.h"
 #include "google/protobuf/util/json_util.h"
 
 #include "src/protobuf/bmv2/program.pb.h"
@@ -31,11 +29,9 @@ int main() {
   // verify link and compile versions are the same
   GOOGLE_PROTOBUF_VERIFY_VERSION;
 
+  // Read input json from stdin
   std::string* input = new std::string();
   ReadStdin(input);
-
-  // testing absl
-  // std::cout << absl::StrCat("Hello ", "World!") << std::endl;
 
   // parsing JSON
   P4Program p4buf;

@@ -13,8 +13,12 @@
 # limitations under the License.
 
 def _run_p4c_impl(ctx):
-    fname = ctx.attr.name + "-bazel-tmp-output" + "/" + \
-        ctx.file.p4program.basename[:-3] + ".json"
+    fname = "".join([
+        ctx.attr.name,
+        "-bazel-tmp-output/",
+        ctx.file.p4program.basename[:-3],
+        ".json"
+    ])
 
     json_output_file = ctx.actions.declare_file(
         fname,
