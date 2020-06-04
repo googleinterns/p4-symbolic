@@ -135,7 +135,7 @@
    "name": "deparser",
    "id": 0,
    "source_info": {
-    "filename": "table.p4",
+    "filename": "reflector.p4",
     "line": 31,
     "column": 8,
     "source_fragment": "UselessDeparser"
@@ -144,28 +144,16 @@
  ],
  "actions": [
   {
-   "name": "NoAction",
+   "name": "act",
    "id": 0,
    "runtime_data": [],
-   "primitives": []
-  },
-  {
-   "name": "MyIngress.set_egress_spec",
-   "id": 1,
-   "runtime_data": [
-    {
-     "name": "port",
-     "bitwidth": 9
-    }
-   ],
    "primitives": [
     {
-     "op": "assign",
      "source_info": {
-      "line": 42,
-      "source_fragment": "standard_metadata.egress_spec = port",
-      "filename": "table.p4",
-      "column": 8
+      "source_fragment": "standard_metadata.egress_spec = standard_metadata.ingress_port",
+      "filename": "reflector.p4",
+      "column": 8,
+      "line": 40
      },
      "parameters": [
       {
@@ -176,10 +164,14 @@
        ]
       },
       {
-       "type": "runtime_data",
-       "value": 0
+       "type": "field",
+       "value": [
+        "standard_metadata",
+        "ingress_port"
+       ]
       }
-     ]
+     ],
+     "op": "assign"
     }
    ]
   }
@@ -189,43 +181,31 @@
    "name": "ingress",
    "id": 0,
    "source_info": {
-    "filename": "table.p4",
+    "filename": "reflector.p4",
     "line": 36,
     "column": 8,
     "source_fragment": "MyIngress"
    },
-   "init_table": "MyIngress.ports_exact",
+   "init_table": "tbl_act",
    "tables": [
     {
-     "name": "MyIngress.ports_exact",
+     "name": "tbl_act",
      "id": 0,
      "source_info": {
-      "filename": "table.p4",
-      "line": 46,
-      "column": 10,
-      "source_fragment": "ports_exact"
+      "filename": "reflector.p4",
+      "line": 40,
+      "column": 38,
+      "source_fragment": "="
      },
-     "key": [
-      {
-       "match_type": "exact",
-       "name": "standard_metadata.ingress_port",
-       "mask": "",
-       "target": [
-        "standard_metadata",
-        "ingress_port"
-       ]
-      }
-     ],
+     "key": [],
      "match_type": "exact",
      "type": "simple",
      "max_size": 1024,
      "action_ids": [
-      1,
       0
      ],
      "actions": [
-      "MyIngress.set_egress_spec",
-      "NoAction"
+      "act"
      ]
     }
    ]
@@ -234,7 +214,7 @@
    "name": "egress",
    "id": 1,
    "source_info": {
-    "filename": "table.p4",
+    "filename": "reflector.p4",
     "line": 21,
     "column": 8,
     "source_fragment": "UselessEgress"

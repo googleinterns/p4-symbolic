@@ -1,0 +1,485 @@
+{
+ "header_types": [
+  {
+   "name": "scalars_0",
+   "id": 0,
+   "fields": []
+  },
+  {
+   "name": "standard_metadata",
+   "id": 1,
+   "fields": [
+    [
+     "ingress_port",
+     9,
+     false
+    ],
+    [
+     "egress_spec",
+     9,
+     false
+    ],
+    [
+     "egress_port",
+     9,
+     false
+    ],
+    [
+     "instance_type",
+     32,
+     false
+    ],
+    [
+     "packet_length",
+     32,
+     false
+    ],
+    [
+     "enq_timestamp",
+     32,
+     false
+    ],
+    [
+     "enq_qdepth",
+     19,
+     false
+    ],
+    [
+     "deq_timedelta",
+     32,
+     false
+    ],
+    [
+     "deq_qdepth",
+     19,
+     false
+    ],
+    [
+     "ingress_global_timestamp",
+     48,
+     false
+    ],
+    [
+     "egress_global_timestamp",
+     48,
+     false
+    ],
+    [
+     "mcast_grp",
+     16,
+     false
+    ],
+    [
+     "egress_rid",
+     16,
+     false
+    ],
+    [
+     "checksum_error",
+     1,
+     false
+    ],
+    [
+     "parser_error",
+     32,
+     false
+    ],
+    [
+     "priority",
+     3,
+     false
+    ],
+    [
+     "_padding",
+     3,
+     false
+    ]
+   ]
+  },
+  {
+   "name": "ethernet_t",
+   "id": 2,
+   "fields": [
+    [
+     "dstAddr",
+     48,
+     false
+    ],
+    [
+     "srcAddr",
+     48,
+     false
+    ],
+    [
+     "etherType",
+     16,
+     false
+    ]
+   ]
+  },
+  {
+   "name": "ipv4_t",
+   "id": 3,
+   "fields": [
+    [
+     "version",
+     4,
+     false
+    ],
+    [
+     "ihl",
+     4,
+     false
+    ],
+    [
+     "diffserv",
+     8,
+     false
+    ],
+    [
+     "totalLen",
+     16,
+     false
+    ],
+    [
+     "identification",
+     16,
+     false
+    ],
+    [
+     "flags",
+     3,
+     false
+    ],
+    [
+     "fragOffset",
+     13,
+     false
+    ],
+    [
+     "ttl",
+     8,
+     false
+    ],
+    [
+     "protocol",
+     8,
+     false
+    ],
+    [
+     "hdrChecksum",
+     16,
+     false
+    ],
+    [
+     "srcAddr",
+     32,
+     false
+    ],
+    [
+     "dstAddr",
+     32,
+     false
+    ]
+   ]
+  }
+ ],
+ "headers": [
+  {
+   "id": 0,
+   "header_type": "scalars_0",
+   "metadata": true
+  },
+  {
+   "id": 1,
+   "header_type": "standard_metadata",
+   "metadata": true
+  },
+  {
+   "id": 2,
+   "header_type": "ethernet_t",
+   "metadata": false
+  },
+  {
+   "id": 3,
+   "header_type": "ipv4_t",
+   "metadata": false
+  }
+ ],
+ "parsers": [
+  {
+   "name": "parser",
+   "id": 0,
+   "init_state": "start",
+   "parse_states": [
+    {
+     "name": "start",
+     "id": 0,
+     "transitions": [
+      {
+       "value": "0x0800",
+       "type": "hexstr",
+       "mask": "",
+       "next_state": "parse_ipv4"
+      },
+      {
+       "value": "default",
+       "type": "",
+       "mask": "",
+       "next_state": ""
+      }
+     ]
+    },
+    {
+     "name": "parse_ipv4",
+     "id": 1,
+     "transitions": [
+      {
+       "value": "default",
+       "type": "",
+       "mask": "",
+       "next_state": ""
+      }
+     ]
+    }
+   ]
+  }
+ ],
+ "deparsers": [
+  {
+   "name": "deparser",
+   "id": 0,
+   "source_info": {
+    "filename": "basic.p4",
+    "line": 158,
+    "column": 8,
+    "source_fragment": "MyDeparser"
+   }
+  }
+ ],
+ "actions": [
+  {
+   "name": "NoAction",
+   "id": 0,
+   "runtime_data": [],
+   "primitives": []
+  },
+  {
+   "name": "MyIngress.drop",
+   "id": 1,
+   "runtime_data": [],
+   "primitives": [
+    {
+     "source_info": {
+      "source_fragment": "mark_to_drop(standard_metadata)",
+      "filename": "basic.p4",
+      "column": 8,
+      "line": 90
+     },
+     "parameters": [
+      {
+       "type": "header",
+       "value": "standard_metadata"
+      }
+     ],
+     "op": "mark_to_drop"
+    }
+   ]
+  },
+  {
+   "name": "MyIngress.ipv4_forward",
+   "id": 2,
+   "runtime_data": [
+    {
+     "name": "dstAddr",
+     "bitwidth": 48
+    },
+    {
+     "name": "port",
+     "bitwidth": 9
+    }
+   ],
+   "primitives": [
+    {
+     "source_info": {
+      "filename": "basic.p4",
+      "column": 8,
+      "line": 94,
+      "source_fragment": "standard_metadata.egress_spec = port"
+     },
+     "parameters": [
+      {
+       "type": "field",
+       "value": [
+        "standard_metadata",
+        "egress_spec"
+       ]
+      },
+      {
+       "type": "runtime_data",
+       "value": 1
+      }
+     ],
+     "op": "assign"
+    },
+    {
+     "op": "assign",
+     "source_info": {
+      "source_fragment": "hdr.ethernet.srcAddr = hdr.ethernet.dstAddr",
+      "filename": "basic.p4",
+      "column": 8,
+      "line": 95
+     },
+     "parameters": [
+      {
+       "type": "field",
+       "value": [
+        "ethernet",
+        "srcAddr"
+       ]
+      },
+      {
+       "type": "field",
+       "value": [
+        "ethernet",
+        "dstAddr"
+       ]
+      }
+     ]
+    },
+    {
+     "source_info": {
+      "filename": "basic.p4",
+      "column": 8,
+      "line": 96,
+      "source_fragment": "hdr.ethernet.dstAddr = dstAddr"
+     },
+     "parameters": [
+      {
+       "value": [
+        "ethernet",
+        "dstAddr"
+       ],
+       "type": "field"
+      },
+      {
+       "type": "runtime_data",
+       "value": 0
+      }
+     ],
+     "op": "assign"
+    },
+    {
+     "source_info": {
+      "source_fragment": "hdr.ipv4.ttl = hdr.ipv4.ttl - 1",
+      "filename": "basic.p4",
+      "column": 8,
+      "line": 97
+     },
+     "parameters": [
+      {
+       "value": [
+        "ipv4",
+        "ttl"
+       ],
+       "type": "field"
+      },
+      {
+       "value": {
+        "value": {
+         "right": {
+          "type": "hexstr",
+          "value": "0xff"
+         },
+         "left": {
+          "type": "expression",
+          "value": {
+           "right": {
+            "value": "0xff",
+            "type": "hexstr"
+           },
+           "left": {
+            "type": "field",
+            "value": [
+             "ipv4",
+             "ttl"
+            ]
+           },
+           "op": "+"
+          }
+         },
+         "op": "&"
+        },
+        "type": "expression"
+       },
+       "type": "expression"
+      }
+     ],
+     "op": "assign"
+    }
+   ]
+  }
+ ],
+ "pipelines": [
+  {
+   "name": "ingress",
+   "id": 0,
+   "source_info": {
+    "filename": "basic.p4",
+    "line": 86,
+    "column": 8,
+    "source_fragment": "MyIngress"
+   },
+   "init_table": "node_2",
+   "tables": [
+    {
+     "name": "MyIngress.ipv4_lpm",
+     "id": 0,
+     "source_info": {
+      "filename": "basic.p4",
+      "line": 100,
+      "column": 10,
+      "source_fragment": "ipv4_lpm"
+     },
+     "key": [
+      {
+       "match_type": "lpm",
+       "name": "hdr.ipv4.dstAddr",
+       "mask": "",
+       "target": [
+        "ipv4",
+        "dstAddr"
+       ]
+      }
+     ],
+     "match_type": "lpm",
+     "type": "simple",
+     "max_size": 1024,
+     "action_ids": [
+      2,
+      1,
+      0
+     ],
+     "actions": [
+      "MyIngress.ipv4_forward",
+      "MyIngress.drop",
+      "NoAction"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "egress",
+   "id": 1,
+   "source_info": {
+    "filename": "basic.p4",
+    "line": 124,
+    "column": 8,
+    "source_fragment": "MyEgress"
+   },
+   "init_table": "",
+   "tables": []
+  }
+ ]
+}
+

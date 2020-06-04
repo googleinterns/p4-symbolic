@@ -40,5 +40,5 @@ message P4Program {
   // Pipelines (e.g. control constructs) defined in the program
   // including all their tables, and the mapping of tables
   // to actions via match keys
-  repeated Pipeline pipelines = 6; 
+  repeated Pipeline pipelines = 6;
 }

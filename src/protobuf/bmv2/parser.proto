@@ -21,7 +21,7 @@ message ParserTransition {
   string value = 1;
   string type = 2;
   string mask = 3;
-  int32 next_state = 4;
+  string next_state = 4;
 }
 
 message Deparser {

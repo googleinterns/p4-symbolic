@@ -3,6 +3,12 @@ import json
 
 def sdiff(actual, expected, path):
   try:
+    if expected is None and (
+        actual == 0 or actual == "" or actual == False or \
+        actual is None or actual == [] or actual == {}
+    ):  # equate default values to None
+      return (True, "")
+
     if type(actual) != type(expected):
       return (False, path)
 
@@ -26,8 +32,8 @@ def sdiff(actual, expected, path):
       return (True, "")
 
     return (actual == expected, path)
-  except:
-    return (False, path)
+  except Exception as exp:
+    return (False, "%s EXCEPTION %s" % (path, str(exp)))
 
 if __name__ == "__main__":
   expectedFilePath = sys.argv[1]

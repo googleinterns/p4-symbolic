@@ -135,7 +135,7 @@
    "name": "deparser",
    "id": 0,
    "source_info": {
-    "filename": "table.p4",
+    "filename": "hardcoded.p4",
     "line": 31,
     "column": 8,
     "source_fragment": "UselessDeparser"
@@ -144,28 +144,16 @@
  ],
  "actions": [
   {
-   "name": "NoAction",
+   "name": "act",
    "id": 0,
    "runtime_data": [],
-   "primitives": []
-  },
-  {
-   "name": "MyIngress.set_egress_spec",
-   "id": 1,
-   "runtime_data": [
-    {
-     "name": "port",
-     "bitwidth": 9
-    }
-   ],
    "primitives": [
     {
-     "op": "assign",
      "source_info": {
-      "line": 42,
-      "source_fragment": "standard_metadata.egress_spec = port",
-      "filename": "table.p4",
-      "column": 8
+      "filename": "hardcoded.p4",
+      "column": 12,
+      "line": 41,
+      "source_fragment": "standard_metadata.egress_spec = 1"
      },
      "parameters": [
       {
@@ -176,10 +164,40 @@
        ]
       },
       {
-       "type": "runtime_data",
-       "value": 0
+       "type": "hexstr",
+       "value": "0x0001"
       }
-     ]
+     ],
+     "op": "assign"
+    }
+   ]
+  },
+  {
+   "name": "act_0",
+   "id": 1,
+   "runtime_data": [],
+   "primitives": [
+    {
+     "source_info": {
+      "source_fragment": "standard_metadata.egress_spec = 0",
+      "filename": "hardcoded.p4",
+      "column": 12,
+      "line": 43
+     },
+     "parameters": [
+      {
+       "type": "field",
+       "value": [
+        "standard_metadata",
+        "egress_spec"
+       ]
+      },
+      {
+       "type": "hexstr",
+       "value": "0x0000"
+      }
+     ],
+     "op": "assign"
     }
    ]
   }
@@ -189,43 +207,51 @@
    "name": "ingress",
    "id": 0,
    "source_info": {
-    "filename": "table.p4",
+    "filename": "hardcoded.p4",
     "line": 36,
     "column": 8,
     "source_fragment": "MyIngress"
    },
-   "init_table": "MyIngress.ports_exact",
+   "init_table": "node_2",
    "tables": [
     {
-     "name": "MyIngress.ports_exact",
+     "name": "tbl_act",
      "id": 0,
      "source_info": {
-      "filename": "table.p4",
-      "line": 46,
-      "column": 10,
-      "source_fragment": "ports_exact"
+      "filename": "hardcoded.p4",
+      "line": 41,
+      "column": 42,
+      "source_fragment": "="
      },
-     "key": [
-      {
-       "match_type": "exact",
-       "name": "standard_metadata.ingress_port",
-       "mask": "",
-       "target": [
-        "standard_metadata",
-        "ingress_port"
-       ]
-      }
-     ],
+     "key": [],
      "match_type": "exact",
      "type": "simple",
      "max_size": 1024,
      "action_ids": [
-      1,
       0
      ],
      "actions": [
-      "MyIngress.set_egress_spec",
-      "NoAction"
+      "act"
+     ]
+    },
+    {
+     "name": "tbl_act_0",
+     "id": 1,
+     "source_info": {
+      "filename": "hardcoded.p4",
+      "line": 43,
+      "column": 42,
+      "source_fragment": "="
+     },
+     "key": [],
+     "match_type": "exact",
+     "type": "simple",
+     "max_size": 1024,
+     "action_ids": [
+      1
+     ],
+     "actions": [
+      "act_0"
      ]
     }
    ]
@@ -234,7 +260,7 @@
    "name": "egress",
    "id": 1,
    "source_info": {
-    "filename": "table.p4",
+    "filename": "hardcoded.p4",
     "line": 21,
     "column": 8,
     "source_fragment": "UselessEgress"
