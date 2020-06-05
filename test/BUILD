@@ -12,48 +12,44 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("//test:bmv2_parsing_check.bzl", "subset_diff_test")
 load("//:p4c.bzl", "run_p4c")
+load("//test:bmv2_parsing_check.bzl",
+     "subset_diff_test",
+     "exact_diff_test",
+     "parse_bmv2",
+     "extract_output_group")
 
-# subset diff tests that check
-# dumped parsed json is a subset of p4c output json
-subset_diff_test(
-    name = "port_table_test",
-    input = ":p4c_table"
-)
-
-subset_diff_test(
-    name = "hardcoded_test",
-    input = ":p4c_hardcoded"
-)
 
 subset_diff_test(
-    name = "reflector_test",
-    input = ":p4c_reflector"
+    name = "port_table_subset_test",
+    actual = ":port_table_parse_json",
+    expected = ":port_table_p4c"
 )
 
-subset_diff_test(
-    name = "ipv4_test",
-    input = ":p4c_ipv4"
+exact_diff_test(
+    name = "port_table_exact_test",
+    actual = ":port_table_parse_protobuf",
+    expected = "expected/table.pb.txt"
 )
 
-# rules for compiling p4 programs to bmv2 json files
+extract_output_group(
+    name = "port_table_parse_json",
+    target = ":port_table_parse",
+    output_group = "json"
+)
+
+extract_output_group(
+    name = "port_table_parse_protobuf",
+    target = ":port_table_parse",
+    output_group = "protobuf"
+)
+
+parse_bmv2(
+    name = "port_table_parse",
+    input = ":port_table_p4c"
+)
+
 run_p4c(
-  name = "p4c_table",
+  name = "port_table_p4c",
   p4program = "samples/port-table/table.p4"
-)
-
-run_p4c(
-  name = "p4c_hardcoded",
-  p4program = "samples/hardcoded/hardcoded.p4"
-)
-
-run_p4c(
-  name = "p4c_reflector",
-  p4program = "samples/reflector/reflector.p4"
-)
-
-run_p4c(
-  name = "p4c_ipv4",
-  p4program = "samples/ipv4-routing/basic.p4"
 )

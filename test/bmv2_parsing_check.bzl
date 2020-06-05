@@ -12,20 +12,175 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+def _parse_bmv2_impl(ctx):
+    # come up with a base name in a tmp directory
+    # for the .json and .pb.txt output files
+    basename = "".join([
+        ctx.attr.name,
+        "-parse-bmv2-tmp/",
+        ctx.file.input.basename[:-3]
+    ])
+
+    # declare output files
+    protobuf = ctx.actions.declare_file(
+        basename + ".pb.txt",
+        sibling=ctx.file.input
+    )
+    json = ctx.actions.declare_file(
+        basename + ".json",
+        sibling=ctx.file.input
+    )
+
+    # run the compiled binary to produce outputs
+    ctx.actions.run_shell(
+        inputs = [ctx.file._main, ctx.file.input],
+        outputs = [protobuf, json],
+        use_default_shell_env = True,
+        command = "{binary} {protobuf} {json} < {input}".format(
+            binary = ctx.file._main.path,
+            protobuf = protobuf.path,
+            json = json.path,
+            input = ctx.file.input.path
+        )
+    )
+
+    # return all outputs by default
+    # as well as a single output group per json and protobuf
+    return [
+        DefaultInfo(
+            files = depset([protobuf, json]),
+            runfiles = ctx.runfiles(files = [ctx.file.input, ctx.file._main])
+        ),
+        OutputGroupInfo(
+            json = depset([json]),
+            protobuf = depset([protobuf])
+        )
+    ]
+
+parse_bmv2 = rule(
+    doc = """"Runs our protobuf-based parsing binary on
+              an input bmv2 json (or a rule producing it),
+              and outputs a protobuf and json dump files.""",
+    implementation = _parse_bmv2_impl,
+    attrs = {
+        "input": attr.label(
+            doc = "Input json bmv2 program to feed to our parsing binary.",
+            mandatory = True,
+            allow_single_file = True
+        ),
+        "_main": attr.label(
+            doc = "src/main.cc binary that parses with protobuf.",
+            mandatory = False,
+            allow_single_file = True,
+            default = "//:main"
+        )
+    }
+)
+
+def _extract_output_group_impl(ctx):
+    output_group_name = ctx.attr.output_group
+    output_group = ctx.attr.target[OutputGroupInfo][output_group_name]
+    return [DefaultInfo(files = output_group)]
+
+extract_output_group = rule(
+    doc = """Extract the specified output group from a provided target..
+             Always targets to depend on the specified output group only,
+             instead of the entire dependent target.""",
+    implementation = _extract_output_group_impl,
+    attrs = {
+        "target": attr.label(
+            doc = "The target to extract outputs from.",
+            mandatory = True,
+            allow_files = False,
+            providers = [[OutputGroupInfo]]
+        ),
+        "output_group": attr.string(
+            doc = "The name of the output group to extract.",
+            mandatory = True
+        )
+    }
+)
+
+def _exact_diff_impl(ctx):
+    ctx.actions.write(
+        output = ctx.outputs.executable,
+        content = """
+            # if user specifies --update option
+            # we should generated the actual file and save it
+            # as the expected file for future tests
+            if [[ "$1" == "--update" ]]; then
+                cp -f "{actual}" "${{BUILD_WORKSPACE_DIRECTORY}}/{expected}"
+                exit 0
+            fi
+
+            # ensure expected file was previously generated
+            if [ ! -f "{expected}" ]; then
+                echo "Expected file \"{expected}\" does not exist."
+                echo "Please run \"bazel run //{package}:{name} -- --update" first."
+                exit 1
+            fi
+
+            # diff expected file with actual file
+            diff -u "{expected}" "{actual}"
+            if [[ $? = 0 ]]; then
+                echo "PASSED"
+                exit 0
+            else
+                echo "FAILED: Expected and actual differ."
+                exit 1
+            fi
+        """.format(
+            actual = ctx.file.actual.short_path,
+            expected = ctx.file.expected.short_path,
+            package = ctx.label.package,
+            name = ctx.label.name
+        )
+    )
+
+    runfiles = [ctx.file.actual, ctx.file.expected]
+    return DefaultInfo(
+        runfiles = ctx.runfiles(files = runfiles)
+    )
+
+exact_diff_test = rule(
+    doc = """Computes diff of two files, fails if they disagree.
+
+    Takes two attributes that represent the files to compare, or rules
+    producing them.
+    """,
+    implementation = _exact_diff_impl,
+    test = True,
+    attrs = {
+        "actual": attr.label(
+            doc = """The 'Actual' file.
+                     Typically the output of some command.
+                     This is not checked in and is only temporary.""",
+            mandatory = True,
+            allow_single_file = True,
+        ),
+        "expected": attr.label(
+            doc = """Expected file (aka golden file),.
+                     Typically an actual file that is checked in.""",
+            mandatory = True,
+            allow_single_file = True,
+        )
+    }
+)
+
 def _subset_diff_impl(ctx):
     # diff expected with tmp file
     ctx.actions.write(
         output = ctx.outputs.executable,
-        content = "{binary} < {input} | python {py_file} {input}".format(
+        content = "python {py_file} {expected} {actual}".format(
             py_file = ctx.file._py_file.short_path,
-            binary = ctx.file._binary.short_path,
-            input = ctx.file.input.short_path
+            expected = ctx.file.expected.short_path,
+            actual = ctx.file.actual.short_path
         )
     )
 
-    runfiles = [ctx.file._py_file, ctx.file._binary, ctx.file.input]
+    runfiles = [ctx.file._py_file, ctx.file.actual, ctx.file.expected]
     return DefaultInfo(
-        runfiles = ctx.runfiles(files = runfiles),
+        runfiles = ctx.runfiles(files = runfiles)
     )
 
 subset_diff_test = rule(
@@ -66,8 +221,14 @@ subset_diff_test = rule(
     implementation = _subset_diff_impl,
     test = True,
     attrs = {
-        "input": attr.label(
-            doc = "The input JSON file, or a rule producing it (typically invoking p4c)",
+        "actual": attr.label(
+            doc = "The dumped protobuf JSON file, or a rule producing it.",
+            mandatory = True,
+            allow_single_file = True
+        ),
+        "expected": attr.label(
+            doc = """The original input json file (produced by p4c), or a
+                  rule producing it.""",
             mandatory = True,
             allow_single_file = True
         ),
@@ -76,12 +237,6 @@ subset_diff_test = rule(
             mandatory = False,
             allow_single_file = True,
             default = "sdiff.py"
-        ),
-        "_binary": attr.label(
-            doc = "src/main.cc binary that uses the protobuf definitions",
-            mandatory = False,
-            allow_single_file = True,
-            default = "//:main"
         )
     }
 )

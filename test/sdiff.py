@@ -49,8 +49,11 @@ def sdiff(actual, expected, path):
 if __name__ == "__main__":
   expectedFilePath = sys.argv[1]
   with open(expectedFilePath) as expectedFile:
-    actual = json.load(sys.stdin)
     expected = json.load(expectedFile)
+
+  actualFilePath = sys.argv[2]
+  with open(actualFilePath) as actualFile:
+    actual = json.load(actualFile)
 
   status, path = sdiff(actual, expected, "")
   if not status:
