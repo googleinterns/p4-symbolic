@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+load("//:p4c.bzl", "run_p4c")
+
 def _parse_bmv2_impl(ctx):
     # come up with a base name in a tmp directory
     # for the .json and .pb.txt output files
@@ -240,3 +242,57 @@ subset_diff_test = rule(
         )
     }
 )
+
+# Macro that defines subset and exact diff rules for a given p4 program
+# with all their dependent rules.
+def bmv2_protobuf_parsing_test(name, p4_program, golden_file):
+    p4c_name = "%s_p4c" % name
+    parse_name = "%s_parse" % name
+    extract_json_name = "%s_parse_json" % name
+    extract_protobuf_name = "%s_parse_protobuf" % name
+    exact_diff_name = "%s_exact_test" % name
+    subset_diff_name = "%s_subset_test" % name
+
+    # group tests into a test_suite with the given name
+    # just so the provided name aliases to something
+    native.test_suite(
+        name = name,
+        tests = [
+            ":" + subset_diff_name,
+            ":" + exact_diff_name
+        ]
+    )
+
+    subset_diff_test(
+        name = subset_diff_name,
+        actual = ":" + extract_json_name,
+        expected = ":" + p4c_name
+    )
+
+    exact_diff_test(
+        name = exact_diff_name,
+        actual = ":" + extract_protobuf_name,
+        expected = golden_file
+    )
+
+    extract_output_group(
+        name = extract_json_name,
+        target = ":" + parse_name,
+        output_group = "json"
+    )
+
+    extract_output_group(
+        name = extract_protobuf_name,
+        target = ":" + parse_name,
+        output_group = "protobuf"
+    )
+
+    parse_bmv2(
+        name = parse_name,
+        input = ":" + p4c_name
+    )
+
+    run_p4c(
+      name = p4c_name,
+      p4program = p4_program
+    )

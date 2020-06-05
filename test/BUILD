@@ -13,43 +13,28 @@
 # limitations under the License.
 
 load("//:p4c.bzl", "run_p4c")
-load("//test:bmv2_parsing_check.bzl",
-     "subset_diff_test",
-     "exact_diff_test",
-     "parse_bmv2",
-     "extract_output_group")
+load("//test:bmv2_parsing_check.bzl", "bmv2_protobuf_parsing_test")
 
-
-subset_diff_test(
-    name = "port_table_subset_test",
-    actual = ":port_table_parse_json",
-    expected = ":port_table_p4c"
+bmv2_protobuf_parsing_test(
+    name = "port_table",
+    p4_program = "samples/port-table/table.p4",
+    golden_file = "expected/table.pb.txt"
 )
 
-exact_diff_test(
-    name = "port_table_exact_test",
-    actual = ":port_table_parse_protobuf",
-    expected = "expected/table.pb.txt"
+bmv2_protobuf_parsing_test(
+    name = "ipv4_routing",
+    p4_program = "samples/ipv4-routing/basic.p4",
+    golden_file = "expected/basic.pb.txt"
 )
 
-extract_output_group(
-    name = "port_table_parse_json",
-    target = ":port_table_parse",
-    output_group = "json"
+bmv2_protobuf_parsing_test(
+    name = "port_hardcoded",
+    p4_program = "samples/hardcoded/hardcoded.p4",
+    golden_file = "expected/hardcoded.pb.txt"
 )
 
-extract_output_group(
-    name = "port_table_parse_protobuf",
-    target = ":port_table_parse",
-    output_group = "protobuf"
-)
-
-parse_bmv2(
-    name = "port_table_parse",
-    input = ":port_table_p4c"
-)
-
-run_p4c(
-  name = "port_table_p4c",
-  p4program = "samples/port-table/table.p4"
+bmv2_protobuf_parsing_test(
+    name = "reflector",
+    p4_program = "samples/reflector/reflector.p4",
+    golden_file = "expected/reflector.pb.txt"
 )
