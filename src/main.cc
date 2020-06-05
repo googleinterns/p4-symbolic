@@ -13,41 +13,75 @@
 // limitations under the License.
 
 #include <iostream>
+#include <fstream>
 #include <string>
 
 #include "google/protobuf/util/json_util.h"
+#include "google/protobuf/text_format.h"
 
 #include "src/protobuf/bmv2/program.pb.h"
 
+// Read all of stdin up to EOF
 void ReadStdin(std::string* str) {
   std::istreambuf_iterator<char> cin_iterator{std::cin};
   std::istreambuf_iterator<char> end;
   *str = std::string(cin_iterator, end);
 }
 
-int main() {
+// Write a string to a file
+void WriteFile(char path[], const std::string& content) {
+  std::ofstream out;
+  out.open(path);
+  out << content;
+  out.close();
+}
+
+// The main test routine for parsing bmv2 json with protobuf.
+// Parses bmv2 json that is fed in through stdin and dumps
+// the resulting native protobuf and json data to files.
+// Expects the paths of the protobuf output file and json
+// output file to be passed as command line arguments respectively.
+int main(int argc, char* argv[]) {
   // verify link and compile versions are the same
   GOOGLE_PROTOBUF_VERIFY_VERSION;
+
+  // Validate command line arguments
+  if (argc != 3) {
+    std::cout << "Usage: ./main <protobuf output file> <json output file>."
+        << std::endl;
+    return 0;
+  }
 
   // Read input json from stdin
   std::string* input = new std::string();
   ReadStdin(input);
 
   // parsing JSON
-  P4Program p4buf;
+  P4Program p4_buf;
   google::protobuf::util::JsonParseOptions parsing_options;
   parsing_options.ignore_unknown_fields = true;
-  google::protobuf::util::JsonStringToMessage(*input, &p4buf, parsing_options);
+  google::protobuf::util::JsonStringToMessage(*input, &p4_buf, parsing_options);
 
-  // printing JSON
+  // dumping protobuf
+  std::string protobuf_output_str;
+  google::protobuf::TextFormat::PrintToString(p4_buf, &protobuf_output_str);
+  WriteFile(argv[1], protobuf_output_str);
+
+  // dumping JSON
   google::protobuf::util::JsonPrintOptions dumping_options;
   dumping_options.add_whitespace = true;
   dumping_options.always_print_primitive_fields = true;
   dumping_options.preserve_proto_field_names = true;
 
-  std::string out;
-  google::protobuf::util::MessageToJsonString(p4buf, &out, dumping_options);
-  std::cout << out << std::endl;
+  std::string json_output_str;
+  google::protobuf::util::MessageToJsonString(p4_buf,
+                                              &json_output_str,
+                                              dumping_options);
+  WriteFile(argv[2], json_output_str);
 
+  // clean up
+  google::protobuf::ShutdownProtobufLibrary();
+
+  // exit
   return 0;
 }
