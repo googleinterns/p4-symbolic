@@ -12,11 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// This file provides protobuf definitions of P4 headers and their types.
+
 syntax = "proto3";
 
 import "google/protobuf/struct.proto";
 
-// A header type definition
+// A P4 header type definition.
 message HeaderType {
   // Programmer assigned name
   // e.g. IPv4Header

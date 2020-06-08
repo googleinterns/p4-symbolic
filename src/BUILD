@@ -12,28 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Contains the build rules to generate cc files
-# from the protobuf definitions in this directory
+# This file contains build rules for the main
+# executable binary in the project.
 
-load("@rules_cc//cc:defs.bzl", "cc_proto_library")
-load("@rules_proto//proto:defs.bzl", "proto_library")
+load("@rules_cc//cc:defs.bzl", "cc_binary")
 
-cc_proto_library(
-    name = "p4_parsing_cc_proto",
-    deps = [":p4_parsing_proto"],
-    visibility = ["//src:__pkg__"]
-)
-
-proto_library(
-    name = "p4_parsing_proto",
-    srcs = [
-      "bmv2/header.proto",
-      "bmv2/parser.proto",
-      "bmv2/primitives.proto",
-      "bmv2/program.proto",
-      "bmv2/table.proto"
-    ],
+cc_binary(
+    name = "main",
+    srcs = ["main.cc"],
     deps = [
-      "@com_google_protobuf//:struct_proto",
-    ]
+        "//src/protobuf:p4_parsing_cc_proto"
+    ],
+    visibility = ["//test:__pkg__"]
 )

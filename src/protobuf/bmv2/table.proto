@@ -12,6 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// This file provides protobuf definitions for P4 processing pipelines,
+// and their tables and associated actions.
+
 syntax = "proto3";
 
 import "google/protobuf/struct.proto";

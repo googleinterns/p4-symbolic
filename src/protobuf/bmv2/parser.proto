@@ -12,6 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// This file provides protobuf definitions of P4 parsers and deparsers,
+// including their states and transitions.
+
 syntax = "proto3";
 
 import "src/protobuf/bmv2/primitives.proto";

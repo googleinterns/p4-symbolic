@@ -12,10 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-syntax = "proto3";
-
 // This file contains some general primitives that are used in various places
 // in the p4 bmv2 JSON format.
+
+syntax = "proto3";
 
 // A value/expression is a struct.
 // It contains a type, which can be one of:
