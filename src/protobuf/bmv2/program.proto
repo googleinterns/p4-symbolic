@@ -16,10 +16,11 @@
 
 syntax = "proto3";
 
+package p4_symbolic.bmv2_json;
+
 import "src/protobuf/bmv2/header.proto";
 import "src/protobuf/bmv2/parser.proto";
 import "src/protobuf/bmv2/table.proto";
-
 
 // Specifies the overal structure of a p4 program json
 // file outputed by p4c with a bmv2 target.

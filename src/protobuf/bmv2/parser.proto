@@ -17,6 +17,8 @@
 
 syntax = "proto3";
 
+package p4_symbolic.bmv2_json;
+
 import "src/protobuf/bmv2/primitives.proto";
 
 // Defines a P4 parser flow.

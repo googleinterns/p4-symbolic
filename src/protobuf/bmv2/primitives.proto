@@ -17,6 +17,8 @@
 
 syntax = "proto3";
 
+package p4_symbolic.bmv2_json;
+
 // A value/expression is a struct.
 // It contains a type, which can be one of:
 // field, hexstr, regular, runtime_data, header, expression, op, or assign.

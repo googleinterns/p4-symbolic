@@ -16,6 +16,8 @@
 
 syntax = "proto3";
 
+package p4_symbolic.bmv2_json;
+
 import "google/protobuf/struct.proto";
 
 // A P4 header type definition.
