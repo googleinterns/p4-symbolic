@@ -12,8 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# This file contains rule definitions for running
+# the test binary to produce output json and protobuf files,
+# subset diff the input and output json files, and golden file
+# testing the output protobuf files against the expected files.
+# It also defines a Macro that simplifies defining a protobuf test
+# over a sample P4 program.
+
 load("//:p4c.bzl", "run_p4c")
 
+# Use src/main.cc to parse bmv2 json with protobuf
 def _parse_bmv2_impl(ctx):
     # come up with a base name in a tmp directory
     # for the .json and .pb.txt output files
@@ -38,8 +46,8 @@ def _parse_bmv2_impl(ctx):
         inputs = [ctx.file._main, ctx.file.input],
         outputs = [protobuf, json],
         use_default_shell_env = True,
-        command = "{binary} {protobuf} {json} < {input}".format(
-            binary = ctx.file._main.path,
+        command = "{main_cc} {protobuf} {json} < {input}".format(
+            main_cc = ctx.file._main.path,
             protobuf = protobuf.path,
             json = json.path,
             input = ctx.file.input.path
@@ -60,9 +68,14 @@ def _parse_bmv2_impl(ctx):
     ]
 
 parse_bmv2 = rule(
-    doc = """"Runs our protobuf-based parsing binary on
-              an input bmv2 json (or a rule producing it),
-              and outputs a protobuf and json dump files.""",
+    doc = """
+        Runs our protobuf-based parsing binary on
+        an input bmv2 json (or a rule producing it),
+        and outputs a protobuf and json dump files.
+        The paths of the files are returned in a DefaultInfo
+        provider, in addition to returning them individually
+        in a "json" and a "protobuf" output group.
+        """,
     implementation = _parse_bmv2_impl,
     attrs = {
         "input": attr.label(
@@ -74,20 +87,27 @@ parse_bmv2 = rule(
             doc = "src/main.cc binary that parses with protobuf.",
             mandatory = False,
             allow_single_file = True,
-            default = "//:main"
+            default = "//src:main"
         )
     }
 )
 
+# A generic extractor rule.
+# Takes as input a label referencing to any generic rule,
+# as well as the name of the desired output group as a string.
+# It extracts that output group from the output of the label,
+# and returns it using the default provider.
 def _extract_output_group_impl(ctx):
     output_group_name = ctx.attr.output_group
     output_group = ctx.attr.target[OutputGroupInfo][output_group_name]
     return [DefaultInfo(files = output_group)]
 
 extract_output_group = rule(
-    doc = """Extract the specified output group from a provided target..
-             Always targets to depend on the specified output group only,
-             instead of the entire dependent target.""",
+    doc = """
+        Extracts the specified output group from a provided target.
+        Allows future targets to depend on the specified output group only,
+        instead of the entire output, of the passed input target.
+        """,
     implementation = _extract_output_group_impl,
     attrs = {
         "target": attr.label(
@@ -103,6 +123,10 @@ extract_output_group = rule(
     }
 )
 
+# Golden file testing.
+# Performs a simple diff between two files.
+# Updates the checked in golden file when "--update"
+# is passed via the command line.
 def _exact_diff_impl(ctx):
     ctx.actions.write(
         output = ctx.outputs.executable,
@@ -118,7 +142,7 @@ def _exact_diff_impl(ctx):
             # ensure expected file was previously generated
             if [ ! -f "{expected}" ]; then
                 echo "Expected file \"{expected}\" does not exist."
-                echo "Please run \"bazel run //{package}:{name} -- --update" first."
+                echo "run \"bazel run //{package}:{name} -- --update" first."
                 exit 1
             fi
 
@@ -145,11 +169,11 @@ def _exact_diff_impl(ctx):
     )
 
 exact_diff_test = rule(
-    doc = """Computes diff of two files, fails if they disagree.
-
-    Takes two attributes that represent the files to compare, or rules
-    producing them.
-    """,
+    doc = """
+        Computes diff of two files, fails if they disagree.
+        Takes two attributes that represent the files to compare, or rules
+        producing them.
+        """,
     implementation = _exact_diff_impl,
     test = True,
     attrs = {
@@ -169,57 +193,62 @@ exact_diff_test = rule(
     }
 )
 
+# Performs a subset diff between an actual (the subset) and
+# an expected (superset) json files.
 def _subset_diff_impl(ctx):
     # diff expected with tmp file
     ctx.actions.write(
         output = ctx.outputs.executable,
-        content = "python {py_file} {expected} {actual}".format(
-            py_file = ctx.file._py_file.short_path,
+        content = "python {sdiff_py} {expected} {actual}".format(
+            sdiff_py = ctx.file._sdiff_py.short_path,
             expected = ctx.file.expected.short_path,
             actual = ctx.file.actual.short_path
         )
     )
 
-    runfiles = [ctx.file._py_file, ctx.file.actual, ctx.file.expected]
+    runfiles = [ctx.file._sdiff_py, ctx.file.actual, ctx.file.expected]
     return DefaultInfo(
         runfiles = ctx.runfiles(files = runfiles)
     )
 
 subset_diff_test = rule(
-    doc = """Computes a smart subset diff between two JSON objects.
+    doc = """
+        Computes a smart subset diff between two JSON objects.
 
-    A subset diff is defined as follows:
-    1. We allow every sub-dict in the expected file to contain additional keys
-    that the actual file does not contain, but not the other way around.
-    This should hold recursively.
-    2. For leaf fields present in both files, that are primitive types
-    (e.g. strings or numbers), their values must be equal.
-    3. Corresponding lists must have the same number of elements (no sublists),
-    and corresponding elements (index-wise) must satisify the subset relation.
-    4. Finally, null/undefined values in the expected files are accepted to be
-    equal to default values in actual of their respective types (e.g. "", []).
+        A subset diff is defined as follows:
+        1. We allow every sub-dict in the expected file to contain additional
+        keys that the actual file does not contain, but not the other way
+        around. This should hold recursively.
+        2. For leaf fields present in both files, that are primitive types
+        (e.g. strings or numbers), their values must be equal.
+        3. Corresponding lists must have the same number of elements (no
+        sublists), and corresponding elements (index-wise) must satisify the
+        subset relation.
+        4. Finally, null/undefined values in the expected files are accepted
+        to be equal to default values in actual of their respective types
+        (e.g. "", []).
 
-    Rational:
-    1. Our protobuf definitions being tested here are incomplete: we
-       intentionally ignore certain fields that are not useful to our tool.
-       This means that in many cases, actual != expected.
-    2. This behavior is not exhibited with lists: either protobuf parses
-       the entire list when its part of the definition, or ignores it
-       completely if it is not defined.
-    3. Any null values in the expected json is parsed by protobuf as a
-       default value of the corresponding type (e.g. 0 for ints). Our
-       tool can either find out that the default value is a placeholder
-       for null using the context, or does not exhibit a semnatic difference
-       between null and the default value for the particular field.
+        Rational:
+        1. Our protobuf definitions being tested here are incomplete: we
+           intentionally ignore certain fields that are not useful to our tool.
+           This means that in many cases, actual != expected.
+        2. This behavior is not exhibited with lists: either protobuf parses
+           the entire list when its part of the definition, or ignores it
+           completely if it is not defined.
+        3. Any null values in the expected json is parsed by protobuf as a
+           default value of the corresponding type (e.g. 0 for ints). Our
+           tool can either find out that the default value is a placeholder
+           for null using the context, or does not exhibit a semnatic difference
+           between null and the default value for the particular field.
 
-    This rule takes a single argument: input.
-    This is the json input file, or a rule that produces this json input file.
-    The rule passes this input file in to the compiled src/main.cc which parses
-    it with protobuf and then dumps it back to JSON.
+        This rule takes a single argument: input.
+        This is the json input file, or a rule that produces this json input
+        file. The rule passes this input file in to the compiled src/main.cc
+        which parses it with protobuf and then dumps it back to JSON.
 
-    The rule checks that the dumped output (called actual) is a proper subset
-    of the input (called exact).
-    """,
+        The rule checks that the dumped output (called actual) is a proper
+        subset of the input (called exact).
+        """,
     implementation = _subset_diff_impl,
     test = True,
     attrs = {
@@ -229,12 +258,14 @@ subset_diff_test = rule(
             allow_single_file = True
         ),
         "expected": attr.label(
-            doc = """The original input json file (produced by p4c), or a
-                  rule producing it.""",
+            doc = """
+                The original input json file (produced by p4c), or a
+                rule producing it.
+                """,
             mandatory = True,
             allow_single_file = True
         ),
-        "_py_file": attr.label(
+        "_sdiff_py": attr.label(
             doc = "The diff python script file.",
             mandatory = False,
             allow_single_file = True,
@@ -245,6 +276,16 @@ subset_diff_test = rule(
 
 # Macro that defines subset and exact diff rules for a given p4 program
 # with all their dependent rules.
+# The macro defines these exact rules, in this logical order of dependencies:
+# 1. A rule for producing bmv2 json from a .p4 program using p4c.
+# 2. A rule for parsing the bmv2 json using src/main.cc, and dumping
+#    a protobuf and json output files, and an extraction rule for each
+#    output file.
+# 3. A rule for golden file testing of the protobuf output file against
+#    the specified expected file.
+# 4. A rule for subset diff testing of json output file (subset) against
+#    the output of p4c (superset).
+# 5. A test suite combining both 4 and 5.
 def bmv2_protobuf_parsing_test(name, p4_program, golden_file):
     p4c_name = "%s_p4c" % name
     parse_name = "%s_parse" % name
@@ -294,5 +335,5 @@ def bmv2_protobuf_parsing_test(name, p4_program, golden_file):
 
     run_p4c(
       name = p4c_name,
-      p4program = p4_program
+      srcs = [p4_program]
     )

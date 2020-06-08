@@ -12,6 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# This file defines test rules for our protobuf definition of the
+# bmv2 json format.
+# We define one overall test rule per sample test P4 program (available under
+# ./samples/**). Each test rule performs golden file testing against
+# stored expected protobuf output (available under ./expected), and
+# subset diff testing of the ouput json against the p4c bmv2 json build
+# of the test program.
+
 load("//:p4c.bzl", "run_p4c")
 load("//test:bmv2_parsing_check.bzl", "bmv2_protobuf_parsing_test")
 
