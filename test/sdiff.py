@@ -20,9 +20,9 @@ import json
 
 def sdiff(actual, expected, path):
   """ Performs a subset diff between two python dicts.
-  
+
   Actual is said to be a subset of expected iff:
-  1. Every key in Actual exists in expected, and its value is a subset 
+  1. Every key in Actual exists in expected, and its value is a subset
      of the value in expected.
   2. For base values (numbers, strings, etc), the values have to be equal.
   3. For lists, the two lists must be equal in length, and every element in
@@ -40,10 +40,10 @@ def sdiff(actual, expected, path):
     is indeed a subset of expected, or False otherwise, and path is
     the empty string if actual is a subset, or the path of an element
     where actual disagreed with expected.
-    
+
     When the path looks like foo/bar it means that
     "actual[foo][bar]" is an offending element that fails to meet
-    the subset criteria.    
+    the subset criteria.
   """
   try:
     if expected is None and not actual:  # equate default values to None

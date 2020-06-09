@@ -24,8 +24,8 @@ package p4_symbolic.bmv2_json;
 // field, hexstr, regular, runtime_data, header, expression, op, or assign.
 // It also contains a value, which can be one of these option respectively
 // according to its type:
-// array, string, string, int, string, nested expression, 
-// struct containing op, left, and right, 
+// array, string, string, int, string, nested expression,
+// struct containing op, left, and right,
 // or an expression with no value and only parameters.
 
 // Describes the definition of a variable or action parameter.

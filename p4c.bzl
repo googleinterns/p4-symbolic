@@ -17,7 +17,7 @@
 def _run_p4c_impl(ctx):
     # Figure out the outpt file extension.
     # If provided explicitly, use that.
-    # Otherwise, if the target is bmv2, the extension must be .json 
+    # Otherwise, if the target is bmv2, the extension must be .json
     extension = ctx.attr.extension
     if extension == "":
         # Add other extensions here as needed.
@@ -41,7 +41,7 @@ def _run_p4c_impl(ctx):
         fname,
         sibling=ctx.file.src)
 
-    # Get the full path (relative to root of sandbox) of the directory of 
+    # Get the full path (relative to root of sandbox) of the directory of
     # the output file.
     # This is needed because p4c expects a directory to be passed with "-o".
     # P4c will put the output file in that directory.

@@ -110,5 +110,5 @@ message Action {
   // A statement that uses a variable/parameter in the p4 program
   // is expressed here using the index of that variable in the above
   // "runtime_data" array (not its name).
-  repeated google.protobuf.Struct primitives = 4;  
+  repeated google.protobuf.Struct primitives = 4;
 }

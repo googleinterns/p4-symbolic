@@ -23,15 +23,17 @@ load("//:p4c.bzl", "run_p4c")
 
 # Use src/main.cc to parse bmv2 json with protobuf
 def _parse_bmv2_impl(ctx):
-    # come up with a base name in a tmp directory
-    # for the .json and .pb.txt output files
+    # Come up with a base name in a tmp directory.
+    # This is used for the .json and .pb.txt output files.
     basename = "".join([
         ctx.attr.name,
         "-parse-bmv2-tmp/",
+        # Use the file_name but without the extension.
+        # The extension of the output will be supplied below.
         ctx.file.input.basename[:-3]
     ])
 
-    # declare output files
+    # Declare output files with their correct extensions.
     protobuf = ctx.actions.declare_file(
         basename + ".pb.txt",
         sibling=ctx.file.input
@@ -41,7 +43,7 @@ def _parse_bmv2_impl(ctx):
         sibling=ctx.file.input
     )
 
-    # run the compiled binary to produce outputs
+    # Run the compiled binary to produce outputs.
     ctx.actions.run_shell(
         inputs = [ctx.file._main, ctx.file.input],
         outputs = [protobuf, json],
@@ -54,8 +56,8 @@ def _parse_bmv2_impl(ctx):
         )
     )
 
-    # return all outputs by default
-    # as well as a single output group per json and protobuf
+    # Return all outputs by default, as well as a
+    # single output group per json and protobuf.
     return [
         DefaultInfo(
             files = depset([protobuf, json]),
@@ -125,8 +127,9 @@ extract_output_group = rule(
 
 # Golden file testing.
 # Performs a simple diff between two files.
-# Updates the checked in golden file when "--update"
+# Updates the  golden file when "--update"
 # is passed via the command line.
+# Note that the golden files are stored in the project, and not in the sandbox.
 def _exact_diff_impl(ctx):
     ctx.actions.write(
         output = ctx.outputs.executable,
@@ -178,15 +181,15 @@ exact_diff_test = rule(
     test = True,
     attrs = {
         "actual": attr.label(
-            doc = """The 'Actual' file.
-                     Typically the output of some command.
-                     This is not checked in and is only temporary.""",
+            doc = """
+                The 'Actual' file.
+                Typically the output of some command.
+                """,
             mandatory = True,
             allow_single_file = True,
         ),
         "expected": attr.label(
-            doc = """Expected file (aka golden file),.
-                     Typically an actual file that is checked in.""",
+            doc = "Expected file (aka golden file).",
             mandatory = True,
             allow_single_file = True,
         )
@@ -196,7 +199,6 @@ exact_diff_test = rule(
 # Performs a subset diff between an actual (the subset) and
 # an expected (superset) json files.
 def _subset_diff_impl(ctx):
-    # diff expected with tmp file
     ctx.actions.write(
         output = ctx.outputs.executable,
         content = "python {sdiff_py} {expected} {actual}".format(
@@ -287,7 +289,7 @@ subset_diff_test = rule(
 #    the output of p4c (superset).
 # 5. A test suite combining both 4 and 5.
 # Use the p4_deps list to specify dependent files that p4_program input
-# file depends on (e.g. by including them). 
+# file depends on (e.g. by including them).
 def bmv2_protobuf_parsing_test(name, p4_program, golden_file, p4_deps=[]):
     p4c_name = "%s_p4c" % name
     parse_name = "%s_parse" % name
@@ -296,8 +298,8 @@ def bmv2_protobuf_parsing_test(name, p4_program, golden_file, p4_deps=[]):
     exact_diff_name = "%s_exact_test" % name
     subset_diff_name = "%s_subset_test" % name
 
-    # group tests into a test_suite with the given name
-    # just so the provided name aliases to something
+    # Group tests into a test_suite with the given name.
+    # This is just to make the provided name alias to something.
     native.test_suite(
         name = name,
         tests = [
