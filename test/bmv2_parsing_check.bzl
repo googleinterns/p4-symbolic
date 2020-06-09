@@ -21,110 +21,6 @@
 
 load("//:p4c.bzl", "run_p4c")
 
-# Use src/main.cc to parse bmv2 json with protobuf
-def _parse_bmv2_impl(ctx):
-    # Come up with a base name in a tmp directory.
-    # This is used for the .json and .pb.txt output files.
-    basename = "".join([
-        ctx.attr.name,
-        "-parse-bmv2-tmp/",
-        # Use the file_name but without the extension.
-        # The extension of the output will be supplied below.
-        ctx.file.input.basename[:-3]
-    ])
-
-    # Declare output files with their correct extensions.
-    protobuf = ctx.actions.declare_file(
-        basename + ".pb.txt",
-        sibling=ctx.file.input
-    )
-    json = ctx.actions.declare_file(
-        basename + ".json",
-        sibling=ctx.file.input
-    )
-
-    # Run the compiled binary to produce outputs.
-    ctx.actions.run_shell(
-        inputs = [ctx.file._main, ctx.file.input],
-        outputs = [protobuf, json],
-        use_default_shell_env = True,
-        command = "{main_cc} {protobuf} {json} < {input}".format(
-            main_cc = ctx.file._main.path,
-            protobuf = protobuf.path,
-            json = json.path,
-            input = ctx.file.input.path
-        )
-    )
-
-    # Return all outputs by default, as well as a
-    # single output group per json and protobuf.
-    return [
-        DefaultInfo(
-            files = depset([protobuf, json]),
-            runfiles = ctx.runfiles(files = [ctx.file.input, ctx.file._main])
-        ),
-        OutputGroupInfo(
-            json = depset([json]),
-            protobuf = depset([protobuf])
-        )
-    ]
-
-parse_bmv2 = rule(
-    doc = """
-        Runs our protobuf-based parsing binary on
-        an input bmv2 json (or a rule producing it),
-        and outputs a protobuf and json dump files.
-        The paths of the files are returned in a DefaultInfo
-        provider, in addition to returning them individually
-        in a "json" and a "protobuf" output group.
-        """,
-    implementation = _parse_bmv2_impl,
-    attrs = {
-        "input": attr.label(
-            doc = "Input json bmv2 program to feed to our parsing binary.",
-            mandatory = True,
-            allow_single_file = True
-        ),
-        "_main": attr.label(
-            doc = "src/main.cc binary that parses with protobuf.",
-            mandatory = False,
-            allow_single_file = True,
-            default = "//src:main"
-        )
-    }
-)
-
-# A generic extractor rule.
-# Takes as input a label referencing to any generic rule,
-# as well as the name of the desired output group as a string.
-# It extracts that output group from the output of the label,
-# and returns it using the default provider.
-def _extract_output_group_impl(ctx):
-    output_group_name = ctx.attr.output_group
-    output_group = ctx.attr.target[OutputGroupInfo][output_group_name]
-    return [DefaultInfo(files = output_group)]
-
-extract_output_group = rule(
-    doc = """
-        Extracts the specified output group from a provided target.
-        Allows future targets to depend on the specified output group only,
-        instead of the entire output, of the passed input target.
-        """,
-    implementation = _extract_output_group_impl,
-    attrs = {
-        "target": attr.label(
-            doc = "The target to extract outputs from.",
-            mandatory = True,
-            allow_files = False,
-            providers = [[OutputGroupInfo]]
-        ),
-        "output_group": attr.string(
-            doc = "The name of the output group to extract.",
-            mandatory = True
-        )
-    }
-)
-
 # Golden file testing.
 # Performs a simple diff between two files.
 # Updates the  golden file when "--update"
@@ -293,10 +189,43 @@ subset_diff_test = rule(
 def bmv2_protobuf_parsing_test(name, p4_program, golden_file, p4_deps=[]):
     p4c_name = "%s_p4c" % name
     parse_name = "%s_parse" % name
-    extract_json_name = "%s_parse_json" % name
-    extract_protobuf_name = "%s_parse_protobuf" % name
     exact_diff_name = "%s_exact_test" % name
     subset_diff_name = "%s_subset_test" % name
+
+    # Run p4c to get bmv2 input .json file.
+    run_p4c(
+        name = p4c_name,
+        src = p4_program,
+        deps = p4_deps
+    )
+
+    # Use src/main.cc to parse input json and dump
+    # (tmp) output .pb.txt and .json files.
+    proto_filename = name + "_tmp.pb.txt"
+    json_filename = name + "_tmp.json"
+    native.genrule(
+        name = parse_name,
+        srcs = [":" + p4c_name],
+        outs = [proto_filename, json_filename],
+        tools = ["//src:main"],
+        cmd = """
+            $(location //src:main) $(OUTS) < $(SRCS)
+            """
+    )
+
+    # Subset diff test between output and input json files
+    subset_diff_test(
+        name = subset_diff_name,
+        actual = json_filename,
+        expected = ":" + p4c_name
+    )
+
+    # Exact diff test between output and golden protobuf files.
+    exact_diff_test(
+        name = exact_diff_name,
+        actual = proto_filename,
+        expected = golden_file
+    )
 
     # Group tests into a test_suite with the given name.
     # This is just to make the provided name alias to something.
@@ -306,39 +235,4 @@ def bmv2_protobuf_parsing_test(name, p4_program, golden_file, p4_deps=[]):
             ":" + subset_diff_name,
             ":" + exact_diff_name
         ]
-    )
-
-    subset_diff_test(
-        name = subset_diff_name,
-        actual = ":" + extract_json_name,
-        expected = ":" + p4c_name
-    )
-
-    exact_diff_test(
-        name = exact_diff_name,
-        actual = ":" + extract_protobuf_name,
-        expected = golden_file
-    )
-
-    extract_output_group(
-        name = extract_json_name,
-        target = ":" + parse_name,
-        output_group = "json"
-    )
-
-    extract_output_group(
-        name = extract_protobuf_name,
-        target = ":" + parse_name,
-        output_group = "protobuf"
-    )
-
-    parse_bmv2(
-        name = parse_name,
-        input = ":" + p4c_name
-    )
-
-    run_p4c(
-      name = p4c_name,
-      src = p4_program,
-      deps = p4_deps
     )
