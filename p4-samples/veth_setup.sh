@@ -10,7 +10,7 @@ fi
 
 # Create $count many pairs of virtual interfaced, each interface in a pair
 # is hooked up to the other interface in that pair.
-for i in $count; do
+for i in $(seq 0 $(($count-1))); do
     # come up with unique names for two virtual ethernet interfaces
     in_veth="veth$(($i*2))"
     out_veth="veth$(($i*2+1))"
