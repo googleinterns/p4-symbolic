@@ -15,39 +15,41 @@
 # This file defines a rule for running p4c and producing bmv2 json files.
 
 def _run_p4c_impl(ctx):
-    # output directory
-    out_dir = ctx.attr.output
-    if out_dir == "":
-        out_dir = "".join([
-            ctx.attr.name,
-            "-bazel-p4c-tmp-output"
-        ])
-
-    # output file extension
+    # Figure out the outpt file extension.
+    # If provided explicitly, use that.
+    # Otherwise, if the target is bmv2, the extension must be .json 
     extension = ctx.attr.extension
     if extension == "":
-        # add other extensions here as needed
+        # Add other extensions here as needed.
         if ctx.attr.target == "bmv2":
             extension = ".json"
         else:
             fail("Extension is not provided for unknown target %s"
                 % ctx.attr.target)
 
-    # output file relative path
+    # The output file path (relative to the directory of the src input file).
     fname = "".join([
-        out_dir,
-        "/",
-        ctx.files.srcs[0].basename[:-3],
+        ctx.attr.name,
+        "-bazel-p4c-tmp-output/",
+        # Base name without the .p4 extension.
+        ctx.file.src.basename[:-3],
         extension
     ])
 
-    # declare the output file
+    # Declare the output file.
     output_file = ctx.actions.declare_file(
         fname,
-        sibling=ctx.files.srcs[0])
-    
+        sibling=ctx.file.src)
+
+    # Get the full path (relative to root of sandbox) of the directory of 
+    # the output file.
+    # This is needed because p4c expects a directory to be passed with "-o".
+    # P4c will put the output file in that directory.
+    output_dir_path = output_file.path[:-len(output_file.basename)-1]
+
+    # Run p4c.
     ctx.actions.run_shell(
-        inputs = ctx.files.srcs,
+        inputs = [ctx.file.src] + ctx.files.deps,
         outputs = [output_file],
         use_default_shell_env = True,
         command = "p4c --std $1 --target $2 --arch $3 -o $4 $5 $6",
@@ -55,9 +57,9 @@ def _run_p4c_impl(ctx):
             ctx.attr.std,
             ctx.attr.target,
             ctx.attr.arch,
-            output_file.path[:-len(output_file.basename)-1],
+            output_dir_path,
             ctx.attr.p4c_args,
-            " ".join([file.path for file in ctx.files.srcs])
+            ctx.file.src.path
         ]
     )
 
@@ -67,11 +69,17 @@ run_p4c = rule(
     doc = "Runs p4c to produce output files according to given params.",
     implementation = _run_p4c_impl,
     attrs = {
-        "srcs": attr.label_list(
+        "src": attr.label(
             doc = "Input .p4 files to pass to p4c.",
             mandatory = True,
-            allow_empty = False,
-            allow_files = [".p4"]
+            allow_single_file = [".p4"]
+        ),
+        "deps": attr.label_list(
+            doc = "Other dependent files/labels. Use for included p4 files.",
+            mandatory = False,
+            allow_empty = True,
+            allow_files = [".p4"],
+            default = []
         ),
         "target": attr.string(
             doc = "The --target argument passed to p4c (default: bmv2).",
@@ -90,19 +98,6 @@ run_p4c = rule(
         ),
         "p4c_args": attr.string(
             doc = "Any additional command line arguments to pass to p4c.",
-            mandatory = False,
-            default = ""
-        ),
-        "output": attr.string(
-            doc = """
-                The path of the directory containing the output file, passed to
-                p4c via -o, relative to the path of the first input file.
-                If not provided, this defaults to an auto generated path, based
-                on the rule name.
-                The output file is not checked into the repo, it is only created
-                within the bazel build sandbox.
-                The output file is always returned via the default provider. 
-                """,
             mandatory = False,
             default = ""
         ),

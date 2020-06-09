@@ -286,7 +286,9 @@ subset_diff_test = rule(
 # 4. A rule for subset diff testing of json output file (subset) against
 #    the output of p4c (superset).
 # 5. A test suite combining both 4 and 5.
-def bmv2_protobuf_parsing_test(name, p4_program, golden_file):
+# Use the p4_deps list to specify dependent files that p4_program input
+# file depends on (e.g. by including them). 
+def bmv2_protobuf_parsing_test(name, p4_program, golden_file, p4_deps=[]):
     p4c_name = "%s_p4c" % name
     parse_name = "%s_parse" % name
     extract_json_name = "%s_parse_json" % name
@@ -335,5 +337,6 @@ def bmv2_protobuf_parsing_test(name, p4_program, golden_file):
 
     run_p4c(
       name = p4c_name,
-      srcs = [p4_program]
+      src = p4_program,
+      deps = p4_deps
     )
