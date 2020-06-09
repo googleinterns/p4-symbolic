@@ -167,7 +167,7 @@ subset_diff_test = rule(
             doc = "The diff python script file.",
             mandatory = False,
             allow_single_file = True,
-            default = "sdiff.py"
+            default = "test_sdiff.py"
         )
     }
 )
@@ -207,9 +207,9 @@ def bmv2_protobuf_parsing_test(name, p4_program, golden_file, p4_deps=[]):
         name = parse_name,
         srcs = [":" + p4c_name],
         outs = [proto_filename, json_filename],
-        tools = ["//src:main"],
+        tools = ["//src/bmv2:test"],
         cmd = """
-            $(location //src:main) $(OUTS) < $(SRCS)
+            $(location //src/bmv2:test) $(OUTS) < $(SRCS)
             """
     )
 

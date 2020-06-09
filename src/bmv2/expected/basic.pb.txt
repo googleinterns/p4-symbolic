@@ -407,7 +407,7 @@ parsers {
 deparsers {
   name: "deparser"
   source_info {
-    filename: "test/samples/ipv4-routing/basic.p4"
+    filename: "p4-samples/ipv4-routing/basic.p4"
     line: 172
     column: 8
     source_fragment: "MyDeparser"
@@ -462,7 +462,7 @@ actions {
           fields {
             key: "filename"
             value {
-              string_value: "test/samples/ipv4-routing/basic.p4"
+              string_value: "p4-samples/ipv4-routing/basic.p4"
             }
           }
           fields {
@@ -559,7 +559,7 @@ actions {
           fields {
             key: "filename"
             value {
-              string_value: "test/samples/ipv4-routing/basic.p4"
+              string_value: "p4-samples/ipv4-routing/basic.p4"
             }
           }
           fields {
@@ -651,7 +651,7 @@ actions {
           fields {
             key: "filename"
             value {
-              string_value: "test/samples/ipv4-routing/basic.p4"
+              string_value: "p4-samples/ipv4-routing/basic.p4"
             }
           }
           fields {
@@ -736,7 +736,7 @@ actions {
           fields {
             key: "filename"
             value {
-              string_value: "test/samples/ipv4-routing/basic.p4"
+              string_value: "p4-samples/ipv4-routing/basic.p4"
             }
           }
           fields {
@@ -931,7 +931,7 @@ actions {
           fields {
             key: "filename"
             value {
-              string_value: "test/samples/ipv4-routing/basic.p4"
+              string_value: "p4-samples/ipv4-routing/basic.p4"
             }
           }
           fields {
@@ -954,7 +954,7 @@ actions {
 pipelines {
   name: "ingress"
   source_info {
-    filename: "test/samples/ipv4-routing/basic.p4"
+    filename: "p4-samples/ipv4-routing/basic.p4"
     line: 100
     column: 8
     source_fragment: "MyIngress"
@@ -963,7 +963,7 @@ pipelines {
   tables {
     name: "MyIngress.ipv4_lpm"
     source_info {
-      filename: "test/samples/ipv4-routing/basic.p4"
+      filename: "p4-samples/ipv4-routing/basic.p4"
       line: 114
       column: 10
       source_fragment: "ipv4_lpm"
@@ -989,7 +989,7 @@ pipelines {
   name: "egress"
   id: 1
   source_info {
-    filename: "test/samples/ipv4-routing/basic.p4"
+    filename: "p4-samples/ipv4-routing/basic.p4"
     line: 138
     column: 8
     source_fragment: "MyEgress"
