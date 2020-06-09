@@ -32,7 +32,7 @@ namespace p4_symbolic {
 namespace bmv2_json {
 
 // Read all of stdin up to EOF.
-inline std::string ReadStdin() {
+std::string ReadStdin() {
   std::istreambuf_iterator<char> cin_iterator{std::cin};
   std::istreambuf_iterator<char> end;
   return std::string(cin_iterator, end);
