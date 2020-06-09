@@ -1,0 +1,3 @@
+# Make sure programs under p4-samples are visible to other
+# bazel packages.
+exports_files(glob(["**/*.p4"]))
