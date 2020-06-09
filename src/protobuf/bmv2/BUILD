@@ -27,11 +27,11 @@ cc_proto_library(
 proto_library(
     name = "p4_parsing_proto",
     srcs = [
-      "bmv2/header.proto",
-      "bmv2/parser.proto",
-      "bmv2/primitives.proto",
-      "bmv2/program.proto",
-      "bmv2/table.proto"
+      "header.proto",
+      "parser.proto",
+      "primitives.proto",
+      "program.proto",
+      "table.proto"
     ],
     deps = [
       "@com_google_protobuf//:struct_proto",

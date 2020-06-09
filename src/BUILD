@@ -21,7 +21,7 @@ cc_binary(
     name = "main",
     srcs = ["main.cc"],
     deps = [
-        "//src/protobuf:p4_parsing_cc_proto"
+        "//src/protobuf/bmv2:p4_parsing_cc_proto"
     ],
     visibility = ["//test:__pkg__"]
 )
