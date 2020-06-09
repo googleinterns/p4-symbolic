@@ -26,7 +26,7 @@
 #include "google/protobuf/util/json_util.h"
 #include "google/protobuf/text_format.h"
 
-#include "src/bmv2/bmv2.pb.h"
+#include "p4_symbolic/bmv2/bmv2.pb.h"
 
 namespace p4_symbolic {
 namespace bmv2 {

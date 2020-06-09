@@ -20,13 +20,13 @@ load("@rules_proto//proto:defs.bzl", "proto_library")
 
 # Load our testing rules and run_p4c rule.
 load("//:p4c.bzl", "run_p4c")
-load("//src/bmv2:test.bzl", "bmv2_protobuf_parsing_test")
+load("//p4_symbolic/bmv2:test.bzl", "bmv2_protobuf_parsing_test")
 
 # Rules for building protobuf.
 cc_proto_library(
     name = "bmv2_cc_proto",
     deps = [":bmv2_proto"],
-    visibility = ["//src:__pkg__"]
+    visibility = ["//p4_symbolic:__pkg__"]
 )
 
 proto_library(

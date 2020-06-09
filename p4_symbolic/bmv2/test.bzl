@@ -141,8 +141,9 @@ subset_diff_test = rule(
 
         This rule takes a single argument: input.
         This is the json input file, or a rule that produces this json input
-        file. The rule passes this input file in to the compiled src/main.cc
-        which parses it with protobuf and then dumps it back to JSON.
+        file. The rule passes this input file in to the compiled
+        p4_symbolic/main.cc which parses it with protobuf and then dumps it
+        back to JSON.
 
         The rule checks that the dumped output (called actual) is a proper
         subset of the input (called exact).
@@ -176,7 +177,7 @@ subset_diff_test = rule(
 # with all their dependent rules.
 # The macro defines these exact rules, in this logical order of dependencies:
 # 1. A rule for producing bmv2 json from a .p4 program using p4c.
-# 2. A rule for parsing the bmv2 json using src/main.cc, and dumping
+# 2. A rule for parsing the bmv2 json using p4_symbolic/main.cc, and dumping
 #    a protobuf and json output files, and an extraction rule for each
 #    output file.
 # 3. A rule for golden file testing of the protobuf output file against
@@ -199,7 +200,7 @@ def bmv2_protobuf_parsing_test(name, p4_program, golden_file, p4_deps=[]):
         deps = p4_deps
     )
 
-    # Use src/main.cc to parse input json and dump
+    # Use p4_symbolic/main.cc to parse input json and dump
     # (tmp) output .pb.txt and .json files.
     proto_filename = name + "_tmp.pb.txt"
     json_filename = name + "_tmp.json"
@@ -207,9 +208,9 @@ def bmv2_protobuf_parsing_test(name, p4_program, golden_file, p4_deps=[]):
         name = parse_name,
         srcs = [":" + p4c_name],
         outs = [proto_filename, json_filename],
-        tools = ["//src/bmv2:test"],
+        tools = ["//p4_symbolic/bmv2:test"],
         cmd = """
-            $(location //src/bmv2:test) $(OUTS) < $(SRCS)
+            $(location //p4_symbolic/bmv2:test) $(OUTS) < $(SRCS)
             """
     )
 
