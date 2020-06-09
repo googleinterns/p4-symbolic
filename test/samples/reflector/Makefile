@@ -12,9 +12,27 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-table_add port_to_vrf set_vrf 0 => 10
-table_add port_to_vrf set_vrf 1 => 20
+SHELL := /bin/bash
 
-table_add vrf_ip_to_port set_vrf 10.10.0.0/24 10 => 1
-table_add vrf_ip_to_port set_vrf 10.10.0.0/16 10 => 2
-table_add vrf_ip_to_port set_vrf 20.20.0.0/16 20 => 3
+run: build simple_switch packets
+
+#
+# Sending Test Packets
+#
+define PACKETS =
+# These wont show up \n\
+p = Ether()/IP(dst="20.20.0.1")/UDP()\n\
+sendp(p, iface="veth1")\n\
+p = Ether()/IP(dst="20.20.0.2")/UDP()\n\
+sendp(p, iface="veth1")\n\
+# These will show up twice each \n\
+p = Ether()/IP(dst="20.20.0.3")/UDP()\n\
+sendp(p, iface="veth3")\n\
+p = Ether()/IP(dst="20.20.0.4")/UDP()\n\
+sendp(p, iface="veth3")\n\
+q = Ether()/IP(dst="20.20.0.8")/UDP()\n\
+sendp(q, iface="veth3")\n
+endef
+
+# include main Makefile with rules
+include ../Makefile

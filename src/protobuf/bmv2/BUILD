@@ -12,9 +12,28 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-table_add port_to_vrf set_vrf 0 => 10
-table_add port_to_vrf set_vrf 1 => 20
+# Contains the build rules to generate cc files
+# from the protobuf definitions in this directory
 
-table_add vrf_ip_to_port set_vrf 10.10.0.0/24 10 => 1
-table_add vrf_ip_to_port set_vrf 10.10.0.0/16 10 => 2
-table_add vrf_ip_to_port set_vrf 20.20.0.0/16 20 => 3
+load("@rules_cc//cc:defs.bzl", "cc_proto_library")
+load("@rules_proto//proto:defs.bzl", "proto_library")
+
+cc_proto_library(
+    name = "p4_parsing_cc_proto",
+    deps = [":p4_parsing_proto"],
+    visibility = ["//src:__pkg__"]
+)
+
+proto_library(
+    name = "p4_parsing_proto",
+    srcs = [
+      "header.proto",
+      "parser.proto",
+      "primitives.proto",
+      "program.proto",
+      "table.proto"
+    ],
+    deps = [
+      "@com_google_protobuf//:struct_proto",
+    ]
+)

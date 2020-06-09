@@ -12,9 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-table_add port_to_vrf set_vrf 0 => 10
-table_add port_to_vrf set_vrf 1 => 20
+# This file contains build rules for the main
+# executable binary in the project.
 
-table_add vrf_ip_to_port set_vrf 10.10.0.0/24 10 => 1
-table_add vrf_ip_to_port set_vrf 10.10.0.0/16 10 => 2
-table_add vrf_ip_to_port set_vrf 20.20.0.0/16 20 => 3
+load("@rules_cc//cc:defs.bzl", "cc_binary")
+
+cc_binary(
+    name = "main",
+    srcs = ["main.cc"],
+    deps = [
+        "//src/protobuf/bmv2:p4_parsing_cc_proto"
+    ],
+    visibility = ["//test:__pkg__"]
+)

@@ -1,0 +1,50 @@
+// Copyright 2020 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+// This file provides protobuf definitions of P4 headers and their types.
+
+syntax = "proto3";
+
+package p4_symbolic.bmv2_json;
+
+import "google/protobuf/struct.proto";
+
+// A P4 header type definition.
+message HeaderType {
+  // Programmer assigned name
+  // e.g. IPv4Header
+  string name = 1;
+  // Auto-generated id
+  int32 id = 2;
+  // A list of the fields contained in the header type
+  // each field is a an array of 3 elements
+  // the field name, its bitwidth, and its validity (always initially false)
+  // e.g. ["ingress_port", 9, false]
+  // https://p4.org/p4-spec/docs/P4-16-v1.2.0.html#sec-header-types
+  repeated google.protobuf.ListValue fields = 3;
+}
+
+// A single entry in the overal header definition for packets
+// defined in terms of a HeaderType
+message Header {
+  // Auto-generated id
+  int32 id = 1;
+  // The name of the header type
+  // e.g. standard_metadata
+  string header_type = 2;
+  // True if this is a built in header type
+  // containing meta-data assigned by the switch
+  // e.g. standard_metadata
+  bool metadata = 3;
+}
