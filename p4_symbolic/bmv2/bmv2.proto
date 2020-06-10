@@ -18,9 +18,6 @@
 // struct). This allows parsing of radically different possibilities
 // or types of constructs that may appear interchangably in that
 // attribute.
-// Further in our pipeline, we have some c++ code that traverses
-// parsed objects, and transforms them to our final representation
-// that contains restricted definitions.
 
 syntax = "proto3";
 
@@ -32,17 +29,6 @@ import "google/protobuf/struct.proto";
 // file outputed by p4c with a bmv2 target.
 // Several fields may not be present in this specification
 // because they are irrelevant to our tool.
-// Furthermore, certain parts of the json program
-// are extermely flexible or generic. These are hard
-// to model accurately via protobuf.
-// We use unconstrained protobuf constructs (e.g. Struct)
-// to initially parse such fields when the entire program is parsed.
-// Then, our c++ traversal code dynamically discovers the type
-// of these constructs, and parses them into the appropriate
-// constrained protobuf definitions.
-// For example, expressions in P4 look very different according
-// to their type. They may have a different set of fields,
-// and may assign different type to the same field.
 message P4Program {
   // Defined header types (e.g. ipv4 headers).
   // This includes built-in header types imported
