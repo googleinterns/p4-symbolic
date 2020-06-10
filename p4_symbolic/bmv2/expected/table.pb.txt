@@ -207,7 +207,7 @@ parsers {
   parse_states {
     name: "start"
     transitions {
-      value: "default"
+      type: "default"
     }
   }
 }

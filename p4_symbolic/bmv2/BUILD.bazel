@@ -17,56 +17,53 @@
 
 load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_proto_library")
 load("@rules_proto//proto:defs.bzl", "proto_library")
-
-# Load our testing rules and run_p4c rule.
-load("//:p4c.bzl", "run_p4c")
 load("//p4_symbolic/bmv2:test.bzl", "bmv2_protobuf_parsing_test")
 
 # Rules for building protobuf.
 cc_proto_library(
     name = "bmv2_cc_proto",
+    visibility = ["//p4_symbolic:__pkg__"],
     deps = [":bmv2_proto"],
-    visibility = ["//p4_symbolic:__pkg__"]
 )
 
 proto_library(
     name = "bmv2_proto",
     srcs = [
-      "bmv2.proto"
+        "bmv2.proto",
     ],
     deps = [
-      "@com_google_protobuf//:struct_proto",
-    ]
+        "@com_google_protobuf//:struct_proto",
+    ],
 )
 
 # Rules for building test.cc binary.
 cc_binary(
     name = "test",
     srcs = ["test.cc"],
-    deps = [":bmv2_cc_proto"]
+    deps = [":bmv2_cc_proto"],
 )
 
 # Test rules: one per program in //p4-samples
 bmv2_protobuf_parsing_test(
     name = "port_table",
+    golden_file = "expected/table.pb.txt",
     p4_program = "//p4-samples:port-table/table.p4",
-    golden_file = "expected/table.pb.txt"
 )
 
 bmv2_protobuf_parsing_test(
     name = "ipv4_routing",
+    golden_file = "expected/basic.pb.txt",
     p4_program = "//p4-samples:ipv4-routing/basic.p4",
-    golden_file = "expected/basic.pb.txt"
 )
 
 bmv2_protobuf_parsing_test(
     name = "port_hardcoded",
+    golden_file = "expected/hardcoded.pb.txt",
     p4_program = "//p4-samples:hardcoded/hardcoded.p4",
-    golden_file = "expected/hardcoded.pb.txt"
 )
 
 bmv2_protobuf_parsing_test(
     name = "reflector",
+    golden_file = "expected/reflector.pb.txt",
     p4_program = "//p4-samples:reflector/reflector.p4",
-    golden_file = "expected/reflector.pb.txt"
 )

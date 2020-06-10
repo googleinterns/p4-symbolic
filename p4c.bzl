@@ -24,8 +24,8 @@ def _run_p4c_impl(ctx):
         if ctx.attr.target == "bmv2":
             extension = ".json"
         else:
-            fail("Extension is not provided for unknown target %s"
-                % ctx.attr.target)
+            fail("Extension is not provided for unknown target %s" %
+                 ctx.attr.target)
 
     # The output file path (relative to the directory of the src input file).
     fname = "".join([
@@ -33,7 +33,7 @@ def _run_p4c_impl(ctx):
         "-bazel-p4c-tmp-output/",
         # Base name without the .p4 extension.
         ctx.file.src.basename[:-3],
-        extension
+        extension,
     ])
 
     # Declare the output file.
@@ -43,7 +43,7 @@ def _run_p4c_impl(ctx):
     # the output file.
     # This is needed because p4c expects a directory to be passed with "-o".
     # P4c will put the output file in that directory.
-    output_dir_path = output_file.path[:-len(output_file.basename)-1]
+    output_dir_path = output_file.path[:-len(output_file.basename) - 1]
 
     # Run p4c.
     ctx.actions.run_shell(
@@ -57,8 +57,8 @@ def _run_p4c_impl(ctx):
             ctx.attr.arch,
             output_dir_path,
             ctx.attr.p4c_args,
-            ctx.file.src.path
-        ]
+            ctx.file.src.path,
+        ],
     )
 
     return [DefaultInfo(files = depset([output_file]))]
@@ -70,34 +70,34 @@ run_p4c = rule(
         "src": attr.label(
             doc = "Input .p4 files to pass to p4c.",
             mandatory = True,
-            allow_single_file = [".p4"]
+            allow_single_file = [".p4"],
         ),
         "deps": attr.label_list(
             doc = "Other dependent files/labels. Use for included p4 files.",
             mandatory = False,
             allow_empty = True,
             allow_files = [".p4"],
-            default = []
+            default = [],
         ),
         "target": attr.string(
             doc = "The --target argument passed to p4c (default: bmv2).",
             mandatory = False,
-            default = "bmv2"
+            default = "bmv2",
         ),
         "arch": attr.string(
             doc = "The --arch argument passed to p4v (default: v1model).",
             mandatory = False,
-            default = "v1model"
+            default = "v1model",
         ),
         "std": attr.string(
             doc = "The --std argument passed to p4v (default: p4_16).",
             mandatory = False,
-            default = "p4_16"
+            default = "p4_16",
         ),
         "p4c_args": attr.string(
             doc = "Any additional command line arguments to pass to p4c.",
             mandatory = False,
-            default = ""
+            default = "",
         ),
         "extension": attr.string(
             doc = """
@@ -108,7 +108,7 @@ run_p4c = rule(
                 throw an Error if it was not able to determine it.
                 """,
             mandatory = False,
-            default = ""
-        )
+            default = "",
+        ),
     },
 )

@@ -113,7 +113,7 @@ message ParserTransition {
   // this transition is applied or not.
   string value = 1;
   // The type of the value above, usually a hex string.
-  string type = 2; // TODO(babman): turn into Enum
+  string type = 2;  // TODO(babman): turn into Enum
   // Any mask applied by the transition, if no mask is applied,
   // protobuf will parse this as "".
   string mask = 3;

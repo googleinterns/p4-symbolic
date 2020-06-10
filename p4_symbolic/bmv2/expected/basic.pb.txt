@@ -393,14 +393,14 @@ parsers {
       next_state: "parse_ipv4"
     }
     transitions {
-      value: "default"
+      type: "default"
     }
   }
   parse_states {
     name: "parse_ipv4"
     id: 1
     transitions {
-      value: "default"
+      type: "default"
     }
   }
 }
