@@ -1,1 +1,8 @@
-# Intentionally left blank.
+load("@com_github_bazelbuild_buildtools//buildifier:def.bzl", "buildifier")
+
+# Bazel buildifier: auto formats bazel files.
+buildifier(
+    name = "buildifier",
+    exclude_patterns = ["./third_party/**"],
+    lint_mode = "fix",
+)

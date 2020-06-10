@@ -19,13 +19,12 @@
 // The dumps are written to output files whose paths are provided as command
 // line arguments.
 
-#include <iostream>
 #include <fstream>
+#include <iostream>
 #include <string>
 
-#include "google/protobuf/util/json_util.h"
 #include "google/protobuf/text_format.h"
-
+#include "google/protobuf/util/json_util.h"
 #include "p4_symbolic/bmv2/bmv2.pb.h"
 
 // Read all of stdin up to EOF.
@@ -55,7 +54,7 @@ int main(int argc, char* argv[]) {
   // Validate command line arguments.
   if (argc != 3) {
     std::cout << "Usage: ./main <protobuf output file> <json output file>."
-        << std::endl;
+              << std::endl;
     return 0;
   }
 
@@ -80,8 +79,7 @@ int main(int argc, char* argv[]) {
   dumping_options.preserve_proto_field_names = true;
 
   std::string json_output_str;
-  google::protobuf::util::MessageToJsonString(p4_buf,
-                                              &json_output_str,
+  google::protobuf::util::MessageToJsonString(p4_buf, &json_output_str,
                                               dumping_options);
   WriteFile(argv[2], json_output_str);
 
