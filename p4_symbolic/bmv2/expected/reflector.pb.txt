@@ -207,7 +207,7 @@ parsers {
   parse_states {
     name: "start"
     transitions {
-      value: "default"
+      type: "default"
     }
   }
 }
@@ -221,7 +221,7 @@ deparsers {
   }
 }
 actions {
-  name: "act"
+  name: "reflector54"
   primitives {
     fields {
       key: "op"
@@ -323,9 +323,9 @@ pipelines {
     column: 8
     source_fragment: "MyIngress"
   }
-  init_table: "tbl_act"
+  init_table: "tbl_reflector54"
   tables {
-    name: "tbl_act"
+    name: "tbl_reflector54"
     source_info {
       filename: "p4-samples/reflector/reflector.p4"
       line: 54
@@ -336,7 +336,7 @@ pipelines {
     type: "simple"
     max_size: 1024
     action_ids: 0
-    actions: "act"
+    actions: "reflector54"
   }
 }
 pipelines {

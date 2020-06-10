@@ -207,7 +207,7 @@ parsers {
   parse_states {
     name: "start"
     transitions {
-      value: "default"
+      type: "default"
     }
   }
 }
@@ -221,7 +221,7 @@ deparsers {
   }
 }
 actions {
-  name: "act"
+  name: "hardcoded55"
   primitives {
     fields {
       key: "op"
@@ -309,7 +309,7 @@ actions {
   }
 }
 actions {
-  name: "act_0"
+  name: "hardcoded57"
   id: 1
   primitives {
     fields {
@@ -407,7 +407,7 @@ pipelines {
   }
   init_table: "node_2"
   tables {
-    name: "tbl_act"
+    name: "tbl_hardcoded55"
     source_info {
       filename: "p4-samples/hardcoded/hardcoded.p4"
       line: 55
@@ -418,10 +418,10 @@ pipelines {
     type: "simple"
     max_size: 1024
     action_ids: 0
-    actions: "act"
+    actions: "hardcoded55"
   }
   tables {
-    name: "tbl_act_0"
+    name: "tbl_hardcoded57"
     id: 1
     source_info {
       filename: "p4-samples/hardcoded/hardcoded.p4"
@@ -433,7 +433,7 @@ pipelines {
     type: "simple"
     max_size: 1024
     action_ids: 1
-    actions: "act_0"
+    actions: "hardcoded57"
   }
 }
 pipelines {
