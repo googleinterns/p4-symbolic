@@ -12,37 +12,61 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This file defines test rules for our protobuf definition of the
-# bmv2 json format.
-# We define one overall test rule per sample test P4 program (available under
-# ./samples/**). Each test rule performs golden file testing against
-# stored expected protobuf output (available under ./expected), and
-# subset diff testing of the ouput json against the p4c bmv2 json build
-# of the test program.
+# This file contains build rules for bmv2 json protobuf
+# definition and their test files.
 
+load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_proto_library")
+load("@rules_proto//proto:defs.bzl", "proto_library")
+
+# Load our testing rules and run_p4c rule.
 load("//:p4c.bzl", "run_p4c")
-load("//test:bmv2_parsing_check.bzl", "bmv2_protobuf_parsing_test")
+load("//p4_symbolic/bmv2:test.bzl", "bmv2_protobuf_parsing_test")
 
+# Rules for building protobuf.
+cc_proto_library(
+    name = "bmv2_cc_proto",
+    deps = [":bmv2_proto"],
+    visibility = ["//p4_symbolic:__pkg__"]
+)
+
+proto_library(
+    name = "bmv2_proto",
+    srcs = [
+      "bmv2.proto"
+    ],
+    deps = [
+      "@com_google_protobuf//:struct_proto",
+    ]
+)
+
+# Rules for building test.cc binary.
+cc_binary(
+    name = "test",
+    srcs = ["test.cc"],
+    deps = [":bmv2_cc_proto"]
+)
+
+# Test rules: one per program in //p4-samples
 bmv2_protobuf_parsing_test(
     name = "port_table",
-    p4_program = "samples/port-table/table.p4",
+    p4_program = "//p4-samples:port-table/table.p4",
     golden_file = "expected/table.pb.txt"
 )
 
 bmv2_protobuf_parsing_test(
     name = "ipv4_routing",
-    p4_program = "samples/ipv4-routing/basic.p4",
+    p4_program = "//p4-samples:ipv4-routing/basic.p4",
     golden_file = "expected/basic.pb.txt"
 )
 
 bmv2_protobuf_parsing_test(
     name = "port_hardcoded",
-    p4_program = "samples/hardcoded/hardcoded.p4",
+    p4_program = "//p4-samples:hardcoded/hardcoded.p4",
     golden_file = "expected/hardcoded.pb.txt"
 )
 
 bmv2_protobuf_parsing_test(
     name = "reflector",
-    p4_program = "samples/reflector/reflector.p4",
+    p4_program = "//p4-samples:reflector/reflector.p4",
     golden_file = "expected/reflector.pb.txt"
 )

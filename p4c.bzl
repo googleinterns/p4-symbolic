@@ -37,9 +37,7 @@ def _run_p4c_impl(ctx):
     ])
 
     # Declare the output file.
-    output_file = ctx.actions.declare_file(
-        fname,
-        sibling=ctx.file.src)
+    output_file = ctx.actions.declare_file(fname)
 
     # Get the full path (relative to root of sandbox) of the directory of
     # the output file.

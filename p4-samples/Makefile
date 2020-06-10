@@ -46,7 +46,7 @@ $(SIMPLE_SWITCH_PID):
 
 veth:
 	# create virtual ethernet interfaces
-	@sudo ../veth_setup.sh > /dev/null
+	@sudo ../veth_setup.sh $(VETH_PAIRS_COUNT) > /dev/null
 
 #
 # Control Plane

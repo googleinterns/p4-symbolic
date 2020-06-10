@@ -26,10 +26,7 @@
 #include "google/protobuf/util/json_util.h"
 #include "google/protobuf/text_format.h"
 
-#include "src/protobuf/bmv2/program.pb.h"
-
-namespace p4_symbolic {
-namespace bmv2_json {
+#include "p4_symbolic/bmv2/bmv2.pb.h"
 
 // Read all of stdin up to EOF.
 std::string ReadStdin() {
@@ -45,9 +42,6 @@ void WriteFile(char path[], const std::string& content) {
   out << content;
   out.close();
 }
-
-}  // namespace bmv2_json
-}  // namespace p4_symbolic
 
 // The main test routine for parsing bmv2 json with protobuf.
 // Parses bmv2 json that is fed in through stdin and dumps
@@ -66,10 +60,10 @@ int main(int argc, char* argv[]) {
   }
 
   // Read input json from stdin.
-  std::string input = p4_symbolic::bmv2_json::ReadStdin();
+  std::string input = ReadStdin();
 
   // Parsing JSON with protobuf.
-  p4_symbolic::bmv2_json::P4Program p4_buf;
+  p4_symbolic::bmv2::P4Program p4_buf;
   google::protobuf::util::JsonParseOptions parsing_options;
   parsing_options.ignore_unknown_fields = true;
   google::protobuf::util::JsonStringToMessage(input, &p4_buf, parsing_options);
@@ -77,7 +71,7 @@ int main(int argc, char* argv[]) {
   // Dumping protobuf.
   std::string protobuf_output_str;
   google::protobuf::TextFormat::PrintToString(p4_buf, &protobuf_output_str);
-  p4_symbolic::bmv2_json::WriteFile(argv[1], protobuf_output_str);
+  WriteFile(argv[1], protobuf_output_str);
 
   // Dumping JSON.
   google::protobuf::util::JsonPrintOptions dumping_options;
@@ -89,7 +83,7 @@ int main(int argc, char* argv[]) {
   google::protobuf::util::MessageToJsonString(p4_buf,
                                               &json_output_str,
                                               dumping_options);
-  p4_symbolic::bmv2_json::WriteFile(argv[2], json_output_str);
+  WriteFile(argv[2], json_output_str);
 
   // Clean up.
   google::protobuf::ShutdownProtobufLibrary();
