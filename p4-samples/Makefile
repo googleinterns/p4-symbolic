@@ -71,8 +71,10 @@ packets: $(TCPDUMP_PID)
 stop: kill clean
 
 kill:
-	@sudo kill `cat $(SIMPLE_SWITCH_PID)` && sudo rm $(SIMPLE_SWITCH_PID)
-	@sudo kill `cat $(TCPDUMP_PID)` && rm $(TCPDUMP_PID)
+	@sudo kill `cat $(SIMPLE_SWITCH_PID)` || echo "simple switch is not running!"
+	@sudo rm -f $(SIMPLE_SWITCH_PID)
+	@sudo kill `cat $(TCPDUMP_PID)` || echo "tcpdump is not running!"
+	@sudo rm -f $(TCPDUMP_PID)
 
 clean:
 	@rm -f *.json *.p4i *.log *.info.*
