@@ -1,0 +1,94 @@
+// Copyright 2020 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+// The main protobuf file for definition of our intermediate representation.
+// This file defines the overall structure of a P4 program in our IR.
+// The structure is tailored to be easy to consume rather than produce.
+// It deviates from the underlying bmv2 JSON format, which is mimiced closely
+// by p4_symbolic/bmv2/bmv2.proto.
+// The bmv2 proto is used to initially parse the JSON format, which is then
+// processed by our tool and transformed into the IR.
+// The IR does not cover all the features of P4 programs.
+// Specifically, we intentionally ignore parsers, de-parsers, stacks and unions,
+// checksum calculations, and extern definitions.
+// Additionally, some types of expressions and statements are unsupported, these
+// are described in values.proto and statements.proto respectively.
+
+syntax = "proto3";
+
+package p4_symbolic.ir;
+
+import "p4_pdpi/ir.proto";
+import "p4_symbolic/bmv2/bmv2.proto";
+// TODO(babman): should we combine all the .proto files? discuss.
+import "p4_symbolic/ir/statements.proto";
+
+// Overall structure of a p4 program.
+message P4Program {
+  // Header definitions.
+  map<string, HeaderType> headers = 1;
+  // Action definitions (including action bodies), keyed by action name.
+  map<string, Action> actions = 2;
+  // Table definitions, keyed by table name.
+  // This will likely need to be specialized into separate ir types (similar to
+  // Action), when all the table attributes from the JSON format are supported.
+  // This is because attributes are likely generic, and can not be
+  // type-constrained in the bmv2 package without breaking protobuf's automatic
+  // JSON parsing (due to using oneof or similar features).
+  // For example, table conditionals contain nested generic lvalues.
+  map<string, p4_symbolic.bmv2.Table> tables = 3;
+  // PDPI definitions of actions and tables, representing to p4 info file.
+  // TODO(babman): alternatively can be under Action/Table types, discuss.
+  map<string, pdpi.ir.IrActionDefinition> actions_pdpi = 4;
+  map<string, pdpi.ir.IrTableDefinition> tables_pdpi = 5;
+  // Parsers, De-parsers, and pipelines are carried over from bmv2 format.
+  // In the future, these may require specialized ir types, as more of their
+  // features are supported. Due to a similar reasoning to the Table case
+  // above.
+  map<string, p4_symbolic.bmv2.Parser> parsers = 6;
+  map<string, p4_symbolic.bmv2.Deparser> deparsers = 7;
+  map<string, p4_symbolic.bmv2.Pipeline> pipelines = 8;
+  // The names of the initial pipline, and its initial table.
+  string initial_pipeline = 9;
+  string initial_table = 10;
+}
+
+// A header definition. Includes the programmer assigned name,
+// the header id, and the fields in the heade.
+message HeaderType {
+  string name = 1;
+  int32 id = 2;
+  // Maps a field name to its definition.
+  map<string, HeaderField> fields = 3;
+}
+
+// A P4 header type definition.
+// Includes its name, bitwidth (type), and validity flag (initially false),
+// and the enclosing header type name that defines this field.
+message HeaderField {
+  string name = 1;
+  int32 bitwidth = 2;
+  bool valid = 3;
+  string header_type = 4;
+}
+
+// Action definition with its body.
+message Action {
+  string name = 1;
+  int32 id = 2;
+  // Maps a parameter name to its bitwidth.
+  map<string, int32> parameters = 3;
+  // Action body.
+  repeated Statement statements = 4;
+}
