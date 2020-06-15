@@ -207,7 +207,6 @@ parsers {
   parse_states {
     name: "start"
     transitions {
-      type: "default"
     }
   }
 }
@@ -414,8 +413,6 @@ pipelines {
       column: 42
       source_fragment: "="
     }
-    match_type: "exact"
-    type: "simple"
     max_size: 1024
     action_ids: 0
     actions: "hardcoded55"
@@ -429,8 +426,6 @@ pipelines {
       column: 42
       source_fragment: "="
     }
-    match_type: "exact"
-    type: "simple"
     max_size: 1024
     action_ids: 1
     actions: "hardcoded57"

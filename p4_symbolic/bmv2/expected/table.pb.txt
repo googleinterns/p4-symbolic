@@ -207,7 +207,6 @@ parsers {
   parse_states {
     name: "start"
     transitions {
-      type: "default"
     }
   }
 }
@@ -334,13 +333,10 @@ pipelines {
       source_fragment: "ports_exact"
     }
     key {
-      match_type: "exact"
       name: "standard_metadata.ingress_port"
       target: "standard_metadata"
       target: "ingress_port"
     }
-    match_type: "exact"
-    type: "simple"
     max_size: 1024
     action_ids: 1
     action_ids: 0
