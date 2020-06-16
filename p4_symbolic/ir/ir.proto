@@ -61,12 +61,12 @@ message HeaderType {
 }
 
 // A P4 header type definition.
-// Includes its name, bitwidth (type), and validity flag (initially false),
-// and the enclosing header type name that defines this field.
+// Includes its name, bitwidth (type), and sign flag, and the
+// enclosing header type name that defines this field.
 message HeaderField {
   string name = 1;
   int32 bitwidth = 2;
-  bool valid = 3;
+  bool sign = 3;
   string header_type = 4;
 }
 
@@ -81,7 +81,7 @@ message Action {
 
 // Action implementation details.
 message ActionImplementation {
-  // Action body.
+  // List of statements in action body in sequence.
   repeated Statement action_body = 1;
 }
 
@@ -96,7 +96,10 @@ message Table {
 // Table implementation details that are not exposed in the definition.
 message TableImplementation {
   // The overal type of the match(s) of the table.
-  // This is the most general match type of all the matches
+  // In case the table have several keys with different match type,
+  // the overall match type of the table would be the most general.
+  // There is always a most general match because of P4 restrications
+  // on match combination (which may be under-documented).
   // See https://github.com/p4lang/p4-spec/issues/411
   p4_symbolic.bmv2.TableMatchTypeEnum match_type = 5;
   // Table type with respect to action selection.
@@ -106,44 +109,44 @@ message TableImplementation {
   // or "indirect_ws" type.
 }
 
-// Valid op for statements within an action.
-// These are used within the body (primitives) of an action, as top
-// level statements. They cannot be used as sub-expressions.
-enum StatementOpEnum {
-  statement_op_assign = 0;
-  // Assignment to a variable length field.
-  // statement_op_assign_VL = 1;
-
-  // Assignment to a header field.
-  // statement_op_assign_headers = 2;
-
-  // Assignment to a union, header stack, or a union stack respectively.
-  // statement_op_assign_union = 3;
-  // statement_op_assign_header_stack = 4;
-  // statement_op_assign_union_stack = 5;
-
-  // Header stack manipulation.
-  // statement_op_push = 6;
-  // statement_op_pop = 7;
-
-  // Jumps to an offset within the enclosing action.
-  // statement_op__jump = 8;
-  // statement_op__jump_if_zero = 9;
-
-  // These might be a useful way to communicate things from the user
-  // into our tool and the resulting SMT program.
-  // See https://github.com/p4lang/p4c/issues/1548
-  // statement_op_assume = 10;  // Can be assumed as correct.
-  // statement_op_assert = 11;  // Must be verified as correct.
-
-  // Logging user-defined messages (to the console).
-  // statement_op_log_msg = 12;
-}
-
 // An abstract p4 statement corresponding to a top level operation within
 // an action body.
 message Statement {
-  StatementOpEnum op = 1;
+  // Valid op for statements within an action.
+  // These are used within the body (primitives) of an action, as top
+  // level statements. They cannot be used as sub-expressions.
+  enum Operation {
+    assign = 0;
+    // Assignment to a variable length field.
+    // assign_VL = 1;
+
+    // Assignment to a header field.
+    // assign_headers = 2;
+
+    // Assignment to a union, header stack, or a union stack respectively.
+    // assign_union = 3;
+    // assign_header_stack = 4;
+    // assign_union_stack = 5;
+
+    // Header stack manipulation.
+    // push = 6;
+    // pop = 7;
+
+    // Jumps to an offset within the enclosing action.
+    // jump = 8;
+    // jump_if_zero = 9;
+
+    // These might be a useful way to communicate things from the user
+    // into our tool and the resulting SMT program.
+    // See https://github.com/p4lang/p4c/issues/1548
+    // assume = 10;  // Can be assumed as correct.
+    // assert = 11;  // Must be verified as correct.
+
+    // Logging user-defined messages (to the console).
+    // log_msg = 12;
+  }
+
+  Operation op = 1;
   p4_symbolic.bmv2.SourceLocation source_info = 2;
   // Various statement concrete types.
   oneof statement {
@@ -158,42 +161,42 @@ message AssignmentStatement {
   RValue right = 2;
 }
 
-// The valid operations making up an RValue.
-enum RValueOpEnum {
-  rvalue_op_field = 0;
-  rvalue_op_hexstr = 1;
-  rvalue_op_bool_ = 2;
-  rvalue_op_string_ = 3;
-  rvalue_op_variable = 4;
-  rvalue_op_expression = 5;
-}
-
-// The valid operations making up an LValue.
-enum LValueOpEnum {
-  lvalue_op_field = 0;
-  lvalue_op_variable = 1;
-  lvalue_op_expression = 2;
-}
-
 // The structure of an abstract RValue.
 message RValue {
-  RValueOpEnum op = 1;
+  // The valid operations making up an RValue.
+  enum Operation {
+    field = 0;
+    hexstr = 1;
+    bool_ = 2;
+    string_ = 3;
+    variable = 4;
+    expression = 5;
+  }
+
+  Operation op = 1;
   oneof rvalue {
     FieldValue field_value = 2;
     HexstrValue hexstr_value = 3;
     BoolValue bool_value = 4;
     StringValue string_value = 5;
-    Variable variable = 6;
-    RExpression expression = 7;
+    Variable variable_value = 6;
+    RExpression expression_value = 7;
   }
 }
 
 // The structure of an abstract LValue.
 message LValue {
-  LValueOpEnum op = 1;
+  // The valid operations making up an LValue.
+  enum Operation {
+    field = 0;
+    variable = 1;
+    expression = 2;
+  }
+
+  Operation op = 1;
   oneof lvalue {
     FieldValue field_value = 2;
-    Variable variable = 3;
+    Variable variable_value = 3;
     // Unsupported
     // LExpression expression = 4;
   }
@@ -235,20 +238,20 @@ message Variable {
   string name = 1;
 }
 
-// Possible rexpressions.
-enum RExpressionOpEnum {
-  rexpression_op_simple_binary = 0;
-  rexpression_op_simple_unary = 1;
-  rexpression_op_ternary = 2;
-  // Unsupported
-  // rexpression_op_conversion = 3;
-  // rexpression_op_stack = 4;
-  // rexpression_op_access = 5;
-}
-
 // An abstract RExpression.
 message RExpression {
-  RExpressionOpEnum op = 1;
+  // Possible rexpressions.
+  enum Operation {
+    simple_binary = 0;
+    simple_unary = 1;
+    ternary = 2;
+    // Unsupported
+    // conversion = 3;
+    // stack = 4;
+    // access = 5;
+  }
+
+  Operation op = 1;
   oneof expression {
     BinaryExpression simple_binary_expression = 2;
     UnaryExpression simple_unary_expression = 3;
@@ -260,47 +263,47 @@ message RExpression {
   }
 }
 
-// Supported basic binary expressions.
-enum BinaryExpressionOpEnum {
-  plus = 0;
-  minus = 1;
-  times = 3;
-  left_shift = 4;   // <<
-  right_shift = 5;  // >>
-  equals = 6;       // ==
-  not_equals = 7;
-  greater = 8;
-  greater_equals = 9;
-  less = 10;
-  less_equals = 11;
-  and = 12;
-  or = 13;
-  bit_and = 14;  // &
-  bit_or = 15;
-  bit_xor = 16;
-  // Unsupported
-  // two_comp_mod = 17; // 2's complement modulo.
-}
-
 // Arithmetic, relational, and boolean binary operations.
 message BinaryExpression {
-  BinaryExpressionOpEnum op = 1;
+  // Supported basic binary expressions.
+  enum Operation {
+    plus = 0;
+    minus = 1;
+    times = 3;
+    left_shift = 4;   // <<
+    right_shift = 5;  // >>
+    equals = 6;       // ==
+    not_equals = 7;
+    greater = 8;
+    greater_equals = 9;
+    less = 10;
+    less_equals = 11;
+    and = 12;
+    or = 13;
+    bit_and = 14;  // &
+    bit_or = 15;
+    bit_xor = 16;
+    // Unsupported
+    // two_comp_mod = 17; // 2's complement modulo.
+  }
+
+  Operation op = 1;
   RExpression left = 2;
   RExpression right = 3;
 }
 
-// Supported basic unary expressions.
-enum UnaryExpressionOpEnum {
-  not = 0;      // boolean not.
-  bit_neg = 1;  // ~ (bitwise negation).
-  // Unsupported
-  // valid = 2;
-  // valid_union = 3;
-}
-
 // Arithmetic and boolean unary operations.
 message UnaryExpression {
-  UnaryExpressionOpEnum op = 1;
+  // Supported basic unary expressions.
+  enum Operation {
+    not = 0;      // boolean not.
+    bit_neg = 1;  // ~ (bitwise negation).
+    // Unsupported
+    // valid = 2;
+    // valid_union = 3;
+  }
+
+  Operation op = 1;
   RExpression operand = 2;
 }
 
@@ -312,15 +315,15 @@ message TernaryExpression {
 }
 
 // Unsupported
-//// Possible lexpressions.
-// enum LExpressionOpEnum {
-//  // Only includes (dynamic) access expressions for now.
-//  lexpression_op_access = 0;
-//}
-
 //// An abstract LExpression.
 // message LExpression {
-//  LExpressionOpEnum op = 1;
+//  // Possible lexpressions.
+//  enum Operation {
+//    // Only includes (dynamic) access expressions for now.
+//    access = 0;
+//  }
+
+//  Operation op = 1;
 //  oneof expression {
 //    AccessExpression access_expression = 2;
 //  }

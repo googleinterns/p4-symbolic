@@ -92,7 +92,7 @@ message HeaderType {
   int32 id = 2;
   // A list of the fields contained in the header type
   // each field is a an array of 3 elements
-  // the field name, its bitwidth, and its validity (always initially false)
+  // the field name, its bitwidth, and whether it is signed (typically false).
   // e.g. ["ingress_port", 9, false]
   // https://p4.org/p4-spec/docs/P4-16-v1.2.0.html#sec-header-types
   repeated google.protobuf.ListValue fields = 3;
