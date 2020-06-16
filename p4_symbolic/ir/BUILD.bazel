@@ -26,11 +26,7 @@ cc_proto_library(
 
 proto_library(
     name = "ir_proto",
-    srcs = [
-        "ir.proto",
-        "statements.proto",
-        "values.proto",
-    ],
+    srcs = ["ir.proto"],
     deps = [
         "//p4_symbolic/bmv2:bmv2_proto",
         "@p4_pdpi//p4_pdpi:ir_proto",

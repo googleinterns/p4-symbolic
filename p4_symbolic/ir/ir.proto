@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// The main protobuf file for definition of our intermediate representation.
-// This file defines the overall structure of a P4 program in our IR.
+// This file defines the overall structure of a P4 program in our IR, as well
+// as the supported statements and expressions.
 // The structure is tailored to be easy to consume rather than produce.
 // It deviates from the underlying bmv2 JSON format, which is mimiced closely
 // by p4_symbolic/bmv2/bmv2.proto.
@@ -23,7 +23,7 @@
 // Specifically, we intentionally ignore parsers, de-parsers, stacks and unions,
 // checksum calculations, and extern definitions.
 // Additionally, some types of expressions and statements are unsupported, these
-// are described in values.proto and statements.proto respectively.
+// are described in the relevant sections of this file.
 
 syntax = "proto3";
 
@@ -31,7 +31,6 @@ package p4_symbolic.ir;
 
 import "p4_pdpi/ir.proto";
 import "p4_symbolic/bmv2/bmv2.proto";
-import "p4_symbolic/ir/statements.proto";
 
 // Overall structure of a p4 program.
 message P4Program {
@@ -103,4 +102,243 @@ message TableImplementation {
   // TODO(babman): later support "default entry", and "next_tables".
   // TODO(babman): support "action_profile" for table with an "indirect"
   //               or "indirect_ws" type.
+}
+
+// Valid op for statements within an action.
+// These are used within the body (primitives) of an action, as top
+// level statements. They cannot be used as sub-expressions.
+enum StatementOpEnum {
+  statement_op_assign = 0;
+  // TODO(babman): This is a comprehensive list of all operations, most
+  //               are not supported by our implementation.
+
+  // Assignment to a variable length field.
+  // statement_op_assign_VL = 1;
+
+  // Assignment to a header field.
+  // statement_op_assign_headers = 2;
+
+  // Assignment to a union, header stack, or a union stack respectively.
+  // statement_op_assign_union = 3;
+  // statement_op_assign_header_stack = 4;
+  // statement_op_assign_union_stack = 5;
+
+  // Header stack manipulation.
+  // statement_op_push = 6;
+  // statement_op_pop = 7;
+
+  // Jumps to an offset within the enclosing action.
+  // statement_op__jump = 8;
+  // statement_op__jump_if_zero = 9;
+
+  // These might be a useful way to communicate things from the user
+  // into our tool and the resulting SMT program.
+  // See https://github.com/p4lang/p4c/issues/1548
+  // statement_op_assume = 10;  // Can be assumed as correct.
+  // statement_op_assert = 11;  // Must be verified as correct.
+
+  // Logging user-defined messages (to the console).
+  // statement_op_log_msg = 12;
+}
+
+// An abstract p4 statement corresponding to a top level operation within
+// an action body.
+message Statement {
+  StatementOpEnum op = 1;
+  p4_symbolic.bmv2.SourceLocation source_info = 2;
+  // Various statement concrete types.
+  oneof statement {
+    AssignmentStatement assignment_statement = 3;
+  }
+}
+
+// An assignment statement of the form <left> = <right>.
+// Note that left can be an rvalue expression.
+// https://github.com/p4lang/behavioral-model/blob/master/docs/JSON_format.md
+message AssignmentStatement {
+  LValue left = 1;
+  RValue right = 2;
+}
+
+// The valid operations making up an RValue.
+enum RValueOpEnum {
+  rvalue_op_field = 0;
+  rvalue_op_hexstr = 1;
+  rvalue_op_bool_ = 2;
+  rvalue_op_string_ = 3;
+  rvalue_op_variable = 4;
+  rvalue_op_expression = 5;
+}
+
+// The valid operations making up an LValue.
+enum LValueOpEnum {
+  lvalue_op_field = 0;
+  lvalue_op_variable = 1;
+  lvalue_op_expression = 2;
+}
+
+// The structure of an abstract RValue.
+message RValue {
+  RValueOpEnum op = 1;
+  oneof rvalue {
+    FieldValue field_value = 2;
+    HexstrValue hexstr_value = 3;
+    BoolValue bool_value = 4;
+    StringValue string_value = 5;
+    Variable variable = 6;
+    RExpression expression = 7;
+  }
+}
+
+// The structure of an abstract LValue.
+message LValue {
+  LValueOpEnum op = 1;
+  oneof lvalue {
+    FieldValue field_value = 2;
+    Variable variable = 3;
+    LExpression expression = 4;
+  }
+}
+
+//
+// Below are concrete definitions of each conrete type of values.
+//
+
+// A header field accessed statically.
+// Field access that is dynamic (either in the index/offset or in the header
+// object) is defined under AccessExpression below.
+message FieldValue {
+  string header_name = 1;
+  string field_name = 2;
+}
+
+// Corresponds to a hex bigendiean encoding of a bit-string.
+// In the bmv2 JSON format. The hexstring can be prefixed by "-"
+// for negative values.
+// We remove any such prefix and explicitly set the negative flag.
+message HexstrValue {
+  string value = 1;
+  bool negative = 2;
+}
+
+// A boolean literal value.
+message BoolValue {
+  bool value = 1;
+}
+
+// A string literal value.
+message StringValue {
+  string value = 1;
+}
+
+// Our explicit representation of a runtime variable.
+// The bmv2 JSON format represents variables as indices
+// to a runtime_data array in the enclosing scope, which
+// contains the variable name.
+// We directly refer to variables by their name.
+message Variable {
+  string name = 1;
+}
+
+//
+// Below are all things expressions, starting with abstract RExpression and
+// LExpression, and ending with concrete expression type definitions.
+//
+
+// Possible rexpressions.
+enum RExpressionOpEnum {
+  rexpression_op_simple_binary = 0;
+  rexpression_op_simple_unary = 1;
+  rexpression_op_conversion = 2;
+  rexpression_op_ternary = 3;
+  rexpression_op_stack = 4;
+  rexpression_op_access = 5;
+}
+
+// Possible lexpressions.
+enum LExpressionOpEnum {
+  // Only includes (dynamic) access expressions for now.
+  lexpression_op_access = 0;
+}
+
+// An abstract RExpression.
+message RExpression {
+  RExpressionOpEnum op = 1;
+  oneof expression {
+    SimpleBinaryExpression simple_binary_expression = 2;
+    SimpleUnaryExpression simple_unary_expression = 3;
+    ConversionExpression conversion_expression = 4;
+    TernaryExpression ternary_expression = 5;
+    StackExpression stack_expression = 6;
+    AccessExpression access_expression = 7;
+  }
+}
+
+// An abstract LExpression.
+message LExpression {
+  LExpressionOpEnum op = 1;
+  oneof expression {
+    AccessExpression access_expression = 2;
+  }
+}
+
+// TODO(babman): turn op in what follows to enums.
+
+// Arithmetic, relational, and boolean binary operations.
+message SimpleBinaryExpression {
+  // One of: +, -, *, <<, >>, ==, !=, >, >=, <, <=,
+  // "and", "or", "&", "|", "^", "two_comp_mod" (2-complement modulo).
+  string op = 1;
+  RExpression left = 2;
+  RExpression right = 3;
+}
+
+// Arithmetic and boolean unary operations.
+message SimpleUnaryExpression {
+  // One of: "not" (boolean not), ~ (binary not), "valid", "valid_union".
+  string op = 1;
+  RExpression operand = 2;
+}
+
+// Conversions and casts between data types.
+message ConversionExpression {
+  // One of: "d2b" (data-2-bool), "b2d" (bool-to-data)", "sat_cast" (saturating
+  // cast for signed integers), "unsat_cast" (saturating cast for unsigned
+  // integers).
+  string op = 1;
+  RExpression operand = 2;
+}
+
+// Ternary condition on the form <condition> ? <left> : <right>.
+message TernaryExpression {
+  RExpression condition = 1;
+  RExpression left = 2;
+  RExpression right = 3;
+}
+
+// Unary expressions on stacks (size and indicies).
+message StackExpression {
+  // One of "last_stack_index" or "size_stack", which
+  // give the last valid index and the size of a stack.
+  string op = 1;
+  RExpression stack = 2;
+}
+
+// Dynamic access expressions.
+// The access may be dynamic in the index. For example, when the index is an
+// arithmetic expression.
+// The access may also be dynamic in the accessor, i.e. the header
+// or stack being accessed is determined at runtime by a dynamic expression.
+message AccessExpression {
+  // Type of access.
+  // One of:
+  //   "dereference_header_stack": access a header_stack at an index.
+  //   "access_field": access a dynamically specified header at an offset.
+  //   "dereference_union_stack": access a header_union_stack at an index.
+  //   "access_union_header": access a dynamically specified a header_union at
+  //                          an offset.
+  // https://github.com/p4lang/behavioral-model/blob/master/docs/JSON_format.md#the-type-value-object
+  string op = 1;
+  RExpression accessor = 2;
+  RExpression index = 3;
 }
