@@ -107,7 +107,7 @@ message Statement {
   p4_symbolic.bmv2.SourceLocation source_info = 1;
   // Various statement concrete types.
   oneof statement {
-    AssignmentStatement assignment_statement = 2;
+    AssignmentStatement assignment = 2;
   }
 }
 
@@ -187,25 +187,25 @@ message RExpression {
 message BinaryExpression {
   // Supported basic binary expressions.
   enum Operation {
-    plus = 0;
-    minus = 1;
-    times = 3;
-    left_shift = 4;   // <<
-    right_shift = 5;  // >>
-    equals = 6;       // ==
-    not_equals = 7;
-    greater = 8;
-    greater_equals = 9;
-    less = 10;
-    less_equals = 11;
-    and = 12;
-    or = 13;
-    bit_and = 14;  // &
-    bit_or = 15;
-    bit_xor = 16;
+    PLUS = 0;
+    MINUS = 1;
+    TIMES = 3;
+    LEFT_SHIT = 4;   // <<
+    RIGHT_SHIFT = 5;  // >>
+    EQUALS = 6;       // ==
+    NOT_EQUALS = 7;
+    GREATER = 8;
+    GREATER_EQUALS = 9;
+    LESS = 10;
+    LESS_EQUALS = 11;
+    AND = 12;
+    OR = 13;
+    BIT_AND = 14;  // &
+    BIT_OR = 15;
+    BIT_XOR = 16;
   }
 
-  Operation op = 1;
+  Operation operation = 1;
   RExpression left = 2;
   RExpression right = 3;
 }
@@ -214,11 +214,11 @@ message BinaryExpression {
 message UnaryExpression {
   // Supported basic unary expressions.
   enum Operation {
-    not = 0;      // boolean not.
-    bit_neg = 1;  // ~ (bitwise negation).
+    NOT = 0;      // boolean not.
+    BIT_NEGATION = 1;  // ~ (bitwise negation).
   }
 
-  Operation op = 1;
+  Operation operation = 1;
   RExpression operand = 2;
 }
 
