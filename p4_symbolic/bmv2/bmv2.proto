@@ -25,6 +25,36 @@ package p4_symbolic.bmv2;
 
 import "google/protobuf/struct.proto";
 
+// Acceptable values for match type of keys of a table.
+enum TableMatchTypeEnum {
+  // Casing must match the bmv2 json!
+  exact = 0;
+  lpm = 1;
+  ternary = 2;
+  range = 3;
+}
+
+// The type (of the match) of a parser transition.
+enum ParserTransitionTypeEnum {
+  // The default transition (no matching).
+  default = 0;
+  // Transition is applied when hex strings match.
+  // The match hex string and the matched field are defined
+  // in ParserTransition.
+  hexstr = 1;
+  // Matching via a named parse value set.
+  // The name of the value set is defined in ParserTransition.
+  parse_vset = 2;
+}
+
+// The type of a table.
+// Determines where actions are defined and how they get selected.
+enum TableTypeEnum {
+  simple = 0;       // A Simple key and action table.
+  indirect = 1;     // Action profiles table.
+  indirect_ws = 2;  // Action profiles with dynamic selector.
+}
+
 // Specifies the overal structure of a p4 program json
 // file outputed by p4c with a bmv2 target.
 // Several fields may not be present in this specification
@@ -111,9 +141,10 @@ message ParserState {
 message ParserTransition {
   // The value of the condition/match dictating whether
   // this transition is applied or not.
+  // A hexstring or a parser value set depending on the type.
   string value = 1;
   // The type of the value above, usually a hex string.
-  string type = 2;  // TODO(babman): turn into Enum
+  ParserTransitionTypeEnum type = 2;
   // Any mask applied by the transition, if no mask is applied,
   // protobuf will parse this as "".
   string mask = 3;
@@ -170,11 +201,10 @@ message Table {
   // There is always a most general match because of P4 restrications
   // on match combination (which may be under-documented).
   // See https://github.com/p4lang/p4-spec/issues/411
-  string match_type = 5;  // TODO(babman): make into an enum
+  TableMatchTypeEnum match_type = 5;
   // This seems to be the "type of the table",
   // in all sample programs it is value is "simple".
-  // TODO(babman): investigate what simple means and what other options exist.
-  string type = 6;
+  TableTypeEnum type = 6;
   // The maximum size of the table (in number of entries).
   int32 max_size = 7;
   // Actions and action_ids are index matching arrays
@@ -191,7 +221,8 @@ message TableKey {
   // The kind of match applied by this key when the table
   // is applied to a packet.
   // This can be 'exact', 'lpm', 'ternary'.
-  string match_type = 1;  // TODO(babman): make into an enum (same as in Table).
+  // TODO(babman): this might also be "valid".
+  TableMatchTypeEnum match_type = 1;
   // This is essentially a string representation of the target.
   // e.g. standard_metadata.ingress_port.
   string name = 2;
