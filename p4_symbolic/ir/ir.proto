@@ -24,6 +24,8 @@
 // checksum calculations, and extern definitions.
 // Additionally, some types of expressions and statements are unsupported, these
 // are described in the relevant sections of this file.
+// See the bmv2 JSON format reference for more information:
+// https://github.com/p4lang/behavioral-model/blob/master/docs/JSON_format.md
 
 syntax = "proto3";
 
@@ -42,7 +44,7 @@ message P4Program {
   map<string, Table> tables = 3;
   // The name of the initial table.
   string initial_table = 6;
-  // TODO(babman): Parsers, De-parsers, and pipelines are ignored for now.
+  // Parsers, De-parsers, and pipelines are ignored for now.
   // map<string, p4_symbolic.bmv2.Parser> parsers = 7;
   // map<string, p4_symbolic.bmv2.Deparser> deparsers = 8;
   // map<string, p4_symbolic.bmv2.Pipeline> pipelines = 9;
@@ -99,9 +101,9 @@ message TableImplementation {
   p4_symbolic.bmv2.TableMatchTypeEnum match_type = 5;
   // Table type with respect to action selection.
   p4_symbolic.bmv2.TableTypeEnum type = 6;
-  // TODO(babman): later support "default entry", and "next_tables".
-  // TODO(babman): support "action_profile" for table with an "indirect"
-  //               or "indirect_ws" type.
+  // Later support "default entry", and "next_tables".
+  // later support "action_profile" for table with an "indirect"
+  // or "indirect_ws" type.
 }
 
 // Valid op for statements within an action.
@@ -109,9 +111,6 @@ message TableImplementation {
 // level statements. They cannot be used as sub-expressions.
 enum StatementOpEnum {
   statement_op_assign = 0;
-  // TODO(babman): This is a comprehensive list of all operations, most
-  //               are not supported by our implementation.
-
   // Assignment to a variable length field.
   // statement_op_assign_VL = 1;
 
@@ -154,7 +153,6 @@ message Statement {
 
 // An assignment statement of the form <left> = <right>.
 // Note that left can be an rvalue expression.
-// https://github.com/p4lang/behavioral-model/blob/master/docs/JSON_format.md
 message AssignmentStatement {
   LValue left = 1;
   RValue right = 2;
@@ -196,13 +194,10 @@ message LValue {
   oneof lvalue {
     FieldValue field_value = 2;
     Variable variable = 3;
-    LExpression expression = 4;
+    // Unsupported
+    // LExpression expression = 4;
   }
 }
-
-//
-// Below are concrete definitions of each conrete type of values.
-//
 
 // A header field accessed statically.
 // Field access that is dynamic (either in the index/offset or in the header
@@ -240,72 +235,72 @@ message Variable {
   string name = 1;
 }
 
-//
-// Below are all things expressions, starting with abstract RExpression and
-// LExpression, and ending with concrete expression type definitions.
-//
-
 // Possible rexpressions.
 enum RExpressionOpEnum {
   rexpression_op_simple_binary = 0;
   rexpression_op_simple_unary = 1;
-  rexpression_op_conversion = 2;
-  rexpression_op_ternary = 3;
-  rexpression_op_stack = 4;
-  rexpression_op_access = 5;
-}
-
-// Possible lexpressions.
-enum LExpressionOpEnum {
-  // Only includes (dynamic) access expressions for now.
-  lexpression_op_access = 0;
+  rexpression_op_ternary = 2;
+  // Unsupported
+  // rexpression_op_conversion = 3;
+  // rexpression_op_stack = 4;
+  // rexpression_op_access = 5;
 }
 
 // An abstract RExpression.
 message RExpression {
   RExpressionOpEnum op = 1;
   oneof expression {
-    SimpleBinaryExpression simple_binary_expression = 2;
-    SimpleUnaryExpression simple_unary_expression = 3;
-    ConversionExpression conversion_expression = 4;
-    TernaryExpression ternary_expression = 5;
-    StackExpression stack_expression = 6;
-    AccessExpression access_expression = 7;
+    BinaryExpression simple_binary_expression = 2;
+    UnaryExpression simple_unary_expression = 3;
+    TernaryExpression ternary_expression = 4;
+    // Unsupported
+    // ConversionExpression conversion_expression = 5;
+    // StackExpression stack_expression = 6;
+    // AccessExpression access_expression = 7;
   }
 }
 
-// An abstract LExpression.
-message LExpression {
-  LExpressionOpEnum op = 1;
-  oneof expression {
-    AccessExpression access_expression = 2;
-  }
+// Supported basic binary expressions.
+enum BinaryExpressionOpEnum {
+  plus = 0;
+  minus = 1;
+  times = 3;
+  left_shift = 4;   // <<
+  right_shift = 5;  // >>
+  equals = 6;       // ==
+  not_equals = 7;
+  greater = 8;
+  greater_equals = 9;
+  less = 10;
+  less_equals = 11;
+  and = 12;
+  or = 13;
+  bit_and = 14;  // &
+  bit_or = 15;
+  bit_xor = 16;
+  // Unsupported
+  // two_comp_mod = 17; // 2's complement modulo.
 }
-
-// TODO(babman): turn op in what follows to enums.
 
 // Arithmetic, relational, and boolean binary operations.
-message SimpleBinaryExpression {
-  // One of: +, -, *, <<, >>, ==, !=, >, >=, <, <=,
-  // "and", "or", "&", "|", "^", "two_comp_mod" (2-complement modulo).
-  string op = 1;
+message BinaryExpression {
+  BinaryExpressionOpEnum op = 1;
   RExpression left = 2;
   RExpression right = 3;
 }
 
-// Arithmetic and boolean unary operations.
-message SimpleUnaryExpression {
-  // One of: "not" (boolean not), ~ (binary not), "valid", "valid_union".
-  string op = 1;
-  RExpression operand = 2;
+// Supported basic unary expressions.
+enum UnaryExpressionOpEnum {
+  not = 0;      // boolean not.
+  bit_neg = 1;  // ~ (bitwise negation).
+  // Unsupported
+  // valid = 2;
+  // valid_union = 3;
 }
 
-// Conversions and casts between data types.
-message ConversionExpression {
-  // One of: "d2b" (data-2-bool), "b2d" (bool-to-data)", "sat_cast" (saturating
-  // cast for signed integers), "unsat_cast" (saturating cast for unsigned
-  // integers).
-  string op = 1;
+// Arithmetic and boolean unary operations.
+message UnaryExpression {
+  UnaryExpressionOpEnum op = 1;
   RExpression operand = 2;
 }
 
@@ -316,29 +311,52 @@ message TernaryExpression {
   RExpression right = 3;
 }
 
-// Unary expressions on stacks (size and indicies).
-message StackExpression {
-  // One of "last_stack_index" or "size_stack", which
-  // give the last valid index and the size of a stack.
-  string op = 1;
-  RExpression stack = 2;
-}
+// Unsupported
+//// Possible lexpressions.
+// enum LExpressionOpEnum {
+//  // Only includes (dynamic) access expressions for now.
+//  lexpression_op_access = 0;
+//}
 
-// Dynamic access expressions.
-// The access may be dynamic in the index. For example, when the index is an
-// arithmetic expression.
-// The access may also be dynamic in the accessor, i.e. the header
-// or stack being accessed is determined at runtime by a dynamic expression.
-message AccessExpression {
-  // Type of access.
-  // One of:
-  //   "dereference_header_stack": access a header_stack at an index.
-  //   "access_field": access a dynamically specified header at an offset.
-  //   "dereference_union_stack": access a header_union_stack at an index.
-  //   "access_union_header": access a dynamically specified a header_union at
-  //                          an offset.
-  // https://github.com/p4lang/behavioral-model/blob/master/docs/JSON_format.md#the-type-value-object
-  string op = 1;
-  RExpression accessor = 2;
-  RExpression index = 3;
-}
+//// An abstract LExpression.
+// message LExpression {
+//  LExpressionOpEnum op = 1;
+//  oneof expression {
+//    AccessExpression access_expression = 2;
+//  }
+//}
+
+//// Conversions and casts between data types.
+// message ConversionExpression {
+//  // One of: "d2b" (data-2-bool), "b2d" (bool-to-data)", "sat_cast"
+//  // (saturating cast for signed integers), "unsat_cast" (saturating
+//  // cast for unsigned integers).
+//  string op = 1;
+//  RExpression operand = 2;
+//}
+
+//// Unary expressions on stacks (size and indicies).
+// message StackExpression {
+//  // One of "last_stack_index" or "size_stack", which
+//  // give the last valid index and the size of a stack.
+//  string op = 1;
+//  RExpression stack = 2;
+//}
+
+//// Dynamic access expressions.
+//// The access may be dynamic in the index. For example, when the index is an
+//// arithmetic expression.
+//// The access may also be dynamic in the accessor, i.e. the header
+//// or stack being accessed is determined at runtime by a dynamic expression.
+// message AccessExpression {
+//  // Type of access.
+//  // One of:
+//  //   "dereference_header_stack": access a header_stack at an index.
+//  //   "access_field": access a dynamically specified header at an offset.
+//  //   "dereference_union_stack": access a header_union_stack at an index.
+//  //   "access_union_header": access a dynamically specified a header_union at
+//  //                          an offset.
+//  string op = 1;
+//  RExpression accessor = 2;
+//  RExpression index = 3;
+//}
