@@ -112,45 +112,10 @@ message TableImplementation {
 // An abstract p4 statement corresponding to a top level operation within
 // an action body.
 message Statement {
-  // Valid op for statements within an action.
-  // These are used within the body (primitives) of an action, as top
-  // level statements. They cannot be used as sub-expressions.
-  enum Operation {
-    assign = 0;
-    // Assignment to a variable length field.
-    // assign_VL = 1;
-
-    // Assignment to a header field.
-    // assign_headers = 2;
-
-    // Assignment to a union, header stack, or a union stack respectively.
-    // assign_union = 3;
-    // assign_header_stack = 4;
-    // assign_union_stack = 5;
-
-    // Header stack manipulation.
-    // push = 6;
-    // pop = 7;
-
-    // Jumps to an offset within the enclosing action.
-    // jump = 8;
-    // jump_if_zero = 9;
-
-    // These might be a useful way to communicate things from the user
-    // into our tool and the resulting SMT program.
-    // See https://github.com/p4lang/p4c/issues/1548
-    // assume = 10;  // Can be assumed as correct.
-    // assert = 11;  // Must be verified as correct.
-
-    // Logging user-defined messages (to the console).
-    // log_msg = 12;
-  }
-
-  Operation op = 1;
-  p4_symbolic.bmv2.SourceLocation source_info = 2;
+  p4_symbolic.bmv2.SourceLocation source_info = 1;
   // Various statement concrete types.
   oneof statement {
-    AssignmentStatement assignment_statement = 3;
+    AssignmentStatement assignment_statement = 2;
   }
 }
 
@@ -163,17 +128,6 @@ message AssignmentStatement {
 
 // The structure of an abstract RValue.
 message RValue {
-  // The valid operations making up an RValue.
-  enum Operation {
-    field = 0;
-    hexstr = 1;
-    bool_ = 2;
-    string_ = 3;
-    variable = 4;
-    expression = 5;
-  }
-
-  Operation op = 1;
   oneof rvalue {
     FieldValue field_value = 2;
     HexstrValue hexstr_value = 3;
@@ -186,19 +140,11 @@ message RValue {
 
 // The structure of an abstract LValue.
 message LValue {
-  // The valid operations making up an LValue.
-  enum Operation {
-    field = 0;
-    variable = 1;
-    expression = 2;
-  }
-
-  Operation op = 1;
   oneof lvalue {
-    FieldValue field_value = 2;
-    Variable variable_value = 3;
+    FieldValue field_value = 1;
+    Variable variable_value = 2;
     // Unsupported
-    // LExpression expression = 4;
+    // LExpression expression = 3;
   }
 }
 
@@ -240,26 +186,14 @@ message Variable {
 
 // An abstract RExpression.
 message RExpression {
-  // Possible rexpressions.
-  enum Operation {
-    simple_binary = 0;
-    simple_unary = 1;
-    ternary = 2;
-    // Unsupported
-    // conversion = 3;
-    // stack = 4;
-    // access = 5;
-  }
-
-  Operation op = 1;
   oneof expression {
-    BinaryExpression simple_binary_expression = 2;
-    UnaryExpression simple_unary_expression = 3;
-    TernaryExpression ternary_expression = 4;
+    BinaryExpression simple_binary_expression = 1;
+    UnaryExpression simple_unary_expression = 2;
+    TernaryExpression ternary_expression = 3;
     // Unsupported
-    // ConversionExpression conversion_expression = 5;
-    // StackExpression stack_expression = 6;
-    // AccessExpression access_expression = 7;
+    // ConversionExpression conversion_expression = 4;
+    // StackExpression stack_expression = 5;
+    // AccessExpression access_expression = 6;
   }
 }
 
@@ -317,15 +251,8 @@ message TernaryExpression {
 // Unsupported
 //// An abstract LExpression.
 // message LExpression {
-//  // Possible lexpressions.
-//  enum Operation {
-//    // Only includes (dynamic) access expressions for now.
-//    access = 0;
-//  }
-
-//  Operation op = 1;
 //  oneof expression {
-//    AccessExpression access_expression = 2;
+//    AccessExpression access_expression = 1;
 //  }
 //}
 
