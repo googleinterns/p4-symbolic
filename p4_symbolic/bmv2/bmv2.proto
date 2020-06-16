@@ -49,7 +49,6 @@ enum ParserTransitionTypeEnum {
 
 // The type of a table.
 // Determines where actions are defined and how they get selected.
-// This is always "simple" in all our sample programs.
 enum TableTypeEnum {
   simple = 0;       // A Simple key and action table.
   indirect = 1;     // Action profiles table.
