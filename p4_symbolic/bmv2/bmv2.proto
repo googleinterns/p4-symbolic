@@ -130,11 +130,8 @@ message ParserState {
   string name = 1;
   // A numeric id assigned to the state (usually its index).
   int32 id = 2;
-  // TODO(babman): parser_ops: an array of operations
   // All the possible transitions from this state to different states.
   repeated ParserTransition transitions = 4;
-  // TODO(babman): add "transition_key" representing what value
-  // is matched to determine the next transition.
 }
 
 // Defines a transition between two parser states.
@@ -160,7 +157,6 @@ message Deparser {
   int32 id = 2;
   // Information on the source code location of the deparser definition.
   SourceLocation source_info = 3;
-  // TODO(babman): order array
 }
 
 // A pipeline is a sequence of actions and table applications
@@ -179,8 +175,6 @@ message Pipeline {
   string init_table = 4;
   // All the tables and their actions that are part of this pipeline.
   repeated Table tables = 5;
-  // TODO(babman): action_profiles
-  // TODO(babman): conditionals
 }
 
 // A control plane table definition including its keys and actions.
@@ -211,8 +205,6 @@ message Table {
   // that contain the name and the id of each action.
   repeated int32 action_ids = 8;
   repeated string actions = 9;
-  // TODO(babman): next_tables
-  // TODO(babman): default_entry
 }
 
 // A table key represents an input-matching column
@@ -220,8 +212,6 @@ message Table {
 message TableKey {
   // The kind of match applied by this key when the table
   // is applied to a packet.
-  // This can be 'exact', 'lpm', 'ternary'.
-  // TODO(babman): this might also be "valid".
   TableMatchTypeEnum match_type = 1;
   // This is essentially a string representation of the target.
   // e.g. standard_metadata.ingress_port.

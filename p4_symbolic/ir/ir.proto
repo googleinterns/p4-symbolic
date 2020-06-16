@@ -44,11 +44,6 @@ message P4Program {
   map<string, Table> tables = 3;
   // The name of the initial table.
   string initial_table = 6;
-  // Parsers, De-parsers, and pipelines are ignored for now.
-  // map<string, p4_symbolic.bmv2.Parser> parsers = 7;
-  // map<string, p4_symbolic.bmv2.Deparser> deparsers = 8;
-  // map<string, p4_symbolic.bmv2.Pipeline> pipelines = 9;
-  // string initial_pipeline = 10;
 }
 
 // A header definition. Includes the programmer assigned name,
@@ -66,7 +61,7 @@ message HeaderType {
 message HeaderField {
   string name = 1;
   int32 bitwidth = 2;
-  bool sign = 3;
+  bool signed = 3;
   string header_type = 4;
 }
 
@@ -104,9 +99,6 @@ message TableImplementation {
   p4_symbolic.bmv2.TableMatchTypeEnum match_type = 5;
   // Table type with respect to action selection.
   p4_symbolic.bmv2.TableTypeEnum type = 6;
-  // Later support "default entry", and "next_tables".
-  // later support "action_profile" for table with an "indirect"
-  // or "indirect_ws" type.
 }
 
 // An abstract p4 statement corresponding to a top level operation within
@@ -143,8 +135,6 @@ message LValue {
   oneof lvalue {
     FieldValue field_value = 1;
     Variable variable_value = 2;
-    // Unsupported
-    // LExpression expression = 3;
   }
 }
 
@@ -190,10 +180,6 @@ message RExpression {
     BinaryExpression simple_binary_expression = 1;
     UnaryExpression simple_unary_expression = 2;
     TernaryExpression ternary_expression = 3;
-    // Unsupported
-    // ConversionExpression conversion_expression = 4;
-    // StackExpression stack_expression = 5;
-    // AccessExpression access_expression = 6;
   }
 }
 
@@ -217,8 +203,6 @@ message BinaryExpression {
     bit_and = 14;  // &
     bit_or = 15;
     bit_xor = 16;
-    // Unsupported
-    // two_comp_mod = 17; // 2's complement modulo.
   }
 
   Operation op = 1;
@@ -232,9 +216,6 @@ message UnaryExpression {
   enum Operation {
     not = 0;      // boolean not.
     bit_neg = 1;  // ~ (bitwise negation).
-    // Unsupported
-    // valid = 2;
-    // valid_union = 3;
   }
 
   Operation op = 1;
@@ -247,46 +228,3 @@ message TernaryExpression {
   RExpression left = 2;
   RExpression right = 3;
 }
-
-// Unsupported
-//// An abstract LExpression.
-// message LExpression {
-//  oneof expression {
-//    AccessExpression access_expression = 1;
-//  }
-//}
-
-//// Conversions and casts between data types.
-// message ConversionExpression {
-//  // One of: "d2b" (data-2-bool), "b2d" (bool-to-data)", "sat_cast"
-//  // (saturating cast for signed integers), "unsat_cast" (saturating
-//  // cast for unsigned integers).
-//  string op = 1;
-//  RExpression operand = 2;
-//}
-
-//// Unary expressions on stacks (size and indicies).
-// message StackExpression {
-//  // One of "last_stack_index" or "size_stack", which
-//  // give the last valid index and the size of a stack.
-//  string op = 1;
-//  RExpression stack = 2;
-//}
-
-//// Dynamic access expressions.
-//// The access may be dynamic in the index. For example, when the index is an
-//// arithmetic expression.
-//// The access may also be dynamic in the accessor, i.e. the header
-//// or stack being accessed is determined at runtime by a dynamic expression.
-// message AccessExpression {
-//  // Type of access.
-//  // One of:
-//  //   "dereference_header_stack": access a header_stack at an index.
-//  //   "access_field": access a dynamically specified header at an offset.
-//  //   "dereference_union_stack": access a header_union_stack at an index.
-//  //   "access_union_header": access a dynamically specified a header_union at
-//  //                          an offset.
-//  string op = 1;
-//  RExpression accessor = 2;
-//  RExpression index = 3;
-//}
