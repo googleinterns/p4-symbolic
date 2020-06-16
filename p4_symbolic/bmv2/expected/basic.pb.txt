@@ -389,18 +389,16 @@ parsers {
     name: "start"
     transitions {
       value: "0x0800"
-      type: "hexstr"
+      type: hexstr
       next_state: "parse_ipv4"
     }
     transitions {
-      type: "default"
     }
   }
   parse_states {
     name: "parse_ipv4"
     id: 1
     transitions {
-      type: "default"
     }
   }
 }
@@ -969,13 +967,12 @@ pipelines {
       source_fragment: "ipv4_lpm"
     }
     key {
-      match_type: "lpm"
+      match_type: lpm
       name: "hdr.ipv4.dstAddr"
       target: "ipv4"
       target: "dstAddr"
     }
-    match_type: "lpm"
-    type: "simple"
+    match_type: lpm
     max_size: 1024
     action_ids: 2
     action_ids: 1
