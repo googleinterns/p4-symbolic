@@ -1,0 +1,220 @@
+// Copyright 2020 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+// This file defines the overall structure of a P4 program in our IR, as well
+// as the supported statements and expressions.
+// The structure is tailored to be easy to consume rather than produce.
+// It deviates from the underlying bmv2 JSON format, which is mimiced closely
+// by p4_symbolic/bmv2/bmv2.proto.
+// The bmv2 proto is used to initially parse the JSON format, which is then
+// processed by our tool and transformed into the IR.
+// The IR does not cover all the features of P4 programs.
+// Specifically, we intentionally ignore parsers, de-parsers, stacks and unions,
+// checksum calculations, and extern definitions.
+// Additionally, some types of expressions and statements are unsupported, these
+// are described in the relevant sections of this file.
+// See the bmv2 JSON format reference for more information:
+// https://github.com/p4lang/behavioral-model/blob/master/docs/JSON_format.md
+
+syntax = "proto3";
+
+package p4_symbolic.ir;
+
+import "p4_pdpi/ir.proto";
+import "p4_symbolic/bmv2/bmv2.proto";
+
+// Overall structure of a p4 program.
+message P4Program {
+  // Header definitions, keyed by the header type name (e.g. standard_metadata).
+  map<string, HeaderType> headers = 1;
+  // Action definitions and implementations, keyed by action name.
+  map<string, Action> actions = 2;
+  // Table definitions and implementations, keyed by table name.
+  map<string, Table> tables = 3;
+  // The name of the initial table.
+  string initial_table = 6;
+}
+
+// A header type definition.
+message HeaderType {
+  string name = 1;
+  int32 id = 2;
+  // Maps a field name to its definition.
+  map<string, HeaderField> fields = 3;
+}
+
+// A P4 header type definition.
+message HeaderField {
+  string name = 1;
+  int32 bitwidth = 2;
+  bool signed = 3;
+  string header_type = 4;  // The name of the enclosing header type.
+}
+
+// Overall action structure, combining definition with implementation.
+message Action {
+  pdpi.ir.IrActionDefinition action_definition = 1;
+  ActionImplementation action_implementation = 2;
+}
+
+// Action implementation details.
+message ActionImplementation {
+  // List of statements in action body in sequence.
+  repeated Statement action_body = 1;
+}
+
+// Overall table structure, combining definition with implementation.
+message Table {
+  // This contains the name, id, action list, field matches, and max size.
+  pdpi.ir.IrTableDefinition table_definition = 1;
+  // This contains table implementation details.
+  TableImplementation table_implementation = 2;
+}
+
+// Table implementation details that are not exposed in the definition.
+message TableImplementation {
+  // The overal type of the match(s) of the table.
+  // In case the table have several keys with different match type,
+  // the overall match type of the table would be the most general.
+  // There is always a most general match because of P4 restrications
+  // on match combination (which may be under-documented).
+  // See https://github.com/p4lang/p4-spec/issues/411
+  p4_symbolic.bmv2.TableMatchType match_type = 5;
+  // Table type with respect to action selection.
+  p4_symbolic.bmv2.ActionSelectorType type = 6;
+}
+
+// An abstract p4 statement corresponding to a top level operation within
+// an action body.
+message Statement {
+  p4_symbolic.bmv2.SourceLocation source_info = 1;
+  // Various statement concrete types.
+  oneof statement {
+    AssignmentStatement assignment = 2;
+  }
+}
+
+// An assignment statement of the form <left> = <right>.
+// Note that left can be an rvalue expression.
+message AssignmentStatement {
+  LValue left = 1;
+  RValue right = 2;
+}
+
+// The structure of an abstract RValue.
+message RValue {
+  oneof rvalue {
+    FieldValue field_value = 2;
+    HexstrValue hexstr_value = 3;
+    BoolValue bool_value = 4;
+    StringValue string_value = 5;
+    Variable variable_value = 6;
+    RExpression expression_value = 7;
+  }
+}
+
+// The structure of an abstract LValue.
+message LValue {
+  oneof lvalue {
+    FieldValue field_value = 1;
+    Variable variable_value = 2;
+  }
+}
+
+// A header field accessed statically.
+// Field access that is dynamic (either in the index/offset or in the header
+// object) is defined under AccessExpression below.
+message FieldValue {
+  string header_name = 1;
+  string field_name = 2;
+}
+
+// Corresponds to a hex bigendiean encoding of a bit-string.
+// In the bmv2 JSON format. The hexstring can be prefixed by "-"
+// for negative values.
+// We remove any such prefix and explicitly set the negative flag.
+message HexstrValue {
+  string value = 1;
+  bool negative = 2;
+}
+
+// A boolean literal value.
+message BoolValue {
+  bool value = 1;
+}
+
+// A string literal value.
+message StringValue {
+  string value = 1;
+}
+
+// A variable used within an LValue or RValue.
+message Variable {
+  string name = 1;
+}
+
+// An abstract RExpression.
+message RExpression {
+  oneof expression {
+    BinaryExpression simple_binary_expression = 1;
+    UnaryExpression simple_unary_expression = 2;
+    TernaryExpression ternary_expression = 3;
+  }
+}
+
+// Arithmetic, relational, and boolean binary operations.
+message BinaryExpression {
+  // Supported basic binary expressions.
+  enum Operation {
+    PLUS = 0;
+    MINUS = 1;
+    TIMES = 3;
+    LEFT_SHIT = 4;    // <<
+    RIGHT_SHIFT = 5;  // >>
+    EQUALS = 6;       // ==
+    NOT_EQUALS = 7;
+    GREATER = 8;
+    GREATER_EQUALS = 9;
+    LESS = 10;
+    LESS_EQUALS = 11;
+    AND = 12;
+    OR = 13;
+    BIT_AND = 14;  // &
+    BIT_OR = 15;
+    BIT_XOR = 16;
+  }
+
+  Operation operation = 1;
+  RExpression left = 2;
+  RExpression right = 3;
+}
+
+// Arithmetic and boolean unary operations.
+message UnaryExpression {
+  // Supported basic unary expressions.
+  enum Operation {
+    NOT = 0;           // boolean not.
+    BIT_NEGATION = 1;  // ~ (bitwise negation).
+  }
+
+  Operation operation = 1;
+  RExpression operand = 2;
+}
+
+// Ternary condition on the form <condition> ? <left> : <right>.
+message TernaryExpression {
+  RExpression condition = 1;
+  RExpression left = 2;
+  RExpression right = 3;
+}

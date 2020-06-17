@@ -26,7 +26,7 @@ package p4_symbolic.bmv2;
 import "google/protobuf/struct.proto";
 
 // Acceptable values for match type of keys of a table.
-enum TableMatchTypeEnum {
+enum TableMatchType {
   // Casing must match the bmv2 json!
   exact = 0;
   lpm = 1;
@@ -35,7 +35,7 @@ enum TableMatchTypeEnum {
 }
 
 // The type (of the match) of a parser transition.
-enum ParserTransitionTypeEnum {
+enum ParserTransitionType {
   // The default transition (no matching).
   default = 0;
   // Transition is applied when hex strings match.
@@ -49,7 +49,7 @@ enum ParserTransitionTypeEnum {
 
 // The type of a table.
 // Determines where actions are defined and how they get selected.
-enum TableTypeEnum {
+enum ActionSelectorType {
   simple = 0;       // A Simple key and action table.
   indirect = 1;     // Action profiles table.
   indirect_ws = 2;  // Action profiles with dynamic selector.
@@ -92,7 +92,7 @@ message HeaderType {
   int32 id = 2;
   // A list of the fields contained in the header type
   // each field is a an array of 3 elements
-  // the field name, its bitwidth, and its validity (always initially false)
+  // the field name, its bitwidth, and whether it is signed (typically false).
   // e.g. ["ingress_port", 9, false]
   // https://p4.org/p4-spec/docs/P4-16-v1.2.0.html#sec-header-types
   repeated google.protobuf.ListValue fields = 3;
@@ -130,11 +130,8 @@ message ParserState {
   string name = 1;
   // A numeric id assigned to the state (usually its index).
   int32 id = 2;
-  // TODO(babman): parser_ops: an array of operations
   // All the possible transitions from this state to different states.
   repeated ParserTransition transitions = 4;
-  // TODO(babman): add "transition_key" representing what value
-  // is matched to determine the next transition.
 }
 
 // Defines a transition between two parser states.
@@ -144,7 +141,7 @@ message ParserTransition {
   // A hexstring or a parser value set depending on the type.
   string value = 1;
   // The type of the value above, usually a hex string.
-  ParserTransitionTypeEnum type = 2;
+  ParserTransitionType type = 2;
   // Any mask applied by the transition, if no mask is applied,
   // protobuf will parse this as "".
   string mask = 3;
@@ -160,7 +157,6 @@ message Deparser {
   int32 id = 2;
   // Information on the source code location of the deparser definition.
   SourceLocation source_info = 3;
-  // TODO(babman): order array
 }
 
 // A pipeline is a sequence of actions and table applications
@@ -179,8 +175,6 @@ message Pipeline {
   string init_table = 4;
   // All the tables and their actions that are part of this pipeline.
   repeated Table tables = 5;
-  // TODO(babman): action_profiles
-  // TODO(babman): conditionals
 }
 
 // A control plane table definition including its keys and actions.
@@ -201,18 +195,16 @@ message Table {
   // There is always a most general match because of P4 restrications
   // on match combination (which may be under-documented).
   // See https://github.com/p4lang/p4-spec/issues/411
-  TableMatchTypeEnum match_type = 5;
+  TableMatchType match_type = 5;
   // This seems to be the "type of the table",
   // in all sample programs it is value is "simple".
-  TableTypeEnum type = 6;
+  ActionSelectorType type = 6;
   // The maximum size of the table (in number of entries).
   int32 max_size = 7;
   // Actions and action_ids are index matching arrays
   // that contain the name and the id of each action.
   repeated int32 action_ids = 8;
   repeated string actions = 9;
-  // TODO(babman): next_tables
-  // TODO(babman): default_entry
 }
 
 // A table key represents an input-matching column
@@ -220,9 +212,7 @@ message Table {
 message TableKey {
   // The kind of match applied by this key when the table
   // is applied to a packet.
-  // This can be 'exact', 'lpm', 'ternary'.
-  // TODO(babman): this might also be "valid".
-  TableMatchTypeEnum match_type = 1;
+  TableMatchType match_type = 1;
   // This is essentially a string representation of the target.
   // e.g. standard_metadata.ingress_port.
   string name = 2;
