@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_proto_library")
+load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library", "cc_proto_library")
 load("@rules_proto//proto:defs.bzl", "proto_library")
 load("//p4_symbolic/bmv2:test.bzl", "bmv2_protobuf_parsing_test")
 
@@ -31,6 +31,23 @@ proto_library(
     visibility = ["//p4_symbolic:__subpackages__"],
     deps = [
         "@com_google_protobuf//:struct_proto",
+    ],
+)
+
+## CC library rules.
+cc_library(
+    name = "bmv2",
+    srcs = [
+        "bmv2.cc",
+    ],
+    hdrs = [
+        "bmv2.h",
+    ],
+    visibility = ["//p4_symbolic:__subpackages__"],
+    deps = [
+        ":bmv2_cc_proto",
+        "//p4_symbolic/util",
+        "@com_google_absl//absl/status",
     ],
 )
 
