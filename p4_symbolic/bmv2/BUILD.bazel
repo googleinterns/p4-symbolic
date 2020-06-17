@@ -12,9 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This file contains build rules for bmv2 json protobuf
-# definition and their test files.
-
 load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_proto_library")
 load("@rules_proto//proto:defs.bzl", "proto_library")
 load("//p4_symbolic/bmv2:test.bzl", "bmv2_protobuf_parsing_test")

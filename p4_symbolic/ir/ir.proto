@@ -90,7 +90,7 @@ message TableImplementation {
   // There is always a most general match because of P4 restrications
   // on match combination (which may be under-documented).
   // See https://github.com/p4lang/p4-spec/issues/411
-  p4_symbolic.bmv2.TableMatchTypeEnum match_type = 5;
+  p4_symbolic.bmv2.TableMatchType match_type = 5;
   // Table type with respect to action selection.
   p4_symbolic.bmv2.ActionSelectorType type = 6;
 }

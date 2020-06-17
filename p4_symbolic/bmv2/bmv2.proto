@@ -26,7 +26,7 @@ package p4_symbolic.bmv2;
 import "google/protobuf/struct.proto";
 
 // Acceptable values for match type of keys of a table.
-enum TableMatchTypeEnum {
+enum TableMatchType {
   // Casing must match the bmv2 json!
   exact = 0;
   lpm = 1;
@@ -35,7 +35,7 @@ enum TableMatchTypeEnum {
 }
 
 // The type (of the match) of a parser transition.
-enum ParserTransitionTypeEnum {
+enum ParserTransitionType {
   // The default transition (no matching).
   default = 0;
   // Transition is applied when hex strings match.
@@ -141,7 +141,7 @@ message ParserTransition {
   // A hexstring or a parser value set depending on the type.
   string value = 1;
   // The type of the value above, usually a hex string.
-  ParserTransitionTypeEnum type = 2;
+  ParserTransitionType type = 2;
   // Any mask applied by the transition, if no mask is applied,
   // protobuf will parse this as "".
   string mask = 3;
@@ -195,7 +195,7 @@ message Table {
   // There is always a most general match because of P4 restrications
   // on match combination (which may be under-documented).
   // See https://github.com/p4lang/p4-spec/issues/411
-  TableMatchTypeEnum match_type = 5;
+  TableMatchType match_type = 5;
   // This seems to be the "type of the table",
   // in all sample programs it is value is "simple".
   ActionSelectorType type = 6;
@@ -212,7 +212,7 @@ message Table {
 message TableKey {
   // The kind of match applied by this key when the table
   // is applied to a packet.
-  TableMatchTypeEnum match_type = 1;
+  TableMatchType match_type = 1;
   // This is essentially a string representation of the target.
   // e.g. standard_metadata.ingress_port.
   string name = 2;
