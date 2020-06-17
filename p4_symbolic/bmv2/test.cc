@@ -25,14 +25,7 @@
 
 #include "google/protobuf/text_format.h"
 #include "google/protobuf/util/json_util.h"
-#include "p4_symbolic/bmv2/bmv2.pb.h"
-
-// Read all of stdin up to EOF.
-std::string ReadStdin() {
-  std::istreambuf_iterator<char> cin_iterator{std::cin};
-  std::istreambuf_iterator<char> end;
-  return std::string(cin_iterator, end);
-}
+#include "p4_symbolic/bmv2/bmv2.h"
 
 // Write a string to a file.
 void WriteFile(char path[], const std::string& content) {
@@ -52,25 +45,26 @@ int main(int argc, char* argv[]) {
   GOOGLE_PROTOBUF_VERIFY_VERSION;
 
   // Validate command line arguments.
-  if (argc != 3) {
-    std::cout << "Usage: ./main <protobuf output file> <json output file>."
+  if (argc != 4) {
+    std::cout << "Usage: ./main <input JSON file> <protobuf output file> <json "
+                 "output file>."
               << std::endl;
     return 0;
   }
 
-  // Read input json from stdin.
-  std::string input = ReadStdin();
-
-  // Parsing JSON with protobuf.
+  // Parse JSON using bmv2.cc.
+  std::string input(argv[1]);
   p4_symbolic::bmv2::P4Program p4_buf;
-  google::protobuf::util::JsonParseOptions parsing_options;
-  parsing_options.ignore_unknown_fields = true;
-  google::protobuf::util::JsonStringToMessage(input, &p4_buf, parsing_options);
+  absl::Status status = p4_symbolic::bmv2::parse_bmv2_json(input, &p4_buf);
+  if (!status.ok()) {
+    std::cerr << "Error reading input file: " << status << std::endl;
+    return 1;
+  }
 
   // Dumping protobuf.
   std::string protobuf_output_str;
   google::protobuf::TextFormat::PrintToString(p4_buf, &protobuf_output_str);
-  WriteFile(argv[1], protobuf_output_str);
+  WriteFile(argv[2], protobuf_output_str);
 
   // Dumping JSON.
   google::protobuf::util::JsonPrintOptions dumping_options;
@@ -81,7 +75,7 @@ int main(int argc, char* argv[]) {
   std::string json_output_str;
   google::protobuf::util::MessageToJsonString(p4_buf, &json_output_str,
                                               dumping_options);
-  WriteFile(argv[2], json_output_str);
+  WriteFile(argv[3], json_output_str);
 
   // Clean up.
   google::protobuf::ShutdownProtobufLibrary();

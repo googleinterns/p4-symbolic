@@ -55,7 +55,10 @@ cc_library(
 cc_binary(
     name = "test",
     srcs = ["test.cc"],
-    deps = [":bmv2_cc_proto"],
+    deps = [
+        ":bmv2",
+        ":bmv2_cc_proto",
+    ],
 )
 
 # Test rules: one per program in //p4-samples
