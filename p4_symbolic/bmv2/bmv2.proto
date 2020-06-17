@@ -49,7 +49,7 @@ enum ParserTransitionTypeEnum {
 
 // The type of a table.
 // Determines where actions are defined and how they get selected.
-enum TableTypeEnum {
+enum ActionSelectorType {
   simple = 0;       // A Simple key and action table.
   indirect = 1;     // Action profiles table.
   indirect_ws = 2;  // Action profiles with dynamic selector.
@@ -198,7 +198,7 @@ message Table {
   TableMatchTypeEnum match_type = 5;
   // This seems to be the "type of the table",
   // in all sample programs it is value is "simple".
-  TableTypeEnum type = 6;
+  ActionSelectorType type = 6;
   // The maximum size of the table (in number of entries).
   int32 max_size = 7;
   // Actions and action_ids are index matching arrays

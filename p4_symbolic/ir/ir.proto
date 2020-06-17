@@ -46,8 +46,7 @@ message P4Program {
   string initial_table = 6;
 }
 
-// A header definition. Includes the programmer assigned name,
-// the header id, and the fields in the heade.
+// A header type definition.
 message HeaderType {
   string name = 1;
   int32 id = 2;
@@ -56,21 +55,16 @@ message HeaderType {
 }
 
 // A P4 header type definition.
-// Includes its name, bitwidth (type), and sign flag, and the
-// enclosing header type name that defines this field.
 message HeaderField {
   string name = 1;
   int32 bitwidth = 2;
   bool signed = 3;
-  string header_type = 4;
+  string header_type = 4;  // The name of the enclosing header type.
 }
 
 // Overall action structure, combining definition with implementation.
 message Action {
-  // This contains the name, id, and parameters, among other things.
-  // Essentially, this is the action signature.
   pdpi.ir.IrActionDefinition action_definition = 1;
-  // Action implementation, essentially its body.
   ActionImplementation action_implementation = 2;
 }
 
@@ -98,7 +92,7 @@ message TableImplementation {
   // See https://github.com/p4lang/p4-spec/issues/411
   p4_symbolic.bmv2.TableMatchTypeEnum match_type = 5;
   // Table type with respect to action selection.
-  p4_symbolic.bmv2.TableTypeEnum type = 6;
+  p4_symbolic.bmv2.ActionSelectorType type = 6;
 }
 
 // An abstract p4 statement corresponding to a top level operation within
@@ -165,11 +159,7 @@ message StringValue {
   string value = 1;
 }
 
-// Our explicit representation of a runtime variable.
-// The bmv2 JSON format represents variables as indices
-// to a runtime_data array in the enclosing scope, which
-// contains the variable name.
-// We directly refer to variables by their name.
+// A variable used within an LValue or RValue.
 message Variable {
   string name = 1;
 }
