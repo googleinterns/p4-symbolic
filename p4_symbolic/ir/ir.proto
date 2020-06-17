@@ -190,7 +190,7 @@ message BinaryExpression {
     PLUS = 0;
     MINUS = 1;
     TIMES = 3;
-    LEFT_SHIT = 4;   // <<
+    LEFT_SHIT = 4;    // <<
     RIGHT_SHIFT = 5;  // >>
     EQUALS = 6;       // ==
     NOT_EQUALS = 7;
@@ -214,7 +214,7 @@ message BinaryExpression {
 message UnaryExpression {
   // Supported basic unary expressions.
   enum Operation {
-    NOT = 0;      // boolean not.
+    NOT = 0;           // boolean not.
     BIT_NEGATION = 1;  // ~ (bitwise negation).
   }
 
