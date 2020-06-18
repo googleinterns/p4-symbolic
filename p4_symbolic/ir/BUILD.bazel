@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("@rules_cc//cc:defs.bzl", "cc_proto_library")
+load("@rules_cc//cc:defs.bzl", "cc_library", "cc_proto_library")
 load("@rules_proto//proto:defs.bzl", "proto_library")
 
 cc_proto_library(
@@ -27,5 +27,21 @@ proto_library(
     deps = [
         "//p4_symbolic/bmv2:bmv2_proto",
         "@p4_pdpi//p4_pdpi:ir_proto",
+    ],
+)
+
+cc_library(
+    name = "pdpi_driver",
+    srcs = [
+        "pdpi_driver.cc",
+    ],
+    hdrs = [
+        "pdpi_driver.h",
+    ],
+    visibility = ["//p4_symbolic:__subpackages__"],
+    deps = [
+        "@com_google_absl//absl/status",
+        "@p4_pdpi//p4_pdpi:pdpi",
+        "@p4_pdpi//p4_pdpi/utils:status_utils",
     ],
 )
