@@ -13,8 +13,9 @@
 // limitations under the License.
 
 // This is a test file for our protobuf specifications of bmv2 json.
-// It reads an input bmv2 json string (usually the output of p4c) via stdin,
-// it parses the string using protobuf, and then dumps the parsed protobuf
+// It reads an input bmv2 json file (usually the output of p4c) specified
+// as a command line argument.
+// It parses that file using protobuf, and then dumps the parsed protobuf
 // objects using protobuf text format and json.
 // The dumps are written to output files whose paths are provided as command
 // line arguments.
@@ -63,10 +64,7 @@ int main(int argc, char* argv[]) {
   }
 
   // Dumping protobuf.
-  std::string protobuf_output_str;
-  google::protobuf::TextFormat::PrintToString(bmv2_or_status.value(),
-                                              &protobuf_output_str);
-  WriteFile(argv[2], protobuf_output_str);
+  WriteFile(argv[2], bmv2_or_status.value().DebugString());
 
   // Dumping JSON.
   google::protobuf::util::JsonPrintOptions dumping_options;
