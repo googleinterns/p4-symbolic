@@ -24,13 +24,13 @@
 
 #include <string>
 
-#include "absl/status/status.h"
+#include "p4_pdpi/utils/status_utils.h"
 
 namespace p4_symbolic {
 namespace util {
 
 // Read the entire content of the file and store it in "output".
-absl::Status ReadFile(std::string path, std::string *output);
+pdpi::StatusOr<std::string> ReadFile(std::string path);
 
 }  // namespace util
 }  // namespace p4_symbolic

@@ -26,7 +26,7 @@ namespace util {
 
 namespace pb_err = google::protobuf::util::error;
 
-absl::Status protobuf_to_absl_status(
+absl::Status ProtobufToAbslStatus(
     const google::protobuf::util::Status& status) {
   absl::StatusCode out_code;
 

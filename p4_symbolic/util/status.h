@@ -29,8 +29,7 @@ namespace p4_symbolic {
 namespace util {
 
 // Transform protobuf status into semantically equivalent absl status.
-absl::Status protobuf_to_absl_status(
-    const google::protobuf::util::Status& status);
+absl::Status ProtobufToAbslStatus(const google::protobuf::util::Status& status);
 
 }  // namespace util
 }  // namespace p4_symbolic

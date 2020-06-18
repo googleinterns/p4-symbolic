@@ -26,11 +26,12 @@
 #include <streambuf>
 
 #include "absl/strings/str_format.h"
+#include "p4_pdpi/utils/status_utils.h"
 
 namespace p4_symbolic {
 namespace util {
 
-absl::Status ReadFile(std::string path, std::string *output) {
+pdpi::StatusOr<std::string> ReadFile(std::string path) {
   std::ifstream f;
   f.open(path.c_str());
   if (f.fail()) {
@@ -39,17 +40,19 @@ absl::Status ReadFile(std::string path, std::string *output) {
       case EACCES:
       case ENOENT:
         err = absl::StrFormat("%s: %s", strerror(errno), path);
-        return absl::Status(absl::StatusCode::kNotFound, err);
+        return pdpi::StatusOr<std::string>(
+            absl::Status(absl::StatusCode::kNotFound, err));
       default:
         err = absl::StrFormat("Cannot read file %s, errno = %d", path, errno);
-        return absl::Status(absl::StatusCode::kUnknown, err);
+        return pdpi::StatusOr<std::string>(
+            absl::Status(absl::StatusCode::kUnknown, err));
     }
   }
 
   f >> std::noskipws;  // Read whitespaces.
-  *output = std::string(std::istreambuf_iterator<char>(f),
-                        std::istreambuf_iterator<char>());
-  return absl::OkStatus();
+  std::string output(std::istreambuf_iterator<char>(f),
+                     (std::istreambuf_iterator<char>()));
+  return pdpi::StatusOr<std::string>(output);
 }
 
 }  // namespace util
