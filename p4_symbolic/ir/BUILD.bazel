@@ -15,7 +15,6 @@
 load("@rules_cc//cc:defs.bzl", "cc_library", "cc_proto_library")
 load("@rules_proto//proto:defs.bzl", "proto_library")
 
-# Protobuf library rules.
 cc_proto_library(
     name = "ir_cc_proto",
     visibility = ["//p4_symbolic:__subpackages__"],
@@ -31,7 +30,6 @@ proto_library(
     ],
 )
 
-## CC library rules.
 cc_library(
     name = "pdpi_driver",
     srcs = [

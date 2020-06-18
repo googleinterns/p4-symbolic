@@ -30,20 +30,14 @@
 namespace p4_symbolic {
 namespace ir {
 
-// Parse into standard p4 protobuf and then into PDPI.
-// If either of these steps fail, their failure status is returned.
-pdpi::StatusOr<pdpi::ir::IrP4Info> ParsePdpi(std::string p4info_path) {
-  // Parse the p4info file into the standard p4 protobuf.
+pdpi::StatusOr<pdpi::ir::IrP4Info> ParseP4InfoFile(std::string p4info_path) {
   p4::config::v1::P4Info p4info;
   RETURN_IF_ERROR(pdpi::ReadProtoFromFile(p4info_path, &p4info));
 
-  // Transform the p4 protobuf to a pdpi protobuf using a pdpi::P4InfoManager.
-  pdpi::StatusOr<std::unique_ptr<pdpi::P4InfoManager>> status_or_info =
-      pdpi::P4InfoManager::Create(p4info);
-  RETURN_IF_ERROR(status_or_info.status());
+  ASSIGN_OR_RETURN(std::unique_ptr<pdpi::P4InfoManager> & info_manager,
+                   pdpi::P4InfoManager::Create(p4info));
 
-  return pdpi::StatusOr<pdpi::ir::IrP4Info>(
-      status_or_info.value()->GetIrP4Info());
+  return info_manager->GetIrP4Info();
 }
 
 }  // namespace ir
