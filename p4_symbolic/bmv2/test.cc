@@ -54,16 +54,17 @@ int main(int argc, char* argv[]) {
 
   // Parse JSON using bmv2.cc.
   std::string input(argv[1]);
-  p4_symbolic::bmv2::P4Program p4_buf;
-  absl::Status status = p4_symbolic::bmv2::parse_bmv2_json(input, &p4_buf);
+  pdpi::StatusOr<p4_symbolic::bmv2::P4Program> status =
+      p4_symbolic::bmv2::ParseBmv2Json(input);
   if (!status.ok()) {
-    std::cerr << "Error reading input file: " << status << std::endl;
+    std::cerr << "Error reading input file: " << status.status() << std::endl;
     return 1;
   }
 
   // Dumping protobuf.
   std::string protobuf_output_str;
-  google::protobuf::TextFormat::PrintToString(p4_buf, &protobuf_output_str);
+  google::protobuf::TextFormat::PrintToString(status.value(),
+                                              &protobuf_output_str);
   WriteFile(argv[2], protobuf_output_str);
 
   // Dumping JSON.
@@ -73,7 +74,7 @@ int main(int argc, char* argv[]) {
   dumping_options.preserve_proto_field_names = true;
 
   std::string json_output_str;
-  google::protobuf::util::MessageToJsonString(p4_buf, &json_output_str,
+  google::protobuf::util::MessageToJsonString(status.value(), &json_output_str,
                                               dumping_options);
   WriteFile(argv[3], json_output_str);
 
