@@ -12,13 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// This is a test file for our protobuf specifications of bmv2 json.
-// It reads an input bmv2 json string (usually the output of p4c) via stdin,
-// it parses the string using protobuf, and then dumps the parsed protobuf
-// objects using protobuf text format and json.
-// The dumps are written to output files whose paths are provided as command
-// line arguments.
-
 #include "p4_symbolic/util/status.h"
 
 namespace p4_symbolic {
