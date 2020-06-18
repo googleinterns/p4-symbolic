@@ -35,9 +35,9 @@ namespace p4_symbolic {
 namespace ir {
 
 // Parse the p4info file given by "p4info_path" into a pdpi:IrP4Info
-// instance, placing the output in "output".
-// Returns ok if successful, or an appropriate failure status in case of
-// a badly formatted input file, or if the file does not exist.
+// instance.
+// Return the parsed IrP4Info instance, or an appropriate failure status
+// in case of a badly formatted input file, or if the file does not exist.
 pdpi::StatusOr<pdpi::ir::IrP4Info> ParsePdpi(std::string p4info_path);
 
 }  // namespace ir
