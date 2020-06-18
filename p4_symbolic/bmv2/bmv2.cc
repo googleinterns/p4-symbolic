@@ -31,28 +31,21 @@ namespace bmv2 {
 // Parse the content of the given file using
 // google::protobuf::util::JsonStringToMessage.
 // If that call fails, its failure status is returned.
-absl::Status parse_bmv2_json(std::string json_path, P4Program *output) {
-  // Verify link and compile versions are the same.
-  GOOGLE_PROTOBUF_VERIFY_VERSION;
-
+pdpi::StatusOr<P4Program> ParseBmv2Json(std::string json_path) {
   // Read input json from file.
-  std::string input;
-  absl::Status read_status = p4_symbolic::util::ReadFile(json_path, &input);
-  if (!read_status.ok()) {
-    return read_status;
-  }
+  pdpi::StatusOr<std::string> read_status = util::ReadFile(json_path);
+  RETURN_IF_ERROR(read_status.status());
 
   // Parsing JSON with protobuf.
+  P4Program output;
   google::protobuf::util::JsonParseOptions options;
   options.ignore_unknown_fields = true;
   google::protobuf::util::Status parse_status =
-      google::protobuf::util::JsonStringToMessage(input, output, options);
+      google::protobuf::util::JsonStringToMessage(read_status.value(), &output,
+                                                  options);
+  RETURN_IF_ERROR(util::ProtobufToAbslStatus(parse_status));
 
-  if (!parse_status.ok()) {
-    return p4_symbolic::util::protobuf_to_absl_status(parse_status);
-  }
-
-  return absl::OkStatus();
+  return pdpi::StatusOr<P4Program>(output);
 }
 
 }  // namespace bmv2

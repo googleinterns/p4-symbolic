@@ -24,7 +24,7 @@
 
 #include <string>
 
-#include "absl/status/status.h"
+#include "p4_pdpi/utils/status_utils.h"
 #include "p4_symbolic/bmv2/bmv2.pb.h"
 
 namespace p4_symbolic {
@@ -34,7 +34,7 @@ namespace bmv2 {
 // the given file, and put the parsed result in "output".
 // Returns ok if successful, or an appropriate failure status in case
 // of a badly formatted input file, or if the file does not exist.
-absl::Status parse_bmv2_json(std::string json_path, P4Program *output);
+pdpi::StatusOr<P4Program> ParseBmv2Json(std::string json_path);
 
 }  // namespace bmv2
 }  // namespace p4_symbolic
