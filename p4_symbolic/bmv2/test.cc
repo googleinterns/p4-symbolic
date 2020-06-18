@@ -46,24 +46,25 @@ int main(int argc, char* argv[]) {
 
   // Validate command line arguments.
   if (argc != 4) {
-    std::cout << "Usage: ./main <input JSON file> <protobuf output file> <json "
-                 "output file>."
+    std::cout << "Usage: " << argv[0]
+              << " <input JSON file> <protobuf output file> <json output file>."
               << std::endl;
     return 0;
   }
 
   // Parse JSON using bmv2.cc.
-  std::string input(argv[1]);
-  pdpi::StatusOr<p4_symbolic::bmv2::P4Program> status =
-      p4_symbolic::bmv2::ParseBmv2Json(input);
-  if (!status.ok()) {
-    std::cerr << "Error reading input file: " << status.status() << std::endl;
+  const std::string input(argv[1]);
+  pdpi::StatusOr<p4_symbolic::bmv2::P4Program> bmv2_or_status =
+      p4_symbolic::bmv2::ParseBmv2JsonFile(input);
+  if (!bmv2_or_status.ok()) {
+    std::cerr << "Error reading input file: " << bmv2_or_status.status()
+              << std::endl;
     return 1;
   }
 
   // Dumping protobuf.
   std::string protobuf_output_str;
-  google::protobuf::TextFormat::PrintToString(status.value(),
+  google::protobuf::TextFormat::PrintToString(bmv2_or_status.value(),
                                               &protobuf_output_str);
   WriteFile(argv[2], protobuf_output_str);
 
@@ -74,8 +75,8 @@ int main(int argc, char* argv[]) {
   dumping_options.preserve_proto_field_names = true;
 
   std::string json_output_str;
-  google::protobuf::util::MessageToJsonString(status.value(), &json_output_str,
-                                              dumping_options);
+  google::protobuf::util::MessageToJsonString(
+      bmv2_or_status.value(), &json_output_str, dumping_options);
   WriteFile(argv[3], json_output_str);
 
   // Clean up.
