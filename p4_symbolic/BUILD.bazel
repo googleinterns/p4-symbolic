@@ -24,10 +24,6 @@ cc_binary(
     ],
     deps = [
         "//p4_symbolic/bmv2",
-        "//p4_symbolic/bmv2:bmv2_cc_proto",
-        "//p4_symbolic/ir:ir_cc_proto",
         "//p4_symbolic/ir:pdpi_driver",
-        "@com_google_absl//absl/status",
-        "@p4_pdpi//p4_pdpi:pdpi",
     ],
 )

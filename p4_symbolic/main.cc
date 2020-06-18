@@ -27,29 +27,32 @@
 // Expects the paths of the protobuf output file and json
 // output file to be passed as command line arguments respectively.
 int main(int argc, char* argv[]) {
+  // Verify link and compile versions are the same.
+  GOOGLE_PROTOBUF_VERIFY_VERSION;
+
   // Parse pdpi.
-  pdpi::ir::IrP4Info pdpi_ir;
-  absl::Status pdpi_status =
-      p4_symbolic::ir::parse_pdpi(std::string(argv[1]), &pdpi_ir);
+  pdpi::StatusOr<pdpi::ir::IrP4Info> pdpi_status =
+      p4_symbolic::ir::ParsePdpi(std::string(argv[1]));
 
   if (!pdpi_status.ok()) {
-    std::cerr << "Could not parse p4info: " << pdpi_status << std::endl;
+    std::cerr << "Could not parse p4info: " << pdpi_status.status()
+              << std::endl;
     return 1;
   }
 
   // Parse bmv2 json.
-  p4_symbolic::bmv2::P4Program bmv2;
-  absl::Status bmv2_status =
-      p4_symbolic::bmv2::parse_bmv2_json(std::string(argv[2]), &bmv2);
+  pdpi::StatusOr<p4_symbolic::bmv2::P4Program> bmv2_status =
+      p4_symbolic::bmv2::ParseBmv2Json(std::string(argv[2]));
 
   if (!bmv2_status.ok()) {
-    std::cerr << "Could not parse bmv2 JSON: " << bmv2_status << std::endl;
+    std::cerr << "Could not parse bmv2 JSON: " << bmv2_status.status()
+              << std::endl;
     return 1;
   }
 
   // Dump debugging output.
-  std::cout << pdpi_ir.DebugString() << std::endl;
+  std::cout << pdpi_status.value().DebugString() << std::endl;
   std::cout << "============" << std::endl;
-  std::cout << bmv2.DebugString() << std::endl;
+  std::cout << bmv2_status.value().DebugString() << std::endl;
   return 0;
 }
