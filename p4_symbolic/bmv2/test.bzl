@@ -210,7 +210,7 @@ def bmv2_protobuf_parsing_test(name, p4_program, golden_file, p4_deps = []):
         outs = [proto_filename, json_filename],
         tools = ["//p4_symbolic/bmv2:test"],
         cmd = """
-            $(location //p4_symbolic/bmv2:test) $(OUTS) < $(SRCS)
+            $(location //p4_symbolic/bmv2:test) $(SRCS) $(OUTS)
             """,
     )
 

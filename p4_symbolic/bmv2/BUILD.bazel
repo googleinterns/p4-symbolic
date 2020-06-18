@@ -12,11 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_proto_library")
+load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library", "cc_proto_library")
 load("@rules_proto//proto:defs.bzl", "proto_library")
 load("//p4_symbolic/bmv2:test.bzl", "bmv2_protobuf_parsing_test")
 
-# Rules for building protobuf.
 cc_proto_library(
     name = "bmv2_cc_proto",
     visibility = ["//p4_symbolic:__subpackages__"],
@@ -34,11 +33,29 @@ proto_library(
     ],
 )
 
-# Rules for building test.cc binary.
+cc_library(
+    name = "bmv2",
+    srcs = [
+        "bmv2.cc",
+    ],
+    hdrs = [
+        "bmv2.h",
+    ],
+    visibility = ["//p4_symbolic:__subpackages__"],
+    deps = [
+        ":bmv2_cc_proto",
+        "//p4_symbolic/util",
+        "@p4_pdpi//p4_pdpi/utils:status_utils",
+    ],
+)
+
 cc_binary(
     name = "test",
     srcs = ["test.cc"],
-    deps = [":bmv2_cc_proto"],
+    deps = [
+        ":bmv2",
+        ":bmv2_cc_proto",
+    ],
 )
 
 # Test rules: one per program in //p4-samples

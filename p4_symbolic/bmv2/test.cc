@@ -13,8 +13,9 @@
 // limitations under the License.
 
 // This is a test file for our protobuf specifications of bmv2 json.
-// It reads an input bmv2 json string (usually the output of p4c) via stdin,
-// it parses the string using protobuf, and then dumps the parsed protobuf
+// It reads an input bmv2 json file (usually the output of p4c) specified
+// as a command line argument.
+// It parses that file using protobuf, and then dumps the parsed protobuf
 // objects using protobuf text format and json.
 // The dumps are written to output files whose paths are provided as command
 // line arguments.
@@ -25,14 +26,7 @@
 
 #include "google/protobuf/text_format.h"
 #include "google/protobuf/util/json_util.h"
-#include "p4_symbolic/bmv2/bmv2.pb.h"
-
-// Read all of stdin up to EOF.
-std::string ReadStdin() {
-  std::istreambuf_iterator<char> cin_iterator{std::cin};
-  std::istreambuf_iterator<char> end;
-  return std::string(cin_iterator, end);
-}
+#include "p4_symbolic/bmv2/bmv2.h"
 
 // Write a string to a file.
 void WriteFile(char path[], const std::string& content) {
@@ -43,34 +37,34 @@ void WriteFile(char path[], const std::string& content) {
 }
 
 // The main test routine for parsing bmv2 json with protobuf.
-// Parses bmv2 json that is fed in through stdin and dumps
-// the resulting native protobuf and json data to files.
-// Expects the paths of the protobuf output file and json
-// output file to be passed as command line arguments respectively.
+// Parses bmv2 json file and dumps the resulting bmv2 protobuf
+// and json data to files.
+// Expects the paths of the input json file and the protobuf and json output
+// files to be passed as command line arguments in order.
 int main(int argc, char* argv[]) {
   // Verify link and compile versions are the same.
   GOOGLE_PROTOBUF_VERIFY_VERSION;
 
   // Validate command line arguments.
-  if (argc != 3) {
-    std::cout << "Usage: ./main <protobuf output file> <json output file>."
+  if (argc != 4) {
+    std::cout << "Usage: " << argv[0]
+              << " <input JSON file> <protobuf output file> <json output file>."
               << std::endl;
     return 0;
   }
 
-  // Read input json from stdin.
-  std::string input = ReadStdin();
-
-  // Parsing JSON with protobuf.
-  p4_symbolic::bmv2::P4Program p4_buf;
-  google::protobuf::util::JsonParseOptions parsing_options;
-  parsing_options.ignore_unknown_fields = true;
-  google::protobuf::util::JsonStringToMessage(input, &p4_buf, parsing_options);
+  // Parse JSON using bmv2.cc.
+  const std::string input(argv[1]);
+  pdpi::StatusOr<p4_symbolic::bmv2::P4Program> bmv2_or_status =
+      p4_symbolic::bmv2::ParseBmv2JsonFile(input);
+  if (!bmv2_or_status.ok()) {
+    std::cerr << "Error reading input file: " << bmv2_or_status.status()
+              << std::endl;
+    return 1;
+  }
 
   // Dumping protobuf.
-  std::string protobuf_output_str;
-  google::protobuf::TextFormat::PrintToString(p4_buf, &protobuf_output_str);
-  WriteFile(argv[1], protobuf_output_str);
+  WriteFile(argv[2], bmv2_or_status.value().DebugString());
 
   // Dumping JSON.
   google::protobuf::util::JsonPrintOptions dumping_options;
@@ -79,9 +73,9 @@ int main(int argc, char* argv[]) {
   dumping_options.preserve_proto_field_names = true;
 
   std::string json_output_str;
-  google::protobuf::util::MessageToJsonString(p4_buf, &json_output_str,
-                                              dumping_options);
-  WriteFile(argv[2], json_output_str);
+  google::protobuf::util::MessageToJsonString(
+      bmv2_or_status.value(), &json_output_str, dumping_options);
+  WriteFile(argv[3], json_output_str);
 
   // Clean up.
   google::protobuf::ShutdownProtobufLibrary();
