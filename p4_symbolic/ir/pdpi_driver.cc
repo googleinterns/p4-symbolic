@@ -33,9 +33,6 @@ namespace ir {
 // Parse into standard p4 protobuf and then into PDPI.
 // If either of these steps fail, their failure status is returned.
 pdpi::StatusOr<pdpi::ir::IrP4Info> ParsePdpi(std::string p4info_path) {
-  // Verify link and compile versions are the same.
-  GOOGLE_PROTOBUF_VERIFY_VERSION;
-
   // Parse the p4info file into the standard p4 protobuf.
   p4::config::v1::P4Info p4info;
   RETURN_IF_ERROR(pdpi::ReadProtoFromFile(p4info_path, &p4info));
