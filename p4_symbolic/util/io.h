@@ -29,7 +29,7 @@
 namespace p4_symbolic {
 namespace util {
 
-// Read the entire content of the file and return it (or an error status).
+// Reads the entire content of the file and returns it (or an error status).
 pdpi::StatusOr<std::string> ReadFile(std::string path);
 
 }  // namespace util

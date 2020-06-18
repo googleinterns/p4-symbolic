@@ -50,9 +50,8 @@ pdpi::StatusOr<std::string> ReadFile(std::string path) {
   }
 
   f >> std::noskipws;  // Read whitespaces.
-  std::string output(std::istreambuf_iterator<char>(f),
-                     (std::istreambuf_iterator<char>()));
-  return pdpi::StatusOr<std::string>(output);
+  return std::string(std::istreambuf_iterator<char>(f),
+                     std::istreambuf_iterator<char>());
 }
 
 }  // namespace util
