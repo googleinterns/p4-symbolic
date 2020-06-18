@@ -36,10 +36,10 @@ void WriteFile(char path[], const std::string& content) {
 }
 
 // The main test routine for parsing bmv2 json with protobuf.
-// Parses bmv2 json that is fed in through stdin and dumps
-// the resulting native protobuf and json data to files.
-// Expects the paths of the protobuf output file and json
-// output file to be passed as command line arguments respectively.
+// Parses bmv2 json file and dumps the resulting bmv2 protobuf
+// and json data to files.
+// Expects the paths of the input json file and the protobuf and json output
+// files to be passed as command line arguments in order.
 int main(int argc, char* argv[]) {
   // Verify link and compile versions are the same.
   GOOGLE_PROTOBUF_VERIFY_VERSION;

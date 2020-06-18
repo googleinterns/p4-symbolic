@@ -31,9 +31,10 @@ namespace p4_symbolic {
 namespace bmv2 {
 
 // Read and parse the bmv2 JSON content (typically the output of p4c) from
-// the given file, and put the parsed result in "output".
-// Returns ok if successful, or an appropriate failure status in case
-// of a badly formatted input file, or if the file does not exist.
+// the given file.
+// Returns the resulting P4Program instance if successful, or an appropriate
+// failure status in case of a badly formatted input file, or if the file
+// does not exist.
 pdpi::StatusOr<P4Program> ParseBmv2Json(std::string json_path);
 
 }  // namespace bmv2
