@@ -32,26 +32,21 @@ namespace ir {
 
 // Parse into standard p4 protobuf and then into PDPI.
 // If either of these steps fail, their failure status is returned.
-absl::Status parse_pdpi(std::string p4info_path, pdpi::ir::IrP4Info *output) {
+pdpi::StatusOr<pdpi::ir::IrP4Info> ParsePdpi(std::string p4info_path) {
   // Verify link and compile versions are the same.
   GOOGLE_PROTOBUF_VERIFY_VERSION;
 
   // Parse the p4info file into the standard p4 protobuf.
   p4::config::v1::P4Info p4info;
-  absl::Status status = pdpi::ReadProtoFromFile(p4info_path, &p4info);
-  if (!status.ok()) {
-    return status;
-  }
+  RETURN_IF_ERROR(pdpi::ReadProtoFromFile(p4info_path, &p4info));
 
   // Transform the p4 protobuf to a pdpi protobuf using a pdpi::P4InfoManager.
   pdpi::StatusOr<std::unique_ptr<pdpi::P4InfoManager>> status_or_info =
       pdpi::P4InfoManager::Create(p4info);
-  if (!status_or_info.ok()) {
-    return status_or_info.status();
-  }
+  RETURN_IF_ERROR(status_or_info.status());
 
-  *output = status_or_info.value()->GetIrP4Info();
-  return absl::OkStatus();
+  return pdpi::StatusOr<pdpi::ir::IrP4Info>(
+      status_or_info.value()->GetIrP4Info());
 }
 
 }  // namespace ir

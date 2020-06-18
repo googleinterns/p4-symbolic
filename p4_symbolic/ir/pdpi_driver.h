@@ -29,6 +29,7 @@
 
 #include "absl/status/status.h"
 #include "p4_pdpi/ir.h"
+#include "p4_pdpi/utils/status_utils.h"
 
 namespace p4_symbolic {
 namespace ir {
@@ -37,7 +38,7 @@ namespace ir {
 // instance, placing the output in "output".
 // Returns ok if successful, or an appropriate failure status in case of
 // a badly formatted input file, or if the file does not exist.
-absl::Status parse_pdpi(std::string p4info_path, pdpi::ir::IrP4Info *output);
+pdpi::StatusOr<pdpi::ir::IrP4Info> ParsePdpi(std::string p4info_path);
 
 }  // namespace ir
 }  // namespace p4_symbolic
