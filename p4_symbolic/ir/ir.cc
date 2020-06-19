@@ -12,9 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// TODO(babman): Make error messages include more context (e.g. the value
+//               of the unsupported expression).
+// TODO(babman): Use consistent style when populating protobuf.
+//               The best one seems to be using .mutable_<next_field>
+//               and passing the returned pointer to the next function.
+//               This should avoid new, memory managment, copies.
+//               This also will make all the functions (except the main one)
+//               return plain absl::Status. Main function should return a
+//               StatusOr with a pointer or a reference (?) to avoid copy.
+
 #include "p4_symbolic/ir/ir.h"
 
-#include <iostream>
 #include <string>
 #include <unordered_map>
 
@@ -64,13 +73,131 @@ pdpi::StatusOr<HeaderType> TransformHeader(const bmv2::HeaderType &header) {
   return output;
 }
 
+// Parsing values.
+absl::Status TransformLValue(google::protobuf::Value bmv2_value,
+                             std::string variables[], LValue *dst) {
+  // Either a field value or a variable.
+  if (bmv2_value.kind_case() != google::protobuf::Value::kStructValue) {
+    return absl::Status(absl::StatusCode::kInvalidArgument,
+                        "Left-hand of assignment is badly formatted!");
+  }
+
+  const google::protobuf::Struct &struct_value = bmv2_value.struct_value();
+  const std::string &type = struct_value.fields().at("type").string_value();
+  if (type == "field") {
+    google::protobuf::ListValue names =
+        struct_value.fields().at("value").list_value();
+
+    FieldValue *field_value = dst->mutable_field_value();
+    field_value->set_header_name(names.values(0).string_value());
+    field_value->set_field_name(names.values(1).string_value());
+  } else if (type == "runtime_data") {
+    int variable_index =
+        static_cast<int>(struct_value.fields().at("value").number_value());
+
+    Variable *variable = dst->mutable_variable_value();
+    variable->set_name(variables[variable_index]);
+  } else {
+    return absl::Status(absl::StatusCode::kUnimplemented,
+                        "Unsupported expression in left-hand of assignment!");
+  }
+
+  return absl::OkStatus();
+}
+
+absl::Status TransformRValue(google::protobuf::Value bmv2_value,
+                             std::string variables[], RValue *dst) {
+  // TODO(babman): Code duplication between this and TransformLValue.
+  //               This function will have more cases later when the
+  //               second todo is handled, but we still need to reduce
+  //               code duplication.
+  //               Difficulty: the type here is RValue instead of LValue.
+  //               Possible solution: create piece wise re-usable functions
+  //               that return FieldValue/Variable etc, cons: does not reduce
+  //               duplicates by much..
+  //               Will look at this later.
+  // TODO(babman): Support the remaining cases: literals and simple expressions.
+  if (bmv2_value.kind_case() != google::protobuf::Value::kStructValue) {
+    return absl::Status(absl::StatusCode::kInvalidArgument,
+                        "Left-hand of assignment is badly formatted!");
+  }
+
+  const google::protobuf::Struct &struct_value = bmv2_value.struct_value();
+  const std::string &type = struct_value.fields().at("type").string_value();
+  if (type == "field") {
+    google::protobuf::ListValue names =
+        struct_value.fields().at("value").list_value();
+
+    FieldValue *field_value = dst->mutable_field_value();
+    field_value->set_header_name(names.values(0).string_value());
+    field_value->set_field_name(names.values(1).string_value());
+  } else if (type == "runtime_data") {
+    int variable_index =
+        static_cast<int>(struct_value.fields().at("value").number_value());
+
+    Variable *variable = dst->mutable_variable_value();
+    variable->set_name(variables[variable_index]);
+  } else {
+    return absl::Status(absl::StatusCode::kUnimplemented,
+                        "Unsupported expression in left-hand of assignment!");
+  }
+
+  return absl::OkStatus();
+}
+
 // Parsing and validating actions.
 pdpi::StatusOr<Action> TransformAction(
     const bmv2::Action &bmv2_action,
     const pdpi::ir::IrActionDefinition &pdpi_action) {
   ActionImplementation *action_impl = new ActionImplementation();
-  // TODO(babman): fill body.
 
+  // BMV2 format uses ints as ids for variables.
+  // We will replace the ids with the actual variable name.
+  std::string *variable_map = new std::string[bmv2_action.runtime_data_size()];
+  for (int i = 0; i < bmv2_action.runtime_data_size(); i++) {
+    const bmv2::VariableDefinition variable = bmv2_action.runtime_data(i);
+    (*action_impl->mutable_variables())[variable.name()] = variable.bitwidth();
+    variable_map[i] = variable.name();
+  }
+
+  // Parse every statement in body.
+  // When encoutering a variable, look it up in the variable map.
+  for (int i = 0; i < bmv2_action.primitives_size(); i++) {
+    const google::protobuf::Struct &primitive = bmv2_action.primitives(i);
+    const std::string &op = primitive.fields().at("op").string_value();
+    // TODO(babman): Maybe bring back the enum and use switch-case here? discuss
+    // TODO(babman): As we add more statements, this will get more complicated.
+    //               It may deserve its own function or file.
+    Statement *statement = action_impl->add_action_body();
+    if (op == "assign") {
+      AssignmentStatement *assignment = statement->mutable_assignment();
+      const google::protobuf::Value &params =
+          primitive.fields().at("parameters");
+      if (params.kind_case() != google::protobuf::Value::kListValue ||
+          params.list_value().values_size() != 2) {
+        return absl::Status(absl::StatusCode::kInvalidArgument,
+                            "Assignment parameters are badly formatted!");
+      }
+
+      RETURN_IF_ERROR(TransformLValue(params.list_value().values(0),
+                                      variable_map,
+                                      assignment->mutable_left()));
+      RETURN_IF_ERROR(TransformRValue(params.list_value().values(1),
+                                      variable_map,
+                                      assignment->mutable_right()));
+    } else {
+      return absl::Status(absl::StatusCode::kUnimplemented,
+                          "Unsupported primitive in action body!");
+    }
+
+    // Parse source_info struct into its own protobuf.
+    // Applies to all types of statements.
+    std::string source_info;
+    primitive.fields().at("source_info").SerializeToString(&source_info);
+    statement->mutable_source_info()->ParseFromString(source_info);
+  }
+
+  // Create the final output and return it.
   Action output;
   output.mutable_action_definition()->CopyFrom(pdpi_action);
   output.set_allocated_action_implementation(action_impl);
