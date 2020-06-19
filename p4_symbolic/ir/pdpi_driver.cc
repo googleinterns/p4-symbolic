@@ -21,7 +21,7 @@
 namespace p4_symbolic {
 namespace ir {
 
-pdpi::StatusOr<pdpi::ir::IrP4Info> ParseP4InfoFile(std::string p4info_path) {
+pdpi::StatusOr<pdpi::ir::IrP4Info> ParseP4InfoFile(const char *p4info_path) {
   p4::config::v1::P4Info p4info;
   RETURN_IF_ERROR(pdpi::ReadProtoFromFile(p4info_path, &p4info));
 

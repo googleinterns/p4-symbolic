@@ -21,7 +21,7 @@
 namespace p4_symbolic {
 namespace bmv2 {
 
-pdpi::StatusOr<P4Program> ParseBmv2JsonFile(std::string json_path) {
+pdpi::StatusOr<P4Program> ParseBmv2JsonFile(const char *json_path) {
   ASSIGN_OR_RETURN(std::string file_content, util::ReadFile(json_path));
 
   P4Program output;

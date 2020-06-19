@@ -15,15 +15,14 @@
 #ifndef P4_SYMBOLIC_UTIL_IO_H_
 #define P4_SYMBOLIC_UTIL_IO_H_
 
-#include <string>
-
+#include "absl/strings/string_view.h"
 #include "p4_pdpi/utils/status_utils.h"
 
 namespace p4_symbolic {
 namespace util {
 
 // Reads the entire content of the file and returns it (or an error status).
-pdpi::StatusOr<std::string> ReadFile(std::string path);
+pdpi::StatusOr<std::string> ReadFile(const char *path);
 
 }  // namespace util
 }  // namespace p4_symbolic

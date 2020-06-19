@@ -32,7 +32,7 @@ int main(int argc, char* argv[]) {
 
   // Parse pdpi.
   pdpi::StatusOr<pdpi::ir::IrP4Info> p4info_or_status =
-      p4_symbolic::ir::ParseP4InfoFile(std::string(argv[1]));
+      p4_symbolic::ir::ParseP4InfoFile(argv[1]);
 
   if (!p4info_or_status.ok()) {
     std::cerr << "Could not parse p4info: " << p4info_or_status.status()
@@ -42,7 +42,7 @@ int main(int argc, char* argv[]) {
 
   // Parse bmv2 json.
   pdpi::StatusOr<p4_symbolic::bmv2::P4Program> bmv2_or_status =
-      p4_symbolic::bmv2::ParseBmv2JsonFile(std::string(argv[2]));
+      p4_symbolic::bmv2::ParseBmv2JsonFile(argv[2]);
 
   if (!bmv2_or_status.ok()) {
     std::cerr << "Could not parse bmv2 JSON: " << bmv2_or_status.status()

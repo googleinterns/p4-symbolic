@@ -28,7 +28,7 @@ namespace bmv2 {
 // Returns the resulting P4Program instance if successful, or an appropriate
 // failure status in case of a badly formatted input file, or if the file
 // does not exist.
-pdpi::StatusOr<P4Program> ParseBmv2JsonFile(std::string json_path);
+pdpi::StatusOr<P4Program> ParseBmv2JsonFile(const char *json_path);
 
 }  // namespace bmv2
 }  // namespace p4_symbolic
