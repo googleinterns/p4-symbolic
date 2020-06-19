@@ -20,6 +20,7 @@
 
 #include "p4_symbolic/bmv2/bmv2.h"
 #include "p4_symbolic/ir/pdpi_driver.h"
+#include "p4_symbolic/ir/ir.h"
 
 // The main test routine for parsing bmv2 json with protobuf.
 // Parses bmv2 json that is fed in through stdin and dumps
@@ -50,9 +51,16 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
-  // Dump debugging output.
-  std::cout << p4info_or_status.value().DebugString() << std::endl;
-  std::cout << "============" << std::endl;
-  std::cout << bmv2_or_status.value().DebugString() << std::endl;
+  // Transform to IR and print.
+  pdpi::StatusOr<p4_symbolic::ir::P4Program*> ir_status =
+      p4_symbolic::ir::TransformToIr(bmv2_or_status.value(),
+                                     p4info_or_status.value());
+  if (!ir_status.ok()) {
+    std::cerr << "Could not transform to IR: " << ir_status.status()
+              << std::endl;
+    return -1;
+  }
+
+  std::cout << ir_status.value()->DebugString() << std::endl;
   return 0;
 }

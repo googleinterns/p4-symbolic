@@ -45,3 +45,20 @@ cc_library(
         "@p4_pdpi//p4_pdpi/utils:status_utils",
     ],
 )
+
+cc_library(
+    name = "ir",
+    srcs = [
+        "ir.cc",
+    ],
+    hdrs = [
+         "ir.h",
+    ],
+    visibility = ["//p4_symbolic:__subpackages__"],
+    deps = [
+        ":ir_cc_proto",
+        "//p4_symbolic/bmv2:bmv2_cc_proto",
+        "@p4_pdpi//p4_pdpi:pdpi",
+        "@com_google_protobuf//:protobuf_headers",
+    ],
+)
