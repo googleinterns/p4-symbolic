@@ -1,10 +1,10 @@
-name: "format"
+name: "Code Formatting"
 
 on:
   push:
     branches: [ master ]
   pull_request:
-    branches: [ master ]
+    branches: [ "*" ]
 
 jobs:
   build:
