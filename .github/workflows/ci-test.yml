@@ -1,0 +1,31 @@
+name: "All Tests and Build"
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ "*" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        submodules: recursive
+
+    - name: Build Docker image
+      run: docker build --tag p4-symbolic-image .
+
+    - name: Run Container in Background
+      run: docker run --name p4-symbolic-testing -d -i -t p4-symbolic-image
+
+    - name: Build all
+      env:
+        TEST: bazel build //...
+      run: docker exec p4-symbolic-testing sh -c "$TEST"
+
+    - name: Test all
+      env:
+        TEST: bazel test //... --test_output=errors
+      run: docker exec p4-symbolic-testing sh -c "$TEST"
