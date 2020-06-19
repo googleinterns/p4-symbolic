@@ -16,7 +16,6 @@
 
 load("@rules_cc//cc:defs.bzl", "cc_binary")
 
-# Rules for building main.cc binary.
 cc_binary(
     name = "main",
     srcs = [
