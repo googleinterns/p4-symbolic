@@ -1,10 +1,10 @@
-name: "Bmv2 JSON subset and golden file tests"
+name: "All Tests and Build"
 
 on:
   push:
     branches: [ master ]
   pull_request:
-    branches: [ master ]
+    branches: [ "*" ]
 
 jobs:
   build:
@@ -19,5 +19,5 @@ jobs:
 
     - name: Bmv2 JSON parsing test
       env:
-        TEST: bazel test //p4_symbolic/bmv2/... --test_output=errors
+        TEST: bazel build //... && bazel test //... --test_output=errors
       run: docker run --tty p4-symbolic $TEST
