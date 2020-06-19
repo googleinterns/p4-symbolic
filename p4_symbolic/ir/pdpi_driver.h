@@ -15,8 +15,6 @@
 #ifndef P4_SYMBOLIC_IR_PDPI_DRIVER_H_
 #define P4_SYMBOLIC_IR_PDPI_DRIVER_H_
 
-#include <string>
-
 #include "absl/status/status.h"
 #include "p4_pdpi/ir.h"
 #include "p4_pdpi/utils/status_utils.h"

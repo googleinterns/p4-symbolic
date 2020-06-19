@@ -15,8 +15,6 @@
 #ifndef P4_SYMBOLIC_BMV2_BMV2_H_
 #define P4_SYMBOLIC_BMV2_BMV2_H_
 
-#include <string>
-
 #include "p4_pdpi/utils/status_utils.h"
 #include "p4_symbolic/bmv2/bmv2.pb.h"
 

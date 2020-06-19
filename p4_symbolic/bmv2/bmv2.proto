@@ -127,8 +127,10 @@ message Parser {
 // Defines a parser state.
 message ParserState {
   // The user defined name of the state (not qualified).
+  // It does not include the name of the parser.
   string name = 1;
-  // A numeric id assigned to the state (usually its index).
+  // Auto generated ID unique among all parser states including those
+  // belonging to a different parser.
   int32 id = 2;
   // All the possible transitions from this state to different states.
   repeated ParserTransition transitions = 4;
@@ -167,7 +169,7 @@ message Pipeline {
   // The name assigned by programmer.
   // e.g. MyIngressPipeline.
   string name = 1;
-  // The pipeline ID.
+  // Auto-generated ID unique among all pipelines.
   int32 id = 2;
   // Source information about where the pipeline is defined.
   SourceLocation source_info = 3;
@@ -180,10 +182,10 @@ message Pipeline {
 // A control plane table definition including its keys and actions.
 message Table {
   // The table name assigned by programmer.
-  // This might be a fully qualitifed name e.g. MyIngressPipeline.MyTable,
-  // or the name assigned via @name annotations.
+  // This is a fully qualitifed name e.g. MyIngressPipeline.MyTable.
   string name = 1;
-  // The table id matching its id in p4info and p4rt.
+  // This is auto-generated and unique among all tables (including other
+  // pipelines). It is not the same id used in P4info and P4RT.
   int32 id = 2;
   // Source information about where the table is defined.
   SourceLocation source_info = 3;
@@ -228,10 +230,10 @@ message TableKey {
 // An action that can be taken when a table is matched on.
 message Action {
   // The name assigned by programmer.
-  // This can be a fully qualified name e.g. MyIngressPipeline.set_egress_spec,
-  // or can be set directly via @name annotations.
+  // This is a fully qualified name e.g. MyIngressPipeline.set_egress_spec.
   string name = 1;
-  // The id of the action, matching its p4rt id.
+  // This is auto-generated and unique among all actions. It is not the same
+  // id used in P4info and P4RT.
   int32 id = 2;
   // An array containing all variables defined within this action,
   // including its formal parameters.

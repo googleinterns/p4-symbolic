@@ -14,6 +14,8 @@
 
 #include "p4_symbolic/bmv2/bmv2.h"
 
+#include <string>
+
 #include "google/protobuf/util/json_util.h"
 #include "p4_symbolic/util/io.h"
 #include "p4_symbolic/util/status.h"

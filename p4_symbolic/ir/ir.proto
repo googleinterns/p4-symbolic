@@ -92,7 +92,7 @@ message TableImplementation {
   // See https://github.com/p4lang/p4-spec/issues/411
   p4_symbolic.bmv2.TableMatchType match_type = 5;
   // Table type with respect to action selection.
-  p4_symbolic.bmv2.ActionSelectorType type = 6;
+  p4_symbolic.bmv2.ActionSelectorType action_selector_type = 6;
 }
 
 // An abstract p4 statement corresponding to a top level operation within
