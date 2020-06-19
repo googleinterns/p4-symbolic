@@ -15,6 +15,8 @@
 #ifndef P4_SYMBOLIC_UTIL_IO_H_
 #define P4_SYMBOLIC_UTIL_IO_H_
 
+#include <string>
+
 #include "absl/strings/string_view.h"
 #include "p4_pdpi/utils/status_utils.h"
 

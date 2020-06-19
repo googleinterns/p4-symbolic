@@ -12,12 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <string>
+#include "p4_symbolic/ir/ir.h"
+
 #include <iostream>
+#include <string>
 #include <unordered_map>
 
 #include "google/protobuf/struct.pb.h"
-#include "p4_symbolic/ir/ir.h"
 
 namespace p4_symbolic {
 namespace ir {
@@ -53,7 +54,8 @@ pdpi::StatusOr<HeaderType> TransformHeader(const bmv2::HeaderType &header) {
 
     HeaderField field;
     field.set_name(unparsed_field.values(0).string_value());
-    field.set_bitwidth((int) unparsed_field.values(1).number_value());
+    field.set_bitwidth(
+        static_cast<int>(unparsed_field.values(1).number_value()));
     field.set_signed_(unparsed_field.values(2).bool_value());
     field.set_header_type(header.name());
     (*output.mutable_fields())[unparsed_field.values(0).string_value()] = field;
@@ -63,9 +65,10 @@ pdpi::StatusOr<HeaderType> TransformHeader(const bmv2::HeaderType &header) {
 }
 
 // Parsing and validating actions.
-pdpi::StatusOr<Action> TransformAction(const bmv2::Action &bmv2_action,
+pdpi::StatusOr<Action> TransformAction(
+    const bmv2::Action &bmv2_action,
     const pdpi::ir::IrActionDefinition &pdpi_action) {
-  ActionImplementation* action_impl = new ActionImplementation();
+  ActionImplementation *action_impl = new ActionImplementation();
   // TODO(babman): fill body.
 
   Action output;
@@ -75,9 +78,10 @@ pdpi::StatusOr<Action> TransformAction(const bmv2::Action &bmv2_action,
 }
 
 // Parsing and validating tables.
-pdpi::StatusOr<Table> TransformTable(const bmv2::Table &bmv2_table,
+pdpi::StatusOr<Table> TransformTable(
+    const bmv2::Table &bmv2_table,
     const pdpi::ir::IrTableDefinition &pdpi_table) {
-  TableImplementation* table_impl = new TableImplementation();
+  TableImplementation *table_impl = new TableImplementation();
   table_impl->set_match_type(bmv2_table.match_type());
   table_impl->set_action_selector_type(bmv2_table.type());
 
@@ -88,8 +92,8 @@ pdpi::StatusOr<Table> TransformTable(const bmv2::Table &bmv2_table,
 }
 
 // Main transformation function.
-pdpi::StatusOr<P4Program*> TransformToIr(const bmv2::P4Program &bmv2,
-    const pdpi::ir::IrP4Info &pdpi) {
+pdpi::StatusOr<P4Program *> TransformToIr(const bmv2::P4Program &bmv2,
+                                          const pdpi::ir::IrP4Info &pdpi) {
   P4Program *output = new P4Program();
 
   // Transform headers.
@@ -102,7 +106,8 @@ pdpi::StatusOr<P4Program*> TransformToIr(const bmv2::P4Program &bmv2,
 
   // In reality, pdpi.actions_by_name is keyed on aliases and
   // not fully qualified names.
-  std::unordered_map<std::string, pdpi::ir::IrActionDefinition> actions_by_qualified_name;
+  std::unordered_map<std::string, pdpi::ir::IrActionDefinition>
+      actions_by_qualified_name;
   const auto &pdpi_actions = pdpi.actions_by_name();
   for (auto it = pdpi_actions.begin(); it != pdpi_actions.end(); it++) {
     const std::string &name = it->second.preamble().name();
@@ -122,12 +127,14 @@ pdpi::StatusOr<P4Program*> TransformToIr(const bmv2::P4Program &bmv2,
     const pdpi::ir::IrActionDefinition &pdpi_action =
         actions_by_qualified_name.at(action_name);  // Safe, no exception.
 
-    ASSIGN_OR_RETURN((*output->mutable_actions())[pdpi_action.preamble().name()],
-                     TransformAction(bmv2_action, pdpi_action));
+    ASSIGN_OR_RETURN(
+        (*output->mutable_actions())[pdpi_action.preamble().name()],
+        TransformAction(bmv2_action, pdpi_action));
   }
-  
+
   // Similarly, pdpi.tables_by_name is keyed on aliases.
-  std::unordered_map<std::string, pdpi::ir::IrTableDefinition> tables_by_qualified_name;
+  std::unordered_map<std::string, pdpi::ir::IrTableDefinition>
+      tables_by_qualified_name;
   const auto &pdpi_tables = pdpi.tables_by_name();
   for (auto it = pdpi_tables.begin(); it != pdpi_tables.end(); it++) {
     const std::string &name = it->second.preamble().name();
@@ -148,11 +155,12 @@ pdpi::StatusOr<P4Program*> TransformToIr(const bmv2::P4Program &bmv2,
       const pdpi::ir::IrTableDefinition &pdpi_table =
           tables_by_qualified_name.at(table_name);  // Safe, no exception.
 
-      ASSIGN_OR_RETURN((*output->mutable_tables())[pdpi_table.preamble().name()],
-                       TransformTable(bmv2_table, pdpi_table));
+      ASSIGN_OR_RETURN(
+          (*output->mutable_tables())[pdpi_table.preamble().name()],
+          TransformTable(bmv2_table, pdpi_table));
     }
   }
-  
+
   // Find init_table.
   if (bmv2.pipelines_size() < 1) {
     return absl::Status(absl::StatusCode::kInvalidArgument,

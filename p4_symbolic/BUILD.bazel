@@ -23,7 +23,7 @@ cc_binary(
     ],
     deps = [
         "//p4_symbolic/bmv2",
+        "//p4_symbolic/ir",
         "//p4_symbolic/ir:pdpi_driver",
-        "//p4_symbolic/ir:ir",
     ],
 )

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// This file defines the API for transforming a bmv2 protobuf (representing 
+// This file defines the API for transforming a bmv2 protobuf (representing
 // the input bmv2 json file) with a pdpi protobuf (representing the p4info file)
 // into our IR protobuf for consumption.
 
@@ -29,7 +29,7 @@ namespace ir {
 
 // Transforms bmv2 protobuf and pdpi protobuf into our IR protobuf.
 pdpi::StatusOr<P4Program*> TransformToIr(const bmv2::P4Program& bmv2,
-    const pdpi::ir::IrP4Info& pdpi);
+                                         const pdpi::ir::IrP4Info& pdpi);
 
 }  // namespace ir
 }  // namespace p4_symbolic

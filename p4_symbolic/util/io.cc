@@ -17,6 +17,7 @@
 #include <cerrno>
 #include <fstream>
 #include <streambuf>
+#include <string>
 
 #include "absl/strings/str_format.h"
 #include "p4_pdpi/utils/status_utils.h"

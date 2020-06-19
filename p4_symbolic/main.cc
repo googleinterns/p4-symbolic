@@ -19,8 +19,8 @@
 #include <string>
 
 #include "p4_symbolic/bmv2/bmv2.h"
-#include "p4_symbolic/ir/pdpi_driver.h"
 #include "p4_symbolic/ir/ir.h"
+#include "p4_symbolic/ir/pdpi_driver.h"
 
 // The main test routine for parsing bmv2 json with protobuf.
 // Parses bmv2 json that is fed in through stdin and dumps
