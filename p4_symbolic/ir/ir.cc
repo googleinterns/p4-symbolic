@@ -14,18 +14,12 @@
 
 // TODO(babman): Make error messages include more context (e.g. the value
 //               of the unsupported expression).
-// TODO(babman): Use consistent style when populating protobuf.
-//               The best one seems to be using .mutable_<next_field>
-//               and passing the returned pointer to the next function.
-//               This should avoid new, memory managment, copies.
-//               This also will make all the functions (except the main one)
-//               return plain absl::Status. Main function should return a
-//               StatusOr with a pointer or a reference (?) to avoid copy.
 
 #include "p4_symbolic/ir/ir.h"
 
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 #include "google/protobuf/struct.pb.h"
 
@@ -52,30 +46,29 @@ absl::Status ValidateHeaderTypeFields(const google::protobuf::ListValue &list) {
   return absl::OkStatus();
 }
 
-pdpi::StatusOr<HeaderType> TransformHeader(const bmv2::HeaderType &header) {
-  HeaderType output;
-  output.set_name(header.name());
-  output.set_id(header.id());
-
+absl::Status TransformHeader(const bmv2::HeaderType &header,
+                             HeaderType *output) {
+  output->set_name(header.name());
+  output->set_id(header.id());
   for (int i = 0; i < header.fields_size(); i++) {
     const google::protobuf::ListValue &unparsed_field = header.fields(i);
     RETURN_IF_ERROR(ValidateHeaderTypeFields(unparsed_field));
 
-    HeaderField field;
+    HeaderField &field =
+        (*output->mutable_fields())[unparsed_field.values(0).string_value()];
     field.set_name(unparsed_field.values(0).string_value());
-    field.set_bitwidth(
-        static_cast<int>(unparsed_field.values(1).number_value()));
+    field.set_bitwidth(unparsed_field.values(1).number_value());
     field.set_signed_(unparsed_field.values(2).bool_value());
     field.set_header_type(header.name());
-    (*output.mutable_fields())[unparsed_field.values(0).string_value()] = field;
   }
 
-  return output;
+  return absl::OkStatus();
 }
 
 // Parsing values.
-absl::Status TransformLValue(google::protobuf::Value bmv2_value,
-                             std::string variables[], LValue *dst) {
+absl::Status TransformLValue(const google::protobuf::Value &bmv2_value,
+                             const std::vector<std::string> &variables,
+                             LValue *dst) {
   // Either a field value or a variable.
   if (bmv2_value.kind_case() != google::protobuf::Value::kStructValue) {
     return absl::Status(absl::StatusCode::kInvalidArgument,
@@ -85,15 +78,14 @@ absl::Status TransformLValue(google::protobuf::Value bmv2_value,
   const google::protobuf::Struct &struct_value = bmv2_value.struct_value();
   const std::string &type = struct_value.fields().at("type").string_value();
   if (type == "field") {
-    google::protobuf::ListValue names =
+    const google::protobuf::ListValue &names =
         struct_value.fields().at("value").list_value();
 
     FieldValue *field_value = dst->mutable_field_value();
     field_value->set_header_name(names.values(0).string_value());
     field_value->set_field_name(names.values(1).string_value());
   } else if (type == "runtime_data") {
-    int variable_index =
-        static_cast<int>(struct_value.fields().at("value").number_value());
+    int variable_index = struct_value.fields().at("value").number_value();
 
     Variable *variable = dst->mutable_variable_value();
     variable->set_name(variables[variable_index]);
@@ -105,8 +97,9 @@ absl::Status TransformLValue(google::protobuf::Value bmv2_value,
   return absl::OkStatus();
 }
 
-absl::Status TransformRValue(google::protobuf::Value bmv2_value,
-                             std::string variables[], RValue *dst) {
+absl::Status TransformRValue(const google::protobuf::Value &bmv2_value,
+                             const std::vector<std::string> &variables,
+                             RValue *dst) {
   // TODO(babman): Code duplication between this and TransformLValue.
   //               This function will have more cases later when the
   //               second todo is handled, but we still need to reduce
@@ -125,15 +118,14 @@ absl::Status TransformRValue(google::protobuf::Value bmv2_value,
   const google::protobuf::Struct &struct_value = bmv2_value.struct_value();
   const std::string &type = struct_value.fields().at("type").string_value();
   if (type == "field") {
-    google::protobuf::ListValue names =
+    const google::protobuf::ListValue &names =
         struct_value.fields().at("value").list_value();
 
     FieldValue *field_value = dst->mutable_field_value();
     field_value->set_header_name(names.values(0).string_value());
     field_value->set_field_name(names.values(1).string_value());
   } else if (type == "runtime_data") {
-    int variable_index =
-        static_cast<int>(struct_value.fields().at("value").number_value());
+    int variable_index = struct_value.fields().at("value").number_value();
 
     Variable *variable = dst->mutable_variable_value();
     variable->set_name(variables[variable_index]);
@@ -146,14 +138,18 @@ absl::Status TransformRValue(google::protobuf::Value bmv2_value,
 }
 
 // Parsing and validating actions.
-pdpi::StatusOr<Action> TransformAction(
-    const bmv2::Action &bmv2_action,
-    const pdpi::ir::IrActionDefinition &pdpi_action) {
-  ActionImplementation *action_impl = new ActionImplementation();
+absl::Status TransformAction(const bmv2::Action &bmv2_action,
+                             const pdpi::ir::IrActionDefinition &pdpi_action,
+                             Action *output) {
+  // Definition is copied form pdpi.
+  output->mutable_action_definition()->CopyFrom(pdpi_action);
+
+  // Implementation is extracted from bmv2.
+  ActionImplementation *action_impl = output->mutable_action_implementation();
 
   // BMV2 format uses ints as ids for variables.
   // We will replace the ids with the actual variable name.
-  std::string *variable_map = new std::string[bmv2_action.runtime_data_size()];
+  std::vector<std::string> variable_map(bmv2_action.runtime_data_size());
   for (int i = 0; i < bmv2_action.runtime_data_size(); i++) {
     const bmv2::VariableDefinition variable = bmv2_action.runtime_data(i);
     (*action_impl->mutable_variables())[variable.name()] = variable.bitwidth();
@@ -197,48 +193,45 @@ pdpi::StatusOr<Action> TransformAction(
     statement->mutable_source_info()->ParseFromString(source_info);
   }
 
-  // Create the final output and return it.
-  Action output;
-  output.mutable_action_definition()->CopyFrom(pdpi_action);
-  output.set_allocated_action_implementation(action_impl);
-  return output;
+  return absl::OkStatus();
 }
 
 // Parsing and validating tables.
-pdpi::StatusOr<Table> TransformTable(
-    const bmv2::Table &bmv2_table,
-    const pdpi::ir::IrTableDefinition &pdpi_table) {
-  TableImplementation *table_impl = new TableImplementation();
+absl::Status TransformTable(const bmv2::Table &bmv2_table,
+                            const pdpi::ir::IrTableDefinition &pdpi_table,
+                            Table *output) {
+  // Table definition is copied from pdpi.
+  output->mutable_table_definition()->CopyFrom(pdpi_table);
+
+  // Table implementation is extracted from bmv2.
+  TableImplementation *table_impl = output->mutable_table_implementation();
   table_impl->set_match_type(bmv2_table.match_type());
   table_impl->set_action_selector_type(bmv2_table.type());
 
-  Table output;
-  output.mutable_table_definition()->CopyFrom(pdpi_table);
-  output.set_allocated_table_implementation(table_impl);
-  return output;
+  return absl::OkStatus();
 }
 
 // Main transformation function.
-pdpi::StatusOr<P4Program *> TransformToIr(const bmv2::P4Program &bmv2,
-                                          const pdpi::ir::IrP4Info &pdpi) {
-  P4Program *output = new P4Program();
+pdpi::StatusOr<std::unique_ptr<P4Program>> TransformToIr(
+    const bmv2::P4Program &bmv2, const pdpi::ir::IrP4Info &pdpi) {
+  std::unique_ptr<P4Program> output(new P4Program());
 
   // Transform headers.
   for (int i = 0; i < bmv2.header_types_size(); i++) {
     const bmv2::HeaderType &unparsed_header = bmv2.header_types(i);
-    ASSIGN_OR_RETURN(HeaderType parsed_header,
-                     TransformHeader(unparsed_header));
-    (*output->mutable_headers())[unparsed_header.name()] = parsed_header;
+    RETURN_IF_ERROR(
+        TransformHeader(unparsed_header,
+                        &(*output->mutable_headers())[unparsed_header.name()]));
   }
 
   // In reality, pdpi.actions_by_name is keyed on aliases and
   // not fully qualified names.
-  std::unordered_map<std::string, pdpi::ir::IrActionDefinition>
+  std::unordered_map<std::string, const pdpi::ir::IrActionDefinition &>
       actions_by_qualified_name;
   const auto &pdpi_actions = pdpi.actions_by_name();
-  for (auto it = pdpi_actions.begin(); it != pdpi_actions.end(); it++) {
+  for (auto it = pdpi_actions.cbegin(); it != pdpi_actions.cend(); it++) {
     const std::string &name = it->second.preamble().name();
-    actions_by_qualified_name[name] = it->second;
+    actions_by_qualified_name.insert({name, it->second});
   }
 
   // Transform actions.
@@ -254,18 +247,18 @@ pdpi::StatusOr<P4Program *> TransformToIr(const bmv2::P4Program &bmv2,
     const pdpi::ir::IrActionDefinition &pdpi_action =
         actions_by_qualified_name.at(action_name);  // Safe, no exception.
 
-    ASSIGN_OR_RETURN(
-        (*output->mutable_actions())[pdpi_action.preamble().name()],
-        TransformAction(bmv2_action, pdpi_action));
+    RETURN_IF_ERROR(TransformAction(
+        bmv2_action, pdpi_action,
+        &(*output->mutable_actions())[pdpi_action.preamble().name()]));
   }
 
   // Similarly, pdpi.tables_by_name is keyed on aliases.
-  std::unordered_map<std::string, pdpi::ir::IrTableDefinition>
+  std::unordered_map<std::string, const pdpi::ir::IrTableDefinition &>
       tables_by_qualified_name;
   const auto &pdpi_tables = pdpi.tables_by_name();
   for (auto it = pdpi_tables.begin(); it != pdpi_tables.end(); it++) {
     const std::string &name = it->second.preamble().name();
-    tables_by_qualified_name[name] = it->second;
+    tables_by_qualified_name.insert({name, it->second});
   }
 
   // Transform actions.
@@ -282,9 +275,9 @@ pdpi::StatusOr<P4Program *> TransformToIr(const bmv2::P4Program &bmv2,
       const pdpi::ir::IrTableDefinition &pdpi_table =
           tables_by_qualified_name.at(table_name);  // Safe, no exception.
 
-      ASSIGN_OR_RETURN(
-          (*output->mutable_tables())[pdpi_table.preamble().name()],
-          TransformTable(bmv2_table, pdpi_table));
+      RETURN_IF_ERROR(TransformTable(
+          bmv2_table, pdpi_table,
+          &(*output->mutable_tables())[pdpi_table.preamble().name()]));
     }
   }
 

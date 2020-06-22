@@ -52,7 +52,7 @@ int main(int argc, char* argv[]) {
   }
 
   // Transform to IR and print.
-  pdpi::StatusOr<p4_symbolic::ir::P4Program*> ir_status =
+  pdpi::StatusOr<std::unique_ptr<p4_symbolic::ir::P4Program>> ir_status =
       p4_symbolic::ir::TransformToIr(bmv2_or_status.value(),
                                      p4info_or_status.value());
   if (!ir_status.ok()) {

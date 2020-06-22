@@ -19,6 +19,8 @@
 #ifndef P4_SYMBOLIC_IR_IR_H_
 #define P4_SYMBOLIC_IR_IR_H_
 
+#include <memory>
+
 #include "p4_pdpi/ir.h"
 #include "p4_pdpi/utils/status_utils.h"
 #include "p4_symbolic/bmv2/bmv2.pb.h"
@@ -28,8 +30,8 @@ namespace p4_symbolic {
 namespace ir {
 
 // Transforms bmv2 protobuf and pdpi protobuf into our IR protobuf.
-pdpi::StatusOr<P4Program*> TransformToIr(const bmv2::P4Program& bmv2,
-                                         const pdpi::ir::IrP4Info& pdpi);
+pdpi::StatusOr<std::unique_ptr<P4Program>> TransformToIr(
+    const bmv2::P4Program& bmv2, const pdpi::ir::IrP4Info& pdpi);
 
 }  // namespace ir
 }  // namespace p4_symbolic
