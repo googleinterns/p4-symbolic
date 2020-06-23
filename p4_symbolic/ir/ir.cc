@@ -28,6 +28,30 @@ namespace ir {
 
 namespace {
 
+// Extracting source code information.
+pdpi::StatusOr<bmv2::SourceLocation> ExtractSourceLocation(
+    google::protobuf::Value unparsed_source_location) {
+  if (unparsed_source_location.kind_case() !=
+      google::protobuf::Value::kStructValue) {
+    return absl::Status(absl::StatusCode::kInvalidArgument,
+                        "SourceLocation is badly formatted!");
+  }
+
+  const auto &fields = unparsed_source_location.struct_value().fields();
+  if (fields.count("filename") != 1 || fields.count("line") != 1 ||
+      fields.count("column") != 1 || fields.count("source_fragment") != 1) {
+    return absl::Status(absl::StatusCode::kInvalidArgument,
+                        "SourceLocation is badly formatted!");
+  }
+
+  bmv2::SourceLocation output;
+  output.set_filename(fields.at("filename").string_value());
+  output.set_line(fields.at("line").number_value());
+  output.set_column(fields.at("column").number_value());
+  output.set_source_fragment(fields.at("source_fragment").string_value());
+  return output;
+}
+
 // Parsing and validating Headers.
 absl::Status ValidateHeaderTypeFields(const google::protobuf::ListValue &list) {
   // Size must be 3.
@@ -72,7 +96,9 @@ pdpi::StatusOr<LValue> ExtractLValue(
     const std::vector<std::string> &variables) {
   LValue output;
   // Either a field value or a variable.
-  if (bmv2_value.kind_case() != google::protobuf::Value::kStructValue) {
+  if (bmv2_value.kind_case() != google::protobuf::Value::kStructValue ||
+      bmv2_value.struct_value().fields().count("type") != 1 ||
+      bmv2_value.struct_value().fields().count("value") != 1) {
     return absl::Status(absl::StatusCode::kInvalidArgument,
                         "Left-hand of assignment is badly formatted!");
   }
@@ -113,7 +139,9 @@ pdpi::StatusOr<RValue> ExtractRValue(
   //               Will look at this later.
   // TODO(babman): Support the remaining cases: literals and simple expressions.
   RValue output;
-  if (bmv2_value.kind_case() != google::protobuf::Value::kStructValue) {
+  if (bmv2_value.kind_case() != google::protobuf::Value::kStructValue ||
+      bmv2_value.struct_value().fields().count("type") != 1 ||
+      bmv2_value.struct_value().fields().count("value") != 1) {
     return absl::Status(absl::StatusCode::kInvalidArgument,
                         "Left-hand of assignment is badly formatted!");
   }
@@ -163,6 +191,12 @@ pdpi::StatusOr<Action> ExtractAction(
   // Parse every statement in body.
   // When encoutering a variable, look it up in the variable map.
   for (const google::protobuf::Struct &primitive : bmv2_action.primitives()) {
+    if (primitive.fields().count("op") != 1 ||
+        primitive.fields().count("parameters") != 1) {
+      return absl::Status(absl::StatusCode::kInvalidArgument,
+                          "Action primitive is badly formatted!");
+    }
+
     const std::string &operation = primitive.fields().at("op").string_value();
     // TODO(babman): Maybe bring back the enum and use switch-case here? discuss
     Statement *statement = action_impl->add_action_body();
@@ -176,13 +210,14 @@ pdpi::StatusOr<Action> ExtractAction(
                             "Assignment parameters are badly formatted!");
       }
 
-      ASSIGN_OR_RETURN(LValue left, ExtractLValue(params.list_value().values(0),
-                                                  variable_map));
       ASSIGN_OR_RETURN(
-          RValue right,
+          LValue lvalue,
+          ExtractLValue(params.list_value().values(0), variable_map));
+      ASSIGN_OR_RETURN(
+          RValue rvalue,
           ExtractRValue(params.list_value().values(1), variable_map));
-      assignment->set_allocated_left(&left);
-      assignment->set_allocated_right(&right);
+      assignment->mutable_left()->CopyFrom(lvalue);
+      assignment->mutable_right()->CopyFrom(rvalue);
     } else {
       return absl::Status(absl::StatusCode::kUnimplemented,
                           "Unsupported primitive in action body!");
@@ -190,9 +225,15 @@ pdpi::StatusOr<Action> ExtractAction(
 
     // Parse source_info struct into its own protobuf.
     // Applies to all types of statements.
-    std::string source_info;
-    primitive.fields().at("source_info").SerializeToString(&source_info);
-    statement->mutable_source_info()->ParseFromString(source_info);
+    if (primitive.fields().count("source_info") != 1) {
+      return absl::Status(absl::StatusCode::kInvalidArgument,
+                          "Action primitive does not have source_info!");
+    }
+
+    ASSIGN_OR_RETURN(
+        bmv2::SourceLocation source_location,
+        ExtractSourceLocation(primitive.fields().at("source_info")));
+    statement->mutable_source_info()->CopyFrom(source_location);
   }
 
   return output;

@@ -62,5 +62,9 @@ int main(int argc, char* argv[]) {
   }
 
   std::cout << ir_status.value().DebugString() << std::endl;
+
+  // Clean up
+  google::protobuf::ShutdownProtobufLibrary();
+
   return 0;
 }
