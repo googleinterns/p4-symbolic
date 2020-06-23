@@ -26,6 +26,8 @@
 namespace p4_symbolic {
 namespace ir {
 
+namespace {
+
 // Parsing and validating Headers.
 absl::Status ValidateHeaderTypeFields(const google::protobuf::ListValue &list) {
   // Size must be 3.
@@ -211,6 +213,8 @@ pdpi::StatusOr<Table> ExtractTable(
 
   return output;
 }
+
+}  // namespace
 
 // Main Translation function.
 pdpi::StatusOr<P4Program> Bmv2AndP4infoToIr(const bmv2::P4Program &bmv2,
