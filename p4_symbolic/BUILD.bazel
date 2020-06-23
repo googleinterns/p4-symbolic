@@ -25,5 +25,9 @@ cc_binary(
         "//p4_symbolic/bmv2",
         "//p4_symbolic/ir",
         "//p4_symbolic/ir:pdpi_driver",
+        "@com_google_absl//absl/flags:flag",
+        "@com_google_absl//absl/flags:parse",
+        "@com_google_absl//absl/flags:usage",
+        "@com_google_absl//absl/strings",
     ],
 )

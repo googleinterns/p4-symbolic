@@ -12,15 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// TODO(babman): use abseil for command line argument parsing.
 // Stub main file for debugging (for now).
 
 #include <iostream>
 #include <string>
 
+#include "absl/flags/flag.h"
+#include "absl/flags/parse.h"
+#include "absl/flags/usage.h"
+#include "absl/strings/str_format.h"
 #include "p4_symbolic/bmv2/bmv2.h"
 #include "p4_symbolic/ir/ir.h"
 #include "p4_symbolic/ir/pdpi_driver.h"
+
+ABSL_FLAG(std::string, p4info, "",
+          "The path to the p4info protobuf file (required)");
+ABSL_FLAG(std::string, bmv2, "", "The path to the bmv2 json file (required)");
 
 // The main test routine for parsing bmv2 json with protobuf.
 // Parses bmv2 json that is fed in through stdin and dumps
@@ -31,9 +38,26 @@ int main(int argc, char* argv[]) {
   // Verify link and compile versions are the same.
   GOOGLE_PROTOBUF_VERIFY_VERSION;
 
+  // Command line arugments and help message.
+  absl::SetProgramUsageMessage(absl::StrFormat(
+      "usage: %s %s", argv[0],
+      "--bmv2=path/to/bmv2.json --p4info=path/to/p4info.pb.txt"));
+  absl::ParseCommandLine(argc, argv);
+
+  const std::string p4info_path = absl::GetFlag(FLAGS_p4info);
+  const std::string bmv2_path = absl::GetFlag(FLAGS_bmv2);
+  if (p4info_path.empty()) {
+    std::cerr << "Missing argument: --p4info=<file>" << std::endl;
+    return 1;
+  }
+  if (bmv2_path.empty()) {
+    std::cerr << "Missing argument: --bmv2=<file>" << std::endl;
+    return 1;
+  }
+
   // Parse pdpi.
   pdpi::StatusOr<pdpi::ir::IrP4Info> p4info_or_status =
-      p4_symbolic::ir::ParseP4InfoFile(argv[1]);
+      p4_symbolic::ir::ParseP4InfoFile(p4info_path.c_str());
 
   if (!p4info_or_status.ok()) {
     std::cerr << "Could not parse p4info: " << p4info_or_status.status()
@@ -43,7 +67,7 @@ int main(int argc, char* argv[]) {
 
   // Parse bmv2 json.
   pdpi::StatusOr<p4_symbolic::bmv2::P4Program> bmv2_or_status =
-      p4_symbolic::bmv2::ParseBmv2JsonFile(argv[2]);
+      p4_symbolic::bmv2::ParseBmv2JsonFile(bmv2_path.c_str());
 
   if (!bmv2_or_status.ok()) {
     std::cerr << "Could not parse bmv2 JSON: " << bmv2_or_status.status()
