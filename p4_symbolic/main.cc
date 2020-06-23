@@ -52,15 +52,15 @@ int main(int argc, char* argv[]) {
   }
 
   // Transform to IR and print.
-  pdpi::StatusOr<std::unique_ptr<p4_symbolic::ir::P4Program>> ir_status =
-      p4_symbolic::ir::TransformToIr(bmv2_or_status.value(),
-                                     p4info_or_status.value());
+  pdpi::StatusOr<p4_symbolic::ir::P4Program> ir_status =
+      p4_symbolic::ir::Bmv2AndP4infoToIr(bmv2_or_status.value(),
+                                         p4info_or_status.value());
   if (!ir_status.ok()) {
     std::cerr << "Could not transform to IR: " << ir_status.status()
               << std::endl;
-    return -1;
+    return 1;
   }
 
-  std::cout << ir_status.value()->DebugString() << std::endl;
+  std::cout << ir_status.value().DebugString() << std::endl;
   return 0;
 }

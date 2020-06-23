@@ -46,29 +46,29 @@ absl::Status ValidateHeaderTypeFields(const google::protobuf::ListValue &list) {
   return absl::OkStatus();
 }
 
-absl::Status TransformHeader(const bmv2::HeaderType &header,
-                             HeaderType *output) {
-  output->set_name(header.name());
-  output->set_id(header.id());
-  for (int i = 0; i < header.fields_size(); i++) {
-    const google::protobuf::ListValue &unparsed_field = header.fields(i);
+pdpi::StatusOr<HeaderType> ExtractHeaderType(const bmv2::HeaderType &header) {
+  HeaderType output;
+  output.set_name(header.name());
+  output.set_id(header.id());
+  for (const google::protobuf::ListValue &unparsed_field : header.fields()) {
     RETURN_IF_ERROR(ValidateHeaderTypeFields(unparsed_field));
 
     HeaderField &field =
-        (*output->mutable_fields())[unparsed_field.values(0).string_value()];
+        (*output.mutable_fields())[unparsed_field.values(0).string_value()];
     field.set_name(unparsed_field.values(0).string_value());
     field.set_bitwidth(unparsed_field.values(1).number_value());
     field.set_signed_(unparsed_field.values(2).bool_value());
     field.set_header_type(header.name());
   }
 
-  return absl::OkStatus();
+  return output;
 }
 
-// Parsing values.
-absl::Status TransformLValue(const google::protobuf::Value &bmv2_value,
-                             const std::vector<std::string> &variables,
-                             LValue *dst) {
+// Functions for translating values.
+pdpi::StatusOr<LValue> ExtractLValue(
+    const google::protobuf::Value &bmv2_value,
+    const std::vector<std::string> &variables) {
+  LValue output;
   // Either a field value or a variable.
   if (bmv2_value.kind_case() != google::protobuf::Value::kStructValue) {
     return absl::Status(absl::StatusCode::kInvalidArgument,
@@ -81,26 +81,26 @@ absl::Status TransformLValue(const google::protobuf::Value &bmv2_value,
     const google::protobuf::ListValue &names =
         struct_value.fields().at("value").list_value();
 
-    FieldValue *field_value = dst->mutable_field_value();
+    FieldValue *field_value = output.mutable_field_value();
     field_value->set_header_name(names.values(0).string_value());
     field_value->set_field_name(names.values(1).string_value());
   } else if (type == "runtime_data") {
     int variable_index = struct_value.fields().at("value").number_value();
 
-    Variable *variable = dst->mutable_variable_value();
+    Variable *variable = output.mutable_variable_value();
     variable->set_name(variables[variable_index]);
   } else {
     return absl::Status(absl::StatusCode::kUnimplemented,
                         "Unsupported expression in left-hand of assignment!");
   }
 
-  return absl::OkStatus();
+  return output;
 }
 
-absl::Status TransformRValue(const google::protobuf::Value &bmv2_value,
-                             const std::vector<std::string> &variables,
-                             RValue *dst) {
-  // TODO(babman): Code duplication between this and TransformLValue.
+pdpi::StatusOr<RValue> ExtractRValue(
+    const google::protobuf::Value &bmv2_value,
+    const std::vector<std::string> &variables) {
+  // TODO(babman): Code duplication between this and TranslateLValue.
   //               This function will have more cases later when the
   //               second todo is handled, but we still need to reduce
   //               code duplication.
@@ -110,6 +110,7 @@ absl::Status TransformRValue(const google::protobuf::Value &bmv2_value,
   //               duplicates by much..
   //               Will look at this later.
   // TODO(babman): Support the remaining cases: literals and simple expressions.
+  RValue output;
   if (bmv2_value.kind_case() != google::protobuf::Value::kStructValue) {
     return absl::Status(absl::StatusCode::kInvalidArgument,
                         "Left-hand of assignment is badly formatted!");
@@ -121,31 +122,32 @@ absl::Status TransformRValue(const google::protobuf::Value &bmv2_value,
     const google::protobuf::ListValue &names =
         struct_value.fields().at("value").list_value();
 
-    FieldValue *field_value = dst->mutable_field_value();
+    FieldValue *field_value = output.mutable_field_value();
     field_value->set_header_name(names.values(0).string_value());
     field_value->set_field_name(names.values(1).string_value());
   } else if (type == "runtime_data") {
     int variable_index = struct_value.fields().at("value").number_value();
 
-    Variable *variable = dst->mutable_variable_value();
+    Variable *variable = output.mutable_variable_value();
     variable->set_name(variables[variable_index]);
   } else {
     return absl::Status(absl::StatusCode::kUnimplemented,
                         "Unsupported expression in left-hand of assignment!");
   }
 
-  return absl::OkStatus();
+  return output;
 }
 
 // Parsing and validating actions.
-absl::Status TransformAction(const bmv2::Action &bmv2_action,
-                             const pdpi::ir::IrActionDefinition &pdpi_action,
-                             Action *output) {
+pdpi::StatusOr<Action> ExtractAction(
+    const bmv2::Action &bmv2_action,
+    const pdpi::ir::IrActionDefinition &pdpi_action) {
+  Action output;
   // Definition is copied form pdpi.
-  output->mutable_action_definition()->CopyFrom(pdpi_action);
+  output.mutable_action_definition()->CopyFrom(pdpi_action);
 
   // Implementation is extracted from bmv2.
-  ActionImplementation *action_impl = output->mutable_action_implementation();
+  ActionImplementation *action_impl = output.mutable_action_implementation();
 
   // BMV2 format uses ints as ids for variables.
   // We will replace the ids with the actual variable name.
@@ -158,14 +160,11 @@ absl::Status TransformAction(const bmv2::Action &bmv2_action,
 
   // Parse every statement in body.
   // When encoutering a variable, look it up in the variable map.
-  for (int i = 0; i < bmv2_action.primitives_size(); i++) {
-    const google::protobuf::Struct &primitive = bmv2_action.primitives(i);
-    const std::string &op = primitive.fields().at("op").string_value();
+  for (const google::protobuf::Struct &primitive : bmv2_action.primitives()) {
+    const std::string &operation = primitive.fields().at("op").string_value();
     // TODO(babman): Maybe bring back the enum and use switch-case here? discuss
-    // TODO(babman): As we add more statements, this will get more complicated.
-    //               It may deserve its own function or file.
     Statement *statement = action_impl->add_action_body();
-    if (op == "assign") {
+    if (operation == "assign") {
       AssignmentStatement *assignment = statement->mutable_assignment();
       const google::protobuf::Value &params =
           primitive.fields().at("parameters");
@@ -175,12 +174,13 @@ absl::Status TransformAction(const bmv2::Action &bmv2_action,
                             "Assignment parameters are badly formatted!");
       }
 
-      RETURN_IF_ERROR(TransformLValue(params.list_value().values(0),
-                                      variable_map,
-                                      assignment->mutable_left()));
-      RETURN_IF_ERROR(TransformRValue(params.list_value().values(1),
-                                      variable_map,
-                                      assignment->mutable_right()));
+      ASSIGN_OR_RETURN(LValue left, ExtractLValue(params.list_value().values(0),
+                                                  variable_map));
+      ASSIGN_OR_RETURN(
+          RValue right,
+          ExtractRValue(params.list_value().values(1), variable_map));
+      assignment->set_allocated_left(&left);
+      assignment->set_allocated_right(&right);
     } else {
       return absl::Status(absl::StatusCode::kUnimplemented,
                           "Unsupported primitive in action body!");
@@ -193,35 +193,34 @@ absl::Status TransformAction(const bmv2::Action &bmv2_action,
     statement->mutable_source_info()->ParseFromString(source_info);
   }
 
-  return absl::OkStatus();
+  return output;
 }
 
 // Parsing and validating tables.
-absl::Status TransformTable(const bmv2::Table &bmv2_table,
-                            const pdpi::ir::IrTableDefinition &pdpi_table,
-                            Table *output) {
+pdpi::StatusOr<Table> ExtractTable(
+    const bmv2::Table &bmv2_table,
+    const pdpi::ir::IrTableDefinition &pdpi_table) {
+  Table output;
   // Table definition is copied from pdpi.
-  output->mutable_table_definition()->CopyFrom(pdpi_table);
+  output.mutable_table_definition()->CopyFrom(pdpi_table);
 
   // Table implementation is extracted from bmv2.
-  TableImplementation *table_impl = output->mutable_table_implementation();
+  TableImplementation *table_impl = output.mutable_table_implementation();
   table_impl->set_match_type(bmv2_table.match_type());
   table_impl->set_action_selector_type(bmv2_table.type());
 
-  return absl::OkStatus();
+  return output;
 }
 
-// Main transformation function.
-pdpi::StatusOr<std::unique_ptr<P4Program>> TransformToIr(
-    const bmv2::P4Program &bmv2, const pdpi::ir::IrP4Info &pdpi) {
-  std::unique_ptr<P4Program> output(new P4Program());
+// Main Translation function.
+pdpi::StatusOr<P4Program> Bmv2AndP4infoToIr(const bmv2::P4Program &bmv2,
+                                            const pdpi::ir::IrP4Info &pdpi) {
+  P4Program output;
 
-  // Transform headers.
-  for (int i = 0; i < bmv2.header_types_size(); i++) {
-    const bmv2::HeaderType &unparsed_header = bmv2.header_types(i);
-    RETURN_IF_ERROR(
-        TransformHeader(unparsed_header,
-                        &(*output->mutable_headers())[unparsed_header.name()]));
+  // Translate headers.
+  for (const bmv2::HeaderType &unparsed_header : bmv2.header_types()) {
+    ASSIGN_OR_RETURN((*output.mutable_headers())[unparsed_header.name()],
+                     ExtractHeaderType(unparsed_header));
   }
 
   // In reality, pdpi.actions_by_name is keyed on aliases and
@@ -229,14 +228,13 @@ pdpi::StatusOr<std::unique_ptr<P4Program>> TransformToIr(
   std::unordered_map<std::string, const pdpi::ir::IrActionDefinition &>
       actions_by_qualified_name;
   const auto &pdpi_actions = pdpi.actions_by_name();
-  for (auto it = pdpi_actions.cbegin(); it != pdpi_actions.cend(); it++) {
-    const std::string &name = it->second.preamble().name();
-    actions_by_qualified_name.insert({name, it->second});
+  for (const auto &it : pdpi_actions) {
+    const std::string &name = it.second.preamble().name();
+    actions_by_qualified_name.insert({name, it.second});
   }
 
-  // Transform actions.
-  for (int i = 0; i < bmv2.actions_size(); i++) {
-    const bmv2::Action &bmv2_action = bmv2.actions(i);
+  // Translate actions.
+  for (const bmv2::Action &bmv2_action : bmv2.actions()) {
     const std::string &action_name = bmv2_action.name();
 
     // Matching action must exist in p4info and thus pdpi.
@@ -247,24 +245,21 @@ pdpi::StatusOr<std::unique_ptr<P4Program>> TransformToIr(
     const pdpi::ir::IrActionDefinition &pdpi_action =
         actions_by_qualified_name.at(action_name);  // Safe, no exception.
 
-    RETURN_IF_ERROR(TransformAction(
-        bmv2_action, pdpi_action,
-        &(*output->mutable_actions())[pdpi_action.preamble().name()]));
+    ASSIGN_OR_RETURN((*output.mutable_actions())[pdpi_action.preamble().name()],
+                     ExtractAction(bmv2_action, pdpi_action));
   }
 
   // Similarly, pdpi.tables_by_name is keyed on aliases.
   std::unordered_map<std::string, const pdpi::ir::IrTableDefinition &>
       tables_by_qualified_name;
-  const auto &pdpi_tables = pdpi.tables_by_name();
-  for (auto it = pdpi_tables.begin(); it != pdpi_tables.end(); it++) {
-    const std::string &name = it->second.preamble().name();
-    tables_by_qualified_name.insert({name, it->second});
+  for (const auto &it : pdpi.tables_by_name()) {
+    const std::string &name = it.second.preamble().name();
+    tables_by_qualified_name.insert({name, it.second});
   }
 
-  // Transform actions.
-  for (int i = 0; i < bmv2.pipelines_size(); i++) {
-    for (int j = 0; j < bmv2.pipelines(i).tables_size(); j++) {
-      const bmv2::Table &bmv2_table = bmv2.pipelines(i).tables(j);
+  // Translate tables.
+  for (const auto &pipeline : bmv2.pipelines()) {
+    for (const bmv2::Table &bmv2_table : pipeline.tables()) {
       const std::string &table_name = bmv2_table.name();
 
       // Matching action must exist in p4info and thus pdpi.
@@ -275,9 +270,8 @@ pdpi::StatusOr<std::unique_ptr<P4Program>> TransformToIr(
       const pdpi::ir::IrTableDefinition &pdpi_table =
           tables_by_qualified_name.at(table_name);  // Safe, no exception.
 
-      RETURN_IF_ERROR(TransformTable(
-          bmv2_table, pdpi_table,
-          &(*output->mutable_tables())[pdpi_table.preamble().name()]));
+      ASSIGN_OR_RETURN((*output.mutable_tables())[pdpi_table.preamble().name()],
+                       ExtractTable(bmv2_table, pdpi_table));
     }
   }
 
@@ -286,7 +280,7 @@ pdpi::StatusOr<std::unique_ptr<P4Program>> TransformToIr(
     return absl::Status(absl::StatusCode::kInvalidArgument,
                         "BMV2 file contains no pipelines!");
   }
-  output->set_initial_table(bmv2.pipelines(0).init_table());
+  output.set_initial_table(bmv2.pipelines(0).init_table());
 
   return output;
 }
