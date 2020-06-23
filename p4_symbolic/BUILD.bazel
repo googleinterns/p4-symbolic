@@ -21,6 +21,7 @@ cc_binary(
     srcs = [
         "main.cc",
     ],
+    visibility = ["//p4_symbolic/ir:__pkg__"],
     deps = [
         "//p4_symbolic/bmv2",
         "//p4_symbolic/ir",
