@@ -12,15 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// TODO(babman): Make error messages include more context (e.g. the value
-//               of the unsupported expression).
-
 #include "p4_symbolic/ir/ir.h"
 
 #include <string>
 #include <unordered_map>
 #include <vector>
 
+#include "absl/strings/str_format.h"
 #include "google/protobuf/struct.pb.h"
 
 namespace p4_symbolic {
@@ -33,15 +31,20 @@ pdpi::StatusOr<bmv2::SourceLocation> ExtractSourceLocation(
     google::protobuf::Value unparsed_source_location) {
   if (unparsed_source_location.kind_case() !=
       google::protobuf::Value::kStructValue) {
-    return absl::Status(absl::StatusCode::kInvalidArgument,
-                        "SourceLocation is badly formatted!");
+    return absl::Status(
+        absl::StatusCode::kInvalidArgument,
+        absl::StrFormat("Source Location is expected to be a struct, found %s",
+                        unparsed_source_location.DebugString()));
   }
 
   const auto &fields = unparsed_source_location.struct_value().fields();
   if (fields.count("filename") != 1 || fields.count("line") != 1 ||
       fields.count("column") != 1 || fields.count("source_fragment") != 1) {
-    return absl::Status(absl::StatusCode::kInvalidArgument,
-                        "SourceLocation is badly formatted!");
+    return absl::Status(
+        absl::StatusCode::kInvalidArgument,
+        absl::StrFormat("Source Location is expected to contain 'filename', "
+                        "'line', 'colmn', and 'source_fragment, found %s",
+                        unparsed_source_location.DebugString()));
   }
 
   bmv2::SourceLocation output;
@@ -57,16 +60,20 @@ absl::Status ValidateHeaderTypeFields(const google::protobuf::ListValue &list) {
   // Size must be 3.
   int size = list.values_size();
   if (size != 3) {
-    return absl::Status(absl::StatusCode::kInvalidArgument,
-                        "Headertype fields are badly formatted!");
+    return absl::Status(
+        absl::StatusCode::kInvalidArgument,
+        absl::StrFormat("Header field should contain 3 elements, found %s",
+                        list.DebugString()));
   }
 
   // Array must contain [string, int, bool] in that order.
   if (list.values(0).kind_case() != google::protobuf::Value::kStringValue ||
       list.values(1).kind_case() != google::protobuf::Value::kNumberValue ||
       list.values(2).kind_case() != google::protobuf::Value::kBoolValue) {
-    return absl::Status(absl::StatusCode::kInvalidArgument,
-                        "Headertype fields are badly formatted!");
+    return absl::Status(
+        absl::StatusCode::kInvalidArgument,
+        absl::StrFormat("Header field should be [string, int, bool], found %s",
+                        list.DebugString()));
   }
 
   return absl::OkStatus();
@@ -99,8 +106,10 @@ pdpi::StatusOr<LValue> ExtractLValue(
   if (bmv2_value.kind_case() != google::protobuf::Value::kStructValue ||
       bmv2_value.struct_value().fields().count("type") != 1 ||
       bmv2_value.struct_value().fields().count("value") != 1) {
-    return absl::Status(absl::StatusCode::kInvalidArgument,
-                        "Left-hand of assignment is badly formatted!");
+    return absl::Status(
+        absl::StatusCode::kInvalidArgument,
+        absl::StrFormat("Lvalue must contain 'type' and 'value', found %s",
+                        bmv2_value.DebugString()));
   }
 
   const google::protobuf::Struct &struct_value = bmv2_value.struct_value();
@@ -118,8 +127,9 @@ pdpi::StatusOr<LValue> ExtractLValue(
     Variable *variable = output.mutable_variable_value();
     variable->set_name(variables[variable_index]);
   } else {
-    return absl::Status(absl::StatusCode::kUnimplemented,
-                        "Unsupported expression in left-hand of assignment!");
+    return absl::Status(
+        absl::StatusCode::kUnimplemented,
+        absl::StrFormat("Unsupported lvalue %s", bmv2_value.DebugString()));
   }
 
   return output;
@@ -128,22 +138,15 @@ pdpi::StatusOr<LValue> ExtractLValue(
 pdpi::StatusOr<RValue> ExtractRValue(
     const google::protobuf::Value &bmv2_value,
     const std::vector<std::string> &variables) {
-  // TODO(babman): Code duplication between this and TranslateLValue.
-  //               This function will have more cases later when the
-  //               second todo is handled, but we still need to reduce
-  //               code duplication.
-  //               Difficulty: the type here is RValue instead of LValue.
-  //               Possible solution: create piece wise re-usable functions
-  //               that return FieldValue/Variable etc, cons: does not reduce
-  //               duplicates by much..
-  //               Will look at this later.
   // TODO(babman): Support the remaining cases: literals and simple expressions.
   RValue output;
   if (bmv2_value.kind_case() != google::protobuf::Value::kStructValue ||
       bmv2_value.struct_value().fields().count("type") != 1 ||
       bmv2_value.struct_value().fields().count("value") != 1) {
-    return absl::Status(absl::StatusCode::kInvalidArgument,
-                        "Left-hand of assignment is badly formatted!");
+    return absl::Status(
+        absl::StatusCode::kInvalidArgument,
+        absl::StrFormat("Rvalue must contain 'type' and 'value', found %s",
+                        bmv2_value.DebugString()));
   }
 
   const google::protobuf::Struct &struct_value = bmv2_value.struct_value();
@@ -161,8 +164,9 @@ pdpi::StatusOr<RValue> ExtractRValue(
     Variable *variable = output.mutable_variable_value();
     variable->set_name(variables[variable_index]);
   } else {
-    return absl::Status(absl::StatusCode::kUnimplemented,
-                        "Unsupported expression in left-hand of assignment!");
+    return absl::Status(
+        absl::StatusCode::kUnimplemented,
+        absl::StrFormat("Unsupported rvalue %s", bmv2_value.DebugString()));
   }
 
   return output;
@@ -193,8 +197,12 @@ pdpi::StatusOr<Action> ExtractAction(
   for (const google::protobuf::Struct &primitive : bmv2_action.primitives()) {
     if (primitive.fields().count("op") != 1 ||
         primitive.fields().count("parameters") != 1) {
-      return absl::Status(absl::StatusCode::kInvalidArgument,
-                          "Action primitive is badly formatted!");
+      return absl::Status(
+          absl::StatusCode::kInvalidArgument,
+          absl::StrFormat("Primitive statement in action %s should contain 'op'"
+                          ", 'parameters', found %s",
+                          pdpi_action.preamble().name(),
+                          primitive.DebugString()));
     }
 
     const std::string &operation = primitive.fields().at("op").string_value();
@@ -206,8 +214,12 @@ pdpi::StatusOr<Action> ExtractAction(
           primitive.fields().at("parameters");
       if (params.kind_case() != google::protobuf::Value::kListValue ||
           params.list_value().values_size() != 2) {
-        return absl::Status(absl::StatusCode::kInvalidArgument,
-                            "Assignment parameters are badly formatted!");
+        return absl::Status(
+            absl::StatusCode::kInvalidArgument,
+            absl::StrFormat("Assignment statement in action %s must contain 2 "
+                            "parameters, found %s",
+                            pdpi_action.preamble().name(),
+                            primitive.DebugString()));
       }
 
       ASSIGN_OR_RETURN(
@@ -219,15 +231,21 @@ pdpi::StatusOr<Action> ExtractAction(
       assignment->mutable_left()->CopyFrom(lvalue);
       assignment->mutable_right()->CopyFrom(rvalue);
     } else {
-      return absl::Status(absl::StatusCode::kUnimplemented,
-                          "Unsupported primitive in action body!");
+      return absl::Status(
+          absl::StatusCode::kUnimplemented,
+          absl::StrFormat("Unsupported statement in action %s, found %s",
+                          pdpi_action.preamble().name(),
+                          primitive.DebugString()));
     }
 
     // Parse source_info struct into its own protobuf.
     // Applies to all types of statements.
     if (primitive.fields().count("source_info") != 1) {
-      return absl::Status(absl::StatusCode::kInvalidArgument,
-                          "Action primitive does not have source_info!");
+      return absl::Status(
+          absl::StatusCode::kInvalidArgument,
+          absl::StrFormat(
+              "Statement in action %s does not have source_info, found %s",
+              pdpi_action.preamble().name(), primitive.DebugString()));
     }
 
     ASSIGN_OR_RETURN(
@@ -284,8 +302,9 @@ pdpi::StatusOr<P4Program> Bmv2AndP4infoToIr(const bmv2::P4Program &bmv2,
 
     // Matching action must exist in p4info and thus pdpi.
     if (actions_by_qualified_name.count(action_name) != 1) {
-      return absl::Status(absl::StatusCode::kInvalidArgument,
-                          "BMV2 action missing from p4info!");
+      return absl::Status(
+          absl::StatusCode::kInvalidArgument,
+          absl::StrFormat("Action %s is missing from p4info!", action_name));
     }
     const pdpi::ir::IrActionDefinition &pdpi_action =
         actions_by_qualified_name.at(action_name);  // Safe, no exception.
@@ -309,8 +328,9 @@ pdpi::StatusOr<P4Program> Bmv2AndP4infoToIr(const bmv2::P4Program &bmv2,
 
       // Matching action must exist in p4info and thus pdpi.
       if (tables_by_qualified_name.count(table_name) != 1) {
-        return absl::Status(absl::StatusCode::kInvalidArgument,
-                            "BMV2 table missing from p4info!");
+        return absl::Status(
+            absl::StatusCode::kInvalidArgument,
+            absl::StrFormat("Table %s is missing from p4info!", table_name));
       }
       const pdpi::ir::IrTableDefinition &pdpi_table =
           tables_by_qualified_name.at(table_name);  // Safe, no exception.
