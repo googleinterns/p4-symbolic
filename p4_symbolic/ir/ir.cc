@@ -16,6 +16,7 @@
 
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include "absl/strings/str_cat.h"
@@ -274,7 +275,8 @@ pdpi::StatusOr<Table> ExtractTable(
 
 // Main Translation function.
 pdpi::StatusOr<P4Program> Bmv2AndP4infoToIr(const bmv2::P4Program &bmv2,
-                                            const pdpi::ir::IrP4Info &pdpi) {
+                                            const pdpi::ir::IrP4Info &pdpi,
+                                            const TableEntries &table_entries) {
   P4Program output;
 
   // Translate headers.
@@ -343,6 +345,36 @@ pdpi::StatusOr<P4Program> Bmv2AndP4infoToIr(const bmv2::P4Program &bmv2,
                         "BMV2 file contains no pipelines!");
   }
   output.set_initial_table(bmv2.pipelines(0).init_table());
+
+  // Parse Table entries and fill them in the IR.
+  for (const std::pair<std::string, TableEntry> &pair : table_entries) {
+    const TableEntry &entry = pair.second;
+    // Table and action aliases parsed from table entris files
+    // will be replaced with their respective full name.
+    const std::string &table_alias = pair.first;
+    const std::string &action_alias = entry.action();
+
+    if (pdpi.tables_by_name().count(table_alias) != 1) {
+      return absl::Status(
+          absl::StatusCode::kInvalidArgument,
+          absl::StrFormat("Table %s from entries is missing from p4info!",
+                          table_alias));
+    }
+    if (pdpi.actions_by_name().count(action_alias) != 1) {
+      return absl::Status(
+          absl::StatusCode::kInvalidArgument,
+          absl::StrFormat("Action %s from entries is missing from p4info!",
+                          table_alias));
+    }
+
+    const std::string &table_name =
+        pdpi.tables_by_name().at(table_alias).preamble().name();
+    TableEntry *dst = (*output.mutable_tables())[table_name]
+                          .mutable_table_implementation()
+                          ->add_entries();
+    dst->CopyFrom(entry);
+    dst->set_action(pdpi.actions_by_name().at(action_alias).preamble().name());
+  }
 
   return output;
 }

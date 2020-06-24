@@ -48,6 +48,22 @@ cc_library(
 )
 
 cc_library(
+    name = "table_entries",
+    srcs = [
+        "table_entries.cc",
+    ],
+    hdrs = [
+        "table_entries.h",
+    ],
+    visibility = ["//p4_symbolic:__subpackages__"],
+    deps = [
+        ":ir_cc_proto",
+        "//p4_symbolic/util",
+        "@com_google_absl//absl/strings",
+    ],
+)
+
+cc_library(
     name = "ir",
     srcs = [
         "ir.cc",
@@ -58,6 +74,7 @@ cc_library(
     visibility = ["//p4_symbolic:__subpackages__"],
     deps = [
         ":ir_cc_proto",
+        ":table_entries",
         "//p4_symbolic/bmv2:bmv2_cc_proto",
         "@com_google_absl//absl/strings",
         "@com_google_protobuf//:protobuf_headers",

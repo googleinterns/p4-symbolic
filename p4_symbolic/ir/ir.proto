@@ -38,9 +38,9 @@ import "p4_symbolic/bmv2/bmv2.proto";
 message P4Program {
   // Header definitions, keyed by the header type name (e.g. standard_metadata).
   map<string, HeaderType> headers = 1;
-  // Action definitions and implementations, keyed by action name.
+  // Action definitions and implementations, keyed by qualified action name.
   map<string, Action> actions = 2;
-  // Table definitions and implementations, keyed by table name.
+  // Table definitions and implementations, keyed by qualified table name.
   map<string, Table> tables = 3;
   // The name of the initial table.
   string initial_table = 6;
@@ -93,9 +93,22 @@ message TableImplementation {
   // There is always a most general match because of P4 restrications
   // on match combination (which may be under-documented).
   // See https://github.com/p4lang/p4-spec/issues/411
-  p4_symbolic.bmv2.TableMatchType match_type = 5;
+  p4_symbolic.bmv2.TableMatchType match_type = 1;
   // Table type with respect to action selection.
-  p4_symbolic.bmv2.ActionSelectorType action_selector_type = 6;
+  p4_symbolic.bmv2.ActionSelectorType action_selector_type = 2;
+  // Concrete table entries.
+  repeated TableEntry entries = 3;
+}
+
+// Table entry parsed from P4RT/simple_switch_CLI.
+message TableEntry {
+  // Name of the target action, matches the format of the key
+  // in P4Program#actions.
+  string action = 1;
+  // Values to match on, all in hex.
+  repeated string match_values = 2;
+  // Parameters passed to action if the match succeeds, all in hex.
+  repeated string action_parameters = 3;
 }
 
 // An abstract p4 statement corresponding to a top level operation within

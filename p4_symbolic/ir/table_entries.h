@@ -12,22 +12,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef P4_SYMBOLIC_IR_PDPI_DRIVER_H_
-#define P4_SYMBOLIC_IR_PDPI_DRIVER_H_
+// This file parses table entries attached to a p4 program, and fills them
+// into the IR of that program.
 
-#include "p4_pdpi/ir.h"
+#ifndef P4_SYMBOLIC_IR_TABLE_ENTRIES_H_
+#define P4_SYMBOLIC_IR_TABLE_ENTRIES_H_
+
+#include <string>
+#include <utility>
+#include <vector>
+
 #include "p4_pdpi/utils/status_utils.h"
+#include "p4_symbolic/ir/ir.pb.h"
 
 namespace p4_symbolic {
 namespace ir {
 
-// Parses the p4info file given by "p4info_path" into a pdpi:IrP4Info
-// instance.
-// Returns the parsed IrP4Info instance, or an appropriate failure status
-// in case of a badly formatted input file, or if the file does not exist.
-pdpi::StatusOr<pdpi::ir::IrP4Info> ParseP4InfoFile(const char *p4info_path);
+using TableEntries = std::vector<std::pair<std::string, TableEntry>>;
+
+// Parses entries read from entries_path, and fills them in given ir in place.
+pdpi::StatusOr<TableEntries> ParseAndFillEntries(const char *entries_path);
 
 }  // namespace ir
 }  // namespace p4_symbolic
 
-#endif  // P4_SYMBOLIC_IR_PDPI_DRIVER_H_
+#endif  // P4_SYMBOLIC_IR_TABLE_ENTRIES_H_
