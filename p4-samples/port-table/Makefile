@@ -20,11 +20,7 @@ run: build simple_switch control_plane packets
 # Control Plane
 # insert entries into p4 tables
 #
-define CONTROL_PLANE_COMMANDS =
-table_add ports_exact set_egress_spec 0 => 1\n\
-table_add ports_exact set_egress_spec 1 => 0\n\
-table_dump ipv4_lpm
-endef
+CONTROL_PLANE_COMMANDS=$$(cat entries.txt)
 
 #
 # Sending Test Packets
