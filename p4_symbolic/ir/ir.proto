@@ -105,10 +105,10 @@ message TableEntry {
   // Name of the target action, matches the format of the key
   // in P4Program#actions.
   string action = 1;
-  // Values to match on, all in hex.
-  repeated string match_values = 2;
-  // Parameters passed to action if the match succeeds, all in hex.
-  repeated string action_parameters = 3;
+  // Values to match on.
+  repeated int32 match_values = 2;  // TODO(babman): turn to hex for bitstrings.
+  // Parameters passed to action if the match succeeds.
+  repeated int32 action_parameters = 3; // TODO(babman): turn to hex.
 }
 
 // An abstract p4 statement corresponding to a top level operation within
