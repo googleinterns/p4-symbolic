@@ -34,7 +34,7 @@ ABSL_FLAG(std::string, bmv2, "", "The path to the bmv2 json file (required)");
 // the resulting native protobuf and json data to files.
 // Expects the paths of the protobuf output file and json
 // output file to be passed as command line arguments respectively.
-int main(int argc, char* argv[]) {
+int main(int argc, char *argv[]) {
   // Verify link and compile versions are the same.
   GOOGLE_PROTOBUF_VERIFY_VERSION;
 
@@ -44,8 +44,8 @@ int main(int argc, char* argv[]) {
       "--bmv2=path/to/bmv2.json --p4info=path/to/p4info.pb.txt"));
   absl::ParseCommandLine(argc, argv);
 
-  const std::string p4info_path = absl::GetFlag(FLAGS_p4info);
-  const std::string bmv2_path = absl::GetFlag(FLAGS_bmv2);
+  const std::string &p4info_path = absl::GetFlag(FLAGS_p4info);
+  const std::string &bmv2_path = absl::GetFlag(FLAGS_bmv2);
   if (p4info_path.empty()) {
     std::cerr << "Missing argument: --p4info=<file>" << std::endl;
     return 1;
