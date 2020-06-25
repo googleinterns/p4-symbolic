@@ -17,15 +17,14 @@ load("@rules_cc//cc:defs.bzl", "cc_library")
 cc_library(
     name = "symbolic",
     srcs = [
-        "smt.cc",
         "symbolic.cc",
     ],
     hdrs = [
-        "smt.h",
         "symbolic.h",
     ],
     visibility = ["//p4_symbolic:__subpackages__"],
     deps = [
         "//p4_symbolic/ir:ir_cc_proto",
+        "@com_google_absl//absl/strings",
     ],
 )
