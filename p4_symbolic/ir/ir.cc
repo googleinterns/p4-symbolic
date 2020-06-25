@@ -92,7 +92,6 @@ pdpi::StatusOr<HeaderType> ExtractHeaderType(const bmv2::HeaderType &header) {
     field.set_name(unparsed_field.values(0).string_value());
     field.set_bitwidth(unparsed_field.values(1).number_value());
     field.set_signed_(unparsed_field.values(2).bool_value());
-    field.set_header_type(header.name());
   }
 
   return output;
