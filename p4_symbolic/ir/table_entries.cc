@@ -25,31 +25,6 @@
 namespace p4_symbolic {
 namespace ir {
 
-// TODO(babman): unclear if we need this right now.
-//               Ideally, we want to represent everything as bitvectors,
-//               However, Z3 API may provide a better way to encode/transform
-//               to hex.
-pdpi::StatusOr<int> FormatBitStringAsHex(std::string str) {
-  // detect the format: either a number, an IP, an IP range or a mac address.
-  std::regex number("^(-?)([0-9]+)$");
-  std::regex ip("^([0-9]+)\\.([0-9]+)\\.([0-9]+)\\.([0-9]+)$");
-  std::regex ip_range("^([0-9]+)\\.([0-9]+)\\.([0-9]+)\\.([0-9]+)/([0-9]+)$");
-  std::regex mac("^(?:([0-9A-Fa-f]{2}):){5}([0-9A-Fa-f]{2})$");
-
-  std::smatch sm;
-  if (std::regex_match(str, sm, number)) {
-    return std::atoi(str.c_str());
-  } else if (std::regex_match(str, sm, ip)) {
-  } else if (std::regex_match(str, sm, ip_range)) {
-  } else if (std::regex_match(str, sm, mac)) {
-  } else {
-    return absl::Status(absl::StatusCode::kInvalidArgument,
-                        absl::StrFormat("Malformed table entry value %s", str));
-  }
-
-  return -1;
-}
-
 pdpi::StatusOr<std::pair<std::string, TableEntry>> ParseLine(
     const std::string &line) {
   std::vector<std::string> tokens =
@@ -76,7 +51,7 @@ pdpi::StatusOr<std::pair<std::string, TableEntry>> ParseLine(
       continue;
     }
 
-    ASSIGN_OR_RETURN(int val, FormatBitStringAsHex(tokens[i]));
+    int val = std::atoi(tokens[i].c_str());
     if (found_delimiter) {
       output.add_action_parameters(val);
     } else {
