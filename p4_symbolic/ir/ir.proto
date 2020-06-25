@@ -108,7 +108,7 @@ message TableEntry {
   // Values to match on.
   repeated int32 match_values = 2;  // TODO(babman): turn to hex for bitstrings.
   // Parameters passed to action if the match succeeds.
-  repeated int32 action_parameters = 3; // TODO(babman): turn to hex.
+  repeated int32 action_parameters = 3;  // TODO(babman): turn to hex.
 }
 
 // An abstract p4 statement corresponding to a top level operation within

@@ -38,7 +38,7 @@ pdpi::StatusOr<int> FormatBitStringAsHex(std::string str) {
 
   std::smatch sm;
   if (std::regex_match(str, sm, number)) {
-    return std::atoi(str);
+    return std::atoi(str.c_str());
   } else if (std::regex_match(str, sm, ip)) {
   } else if (std::regex_match(str, sm, ip_range)) {
   } else if (std::regex_match(str, sm, mac)) {
