@@ -12,8 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef P4_SYMBOLIC_IR_PDPI_DRIVER_H_
-#define P4_SYMBOLIC_IR_PDPI_DRIVER_H_
+#ifndef P4_SYMBOLIC_SYMBOLIC_SYMBOLIC_H_
+#define P4_SYMBOLIC_SYMBOLIC_SYMBOLIC_H_
+
+#include <string>
+#include <unordered_map>
+#include <vector>
+
+#include "z3++.h"  // added as a system dependency for now.
 
 #include "p4_symbolic/ir/ir.pb.h"
 
@@ -21,35 +27,55 @@ namespace p4_symbolic {
 namespace symbolic {
 
 class Analyzer {
- private:
+ protected:
+  const ir::P4Program &program;
+  z3::context context;
+
+  // Maps header fields full names to their corresponding symbolic expression.
+  // A header field name is on the form <header_type_name>.<field_name>.
+  std::unordered_map<std::string, z3::expr> fields_map;
+
+  // Maps variable full names to their corresponding symbolic expression.
+  // A variable full name is on the form <action_full_name>.<variable_name>,
+  // where action is the enclosing action in which the variable was defined.
+  std::unordered_map<std::string, z3::expr> variables_map;
+
+  // Maps a table full name to the corresponding symbolic expressions
+  // representing that an entry in that table was matched.
+  // The expressions are stored as a vector matching the table entries by index,
+  // such that: entries_map['table1'][i] <=> row i in table1 was hit.
+  std::unordered_map<std::string, std::vector<z3::expr>> entries_map;
+
+  // Header related functions.
+  void AnalyzeHeaderType(const ir::HeaderType&);
+  void AnalyzeHeaderField(const ir::HeaderField&, const string&);
+
+  // Table related functions.
+  void AnalyzeTable(const ir::Table&);
+
+  // Action, statements, and expressions.
+  void AnalyzeAction(const ir::Action&);
+  void AnalyzeStatement(const ir::Statement&, const string&);
+  void AnalyzeAssignmentStatement(const ir::AssignmentStatement&, const string&);
+  void AnalyzeLValue(const ir::LValue&, const string&);
+  void AnalyzeRValue(const ir::RValue&, const string&);
+  void AnalyzeFieldValue(const ir::FieldValue&, const string&);
+  void AnalyzeVariable(const ir::Variable&, const string&);
+  
  public:
+  Analyzer() = default;
+
   // Class is not copyable or movable.
   Analyzer(const Analyzer&) = delete;
   Analyzer& operator=(const Analyzer&) = delete;
   Analyzer(Analyzer&&) = delete;
   Analyzer& operator=(Analyzer&&) = delete;
 
-  // Header related functions.
-  void AnalyzeHeaderType(ir::HeaderType);
-  void AnalyzeHeaderField(ir::HeaderField);
-
-  // Table related functions.
-  void AnalyzeTable(ir::Table);
-
-  // Action, statements, and expressions.
-  void AnalyzeAction(ir::Action);
-  void AnalyzeStatement(ir::Statement);
-  void AnalyzeAssignmentStatement(ir::AssignmentStatement);
-  void AnalyzeLValue(ir::LValue);
-  void AnalyzeRValue(ir::RValue);
-  void AnalyzeFieldValue(ir::FieldValue);
-  void AnalyzeVariable(ir::Variable);
-
-  // Overal program.
-  void AnalyzeProgram(ir::P4Program program);
+  // Entry point
+  void Analyze(const ir::P4Program&);
 };
 
 }  // namespace symbolic
 }  // namespace p4_symbolic
 
-#endif  // P4_SYMBOLIC_IR_PDPI_DRIVER_H_
+#endif  // P4_SYMBOLIC_SYMBOLIC_SYMBOLIC_H_
