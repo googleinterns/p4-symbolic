@@ -45,23 +45,39 @@ def _run_p4c_impl(ctx):
     # P4c will put the output file in that directory.
     output_dir_path = output_file.path[:-len(output_file.basename) - 1]
 
+    # Validate extensions of p4info files and build their cmd arg for p4c.
+    p4info_arg = ""
+    if len(ctx.outputs.p4runtime_files) > 0:
+        paths = []
+        for f in ctx.outputs.p4runtime_files:
+            if not (f.path.endswith(".txt") or f.path.endswith(".json") or
+                    f.path.endswith(".bin")):
+                fail("p4runtime-file can only end with one of '.txt', " +
+                     "'.json', or '.bin'", "p4runtime_files")
+            paths.append(f.path)
+        p4info_arg = "--p4runtime-files " + ",".join(paths)
+
     # Run p4c.
     ctx.actions.run_shell(
         inputs = [ctx.file.src] + ctx.files.deps,
-        outputs = [output_file],
+        outputs = [output_file] + ctx.outputs.p4runtime_files,
         use_default_shell_env = True,
-        command = "p4c --std $1 --target $2 --arch $3 -o $4 $5 $6",
+        command = "p4c --std $1 --target $2 --arch $3 -o $4 $5 $6 $7",
         arguments = [
             ctx.attr.std,
             ctx.attr.target,
             ctx.attr.arch,
             output_dir_path,
+            p4info_arg,
             ctx.attr.p4c_args,
             ctx.file.src.path,
         ],
     )
 
-    return [DefaultInfo(files = depset([output_file]))]
+    return [
+        DefaultInfo(files = depset([output_file])),
+        OutputGroupInfo(p4info = ctx.outputs.p4runtime_files),
+    ]
 
 run_p4c = rule(
     doc = "Runs p4c to produce output files according to given params.",
@@ -109,6 +125,15 @@ run_p4c = rule(
                 """,
             mandatory = False,
             default = "",
+        ),
+        "p4runtime_files": attr.output_list(
+            doc = """
+                File(s) path(s) to write the control plane
+                API description (P4Info) to. Acceptable extensions
+                are ".txt", ".json", and ".bin".
+                """,
+            mandatory = False,
+            allow_empty = True,
         ),
     },
 )

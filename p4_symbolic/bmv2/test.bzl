@@ -177,9 +177,8 @@ subset_diff_test = rule(
 # with all their dependent rules.
 # The macro defines these exact rules, in this logical order of dependencies:
 # 1. A rule for producing bmv2 json from a .p4 program using p4c.
-# 2. A rule for parsing the bmv2 json using p4_symbolic/main.cc, and dumping
-#    a protobuf and json output files, and an extraction rule for each
-#    output file.
+# 2. A rule for parsing the bmv2 json using p4_symbolic/bmv2/test.cc, and
+#    dumping a protobuf and json output files.
 # 3. A rule for golden file testing of the protobuf output file against
 #    the specified expected file.
 # 4. A rule for subset diff testing of json output file (subset) against
@@ -200,7 +199,7 @@ def bmv2_protobuf_parsing_test(name, p4_program, golden_file, p4_deps = []):
         deps = p4_deps,
     )
 
-    # Use p4_symbolic/main.cc to parse input json and dump
+    # Use p4_symbolic/bmv2/test.cc to parse input json and dump
     # (tmp) output .pb.txt and .json files.
     proto_filename = name + "_tmp.pb.txt"
     json_filename = name + "_tmp.json"

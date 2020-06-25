@@ -14,6 +14,8 @@
 
 #include "p4_symbolic/bmv2/bmv2.h"
 
+#include <string>
+
 #include "google/protobuf/util/json_util.h"
 #include "p4_symbolic/util/io.h"
 #include "p4_symbolic/util/status.h"
@@ -21,7 +23,7 @@
 namespace p4_symbolic {
 namespace bmv2 {
 
-pdpi::StatusOr<P4Program> ParseBmv2JsonFile(std::string json_path) {
+pdpi::StatusOr<P4Program> ParseBmv2JsonFile(const char *json_path) {
   ASSIGN_OR_RETURN(std::string file_content, util::ReadFile(json_path));
 
   P4Program output;

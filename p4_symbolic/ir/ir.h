@@ -12,24 +12,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "p4_symbolic/ir/pdpi_driver.h"
+// This file defines the API for transforming a bmv2 protobuf (representing
+// the input bmv2 json file) together with a pdpi protobuf (representing the
+// p4info file) into our IR protobuf for consumption.
+
+#ifndef P4_SYMBOLIC_IR_IR_H_
+#define P4_SYMBOLIC_IR_IR_H_
 
 #include <memory>
 
-#include "p4_pdpi/util.h"
+#include "p4_pdpi/ir.h"
+#include "p4_pdpi/utils/status_utils.h"
+#include "p4_symbolic/bmv2/bmv2.pb.h"
+#include "p4_symbolic/ir/ir.pb.h"
 
 namespace p4_symbolic {
 namespace ir {
 
-pdpi::StatusOr<pdpi::ir::IrP4Info> ParseP4InfoFile(const char *p4info_path) {
-  p4::config::v1::P4Info p4info;
-  RETURN_IF_ERROR(pdpi::ReadProtoFromFile(p4info_path, &p4info));
-
-  ASSIGN_OR_RETURN(std::unique_ptr<pdpi::P4InfoManager> & info_manager,
-                   pdpi::P4InfoManager::Create(p4info));
-
-  return info_manager->GetIrP4Info();
-}
+// Transforms bmv2 protobuf and pdpi protobuf into our IR protobuf.
+pdpi::StatusOr<P4Program> Bmv2AndP4infoToIr(const bmv2::P4Program& bmv2,
+                                            const pdpi::ir::IrP4Info& pdpi);
 
 }  // namespace ir
 }  // namespace p4_symbolic
+
+#endif  // P4_SYMBOLIC_IR_IR_H_

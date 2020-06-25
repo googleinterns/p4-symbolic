@@ -76,6 +76,8 @@ absl::Status ProtobufToAbslStatus(
     case pb_err::DATA_LOSS:
       out_code = absl::StatusCode::kDataLoss;
       break;
+    default:
+      out_code = absl::StatusCode::kUnknown;
   }
 
   return absl::Status(out_code, status.error_message().ToString());

@@ -15,6 +15,11 @@ RUN apt-get install -y --no-install-recommends \
   git
 RUN update-ca-certificates
 
+# install g++-8 for -std=17 with structural binding.
+RUN apt-get install -y g++-8
+RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-8 60 --slave /usr/bin/g++ g++ /usr/bin/g++-8
+RUN update-alternatives --config gcc
+
 RUN wget "https://github.com/bazelbuild/bazelisk/releases/download/v1.4.0/bazelisk-linux-amd64"
 RUN chmod +x bazelisk-linux-amd64
 RUN ln -s $(pwd)/bazelisk-linux-amd64 /usr/local/bin/bazel

@@ -17,6 +17,7 @@
 #include <cerrno>
 #include <fstream>
 #include <streambuf>
+#include <string>
 
 #include "absl/strings/str_format.h"
 #include "p4_pdpi/utils/status_utils.h"
@@ -24,9 +25,9 @@
 namespace p4_symbolic {
 namespace util {
 
-pdpi::StatusOr<std::string> ReadFile(std::string path) {
+pdpi::StatusOr<std::string> ReadFile(const char *path) {
   std::ifstream f;
-  f.open(path.c_str());
+  f.open(path);
   if (f.fail()) {
     std::string err;
     switch (errno) {

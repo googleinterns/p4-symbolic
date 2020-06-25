@@ -54,9 +54,8 @@ int main(int argc, char* argv[]) {
   }
 
   // Parse JSON using bmv2.cc.
-  const std::string input(argv[1]);
   pdpi::StatusOr<p4_symbolic::bmv2::P4Program> bmv2_or_status =
-      p4_symbolic::bmv2::ParseBmv2JsonFile(input);
+      p4_symbolic::bmv2::ParseBmv2JsonFile(argv[1]);
   if (!bmv2_or_status.ok()) {
     std::cerr << "Error reading input file: " << bmv2_or_status.status()
               << std::endl;

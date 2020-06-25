@@ -14,6 +14,7 @@
 
 load("@rules_cc//cc:defs.bzl", "cc_library", "cc_proto_library")
 load("@rules_proto//proto:defs.bzl", "proto_library")
+load("//p4_symbolic/ir:test.bzl", "ir_parsing_test")
 
 cc_proto_library(
     name = "ir_cc_proto",
@@ -44,4 +45,29 @@ cc_library(
         "@p4_pdpi//p4_pdpi:pdpi",
         "@p4_pdpi//p4_pdpi/utils:status_utils",
     ],
+)
+
+cc_library(
+    name = "ir",
+    srcs = [
+        "ir.cc",
+    ],
+    hdrs = [
+        "ir.h",
+    ],
+    visibility = ["//p4_symbolic:__subpackages__"],
+    deps = [
+        ":ir_cc_proto",
+        "//p4_symbolic/bmv2:bmv2_cc_proto",
+        "@com_google_absl//absl/strings",
+        "@com_google_protobuf//:protobuf_headers",
+        "@p4_pdpi//p4_pdpi:pdpi",
+    ],
+)
+
+# Golden file testing rules to test p4_symbolic/ir/ir.cc.
+ir_parsing_test(
+    name = "port_table",
+    golden_file = "expected/table.pb.txt",
+    p4_program = "//p4-samples:port-table/table.p4",
 )
