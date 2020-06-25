@@ -71,21 +71,3 @@ ir_parsing_test(
     golden_file = "expected/table.pb.txt",
     p4_program = "//p4-samples:port-table/table.p4",
 )
-
-ir_parsing_test(
-    name = "ipv4_routing",
-    golden_file = "expected/basic.pb.txt",
-    p4_program = "//p4-samples:ipv4-routing/basic.p4",
-)
-
-ir_parsing_test(
-    name = "port_hardcoded",
-    golden_file = "expected/hardcoded.pb.txt",
-    p4_program = "//p4-samples:hardcoded/hardcoded.p4",
-)
-
-ir_parsing_test(
-    name = "reflector",
-    golden_file = "expected/reflector.pb.txt",
-    p4_program = "//p4-samples:reflector/reflector.p4",
-)
