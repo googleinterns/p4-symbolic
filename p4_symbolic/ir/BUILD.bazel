@@ -84,7 +84,7 @@ cc_library(
 
 # Golden file testing rules to test p4_symbolic/ir/ir.cc.
 ir_parsing_test(
-    name = "port_table",
+    name = "port_table_test",
     golden_file = "expected/table.pb.txt",
     p4_program = "//p4-samples:port-table/table.p4",
     table_entries = "//p4-samples:port-table/entries.txt",

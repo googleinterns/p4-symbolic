@@ -292,13 +292,13 @@ tables {
     table_implementation {
       entries {
         action: "MyIngress.set_egress_spec"
-        match_values: "0"
-        action_parameters: "1"
+        match_values: 0
+        action_parameters: 1
       }
       entries {
         action: "MyIngress.set_egress_spec"
-        match_values: "1"
-        action_parameters: "0"
+        match_values: 1
+        action_parameters: 0
       }
     }
   }
