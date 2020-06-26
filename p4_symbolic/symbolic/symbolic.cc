@@ -336,7 +336,8 @@ std::string Analyzer::DebugSMT() {
   return solver.to_smt2();
 }
 
-absl::Status Analyzer::FindPacketHittingRow(const std::string &table, int row) {
+pdpi::StatusOr<std::unordered_map<std::string, std::string>>
+Analyzer::FindPacketHittingRow(const std::string &table, int row) {
   z3::solver solver(this->kContext);
   for (const z3::expr &constraint : this->kConstraints) {
     solver.add(constraint);
@@ -364,12 +365,22 @@ absl::Status Analyzer::FindPacketHittingRow(const std::string &table, int row) {
                           table, row));
 
     case z3::sat:
-      break;
-  }
+    default:
+      z3::model packet_model = solver.get_model();
+      std::unordered_map<std::string, std::string> output;
+      for (const auto &[name, field] : this->kFieldsMap) {
+        if (!field.is_const()) {
+          continue;
+        }
 
-  // TODO(babman): Extract packet in a reasonable format.
-  z3::model packet_model = solver.get_model();
-  return absl::OkStatus();
+        z3::func_decl field_decl = field.decl();
+        if (packet_model.has_interp(field_decl)) {
+          output[name] = packet_model.get_const_interp(field_decl).to_string();
+        }
+      }
+
+      return output;
+  }
 }
 
 }  // namespace symbolic

@@ -97,7 +97,8 @@ class Analyzer {
   std::string DebugSMT();
 
   // API for finding test packets after analysis.
-  absl::Status FindPacketHittingRow(const std::string&, int);
+  pdpi::StatusOr<std::unordered_map<std::string, std::string>>
+  FindPacketHittingRow(const std::string&, int);
 };
 
 }  // namespace symbolic

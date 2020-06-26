@@ -34,6 +34,7 @@ ABSL_FLAG(std::string, entries, "",
           "The path to the table entries txt file (optional), leave this empty "
           "if the input p4 program contains no (explicit) tables for which "
           "entries are needed.");
+ABSL_FLAG(bool, debug, false, "Dump the SMT program for debugging");
 
 // The main test routine for parsing bmv2 json with protobuf.
 // Parses bmv2 json that is fed in through stdin and dumps
@@ -98,7 +99,7 @@ int main(int argc, char *argv[]) {
     table_entries = table_entries_or_status.value();
   }
 
-  // Transform to IR and print.
+  // Transform to IR.
   pdpi::StatusOr<p4_symbolic::ir::P4Program> ir_status =
       p4_symbolic::ir::Bmv2AndP4infoToIr(bmv2_or_status.value(),
                                          p4info_or_status.value());
@@ -108,33 +109,39 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
-  // std::cout << ir_status.value().DebugString() << std::endl;
-
+  // Analyze program symbolically.
   p4_symbolic::symbolic::Analyzer analyzer;
-  absl::Status analyzer_status = analyzer.Analyze(ir_status.value());
+  p4_symbolic::ir::P4Program program = ir_status.value();
+  absl::Status analyzer_status = analyzer.Analyze(program);
   if (!analyzer_status.ok()) {
     std::cerr << "Could not analyze program symbolically: " << analyzer_status
               << std::endl;
     return 1;
   }
 
-  // Debugging
-  std::cout << analyzer.DebugSMT() << std::endl;
-
-  // Find some packets.
-  absl::Status packet_status =
-      analyzer.FindPacketHittingRow("MyIngress.ports_exact", 0);
-  if (!packet_status.ok()) {
-    std::cerr << "Could not find desired packet: " << packet_status
-              << std::endl;
-    return 1;
+  // Debugging.
+  if (absl::GetFlag(FLAGS_debug)) {
+    std::cout << analyzer.DebugSMT() << std::endl;
   }
 
-  packet_status = analyzer.FindPacketHittingRow("MyIngress.ports_exact", 1);
-  if (!packet_status.ok()) {
-    std::cerr << "Could not find desired packet: " << packet_status
-              << std::endl;
-    return 1;
+  // Find a packet matching every entry of every table.
+  for (const auto &[name, table] : program.tables()) {
+    for (int i = 0; i < table.table_implementation().entries_size(); i++) {
+      std::cout << "Finding packet for table " << name << " and row " << i
+                << std::endl;
+
+      pdpi::StatusOr<std::unordered_map<std::string, std::string>>
+          packet_status =
+              analyzer.FindPacketHittingRow("MyIngress.ports_exact", 0);
+      if (!packet_status.ok()) {
+        std::cout << "\t" << packet_status.status() << std::endl << std::endl;
+        continue;
+      }
+      for (const auto &[attr, value] : packet_status.value()) {
+        std::cout << "\t" << attr << " = " << value << std::endl;
+      }
+      std::cout << std::endl;
+    }
   }
 
   // Clean up
