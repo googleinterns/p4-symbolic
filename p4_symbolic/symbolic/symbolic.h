@@ -46,6 +46,10 @@ class Analyzer {
   // entries_map['table1_3'] <=> row at index 3 in table1 was hit.
   std::unordered_map<std::string, z3::expr> kEntriesMap;
 
+  // Maps an action full name to the corresponding symbolic expressions
+  // representing that this action was indeed matched on and called.
+  std::unordered_map<std::string, z3::expr> kActionsMap;
+
   // Symbolic constraints that describe relationships between various variables
   // and fields in the program.
   std::vector<z3::expr> kConstraints;
@@ -59,19 +63,22 @@ class Analyzer {
 
   // Actions and statements.
   absl::Status AnalyzeAction(const ir::Action&);
-  absl::Status AnalyzeStatement(const ir::Statement&, const std::string&);
+  absl::Status AnalyzeStatement(const ir::Statement&, const z3::expr&,
+                                const std::string&);
   absl::Status AnalyzeAssignmentStatement(const ir::AssignmentStatement&,
-                                          const std::string&);
+                                          const z3::expr&, const std::string&);
 
   // Expressions: these construct a z3 equivalent symbolic expression and
   // return it.
-  pdpi::StatusOr<z3::expr*> AnalyzeLValue(const ir::LValue&,
+  pdpi::StatusOr<z3::expr*> AnalyzeLValue(const ir::LValue&, const z3::expr&,
                                           const std::string&);
-  pdpi::StatusOr<z3::expr*> AnalyzeRValue(const ir::RValue&,
+  pdpi::StatusOr<z3::expr*> AnalyzeRValue(const ir::RValue&, const z3::expr&,
                                           const std::string&);
   pdpi::StatusOr<z3::expr*> AnalyzeFieldValue(const ir::FieldValue&,
+                                              const z3::expr&,
                                               const std::string&);
   pdpi::StatusOr<z3::expr*> AnalyzeVariable(const ir::Variable&,
+                                            const z3::expr&,
                                             const std::string&);
 
  public:
@@ -85,6 +92,9 @@ class Analyzer {
 
   // Entry point
   absl::Status Analyze(ir::P4Program);
+
+  // Dumps the SMT program for debugging.
+  std::string DebugSMT();
 
   // API for finding test packets after analysis.
   absl::Status FindPacketHittingRow(const std::string&, int);

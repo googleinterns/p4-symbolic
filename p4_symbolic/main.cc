@@ -118,6 +118,9 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
+  // Debugging
+  std::cout << analyzer.DebugSMT() << std::endl;
+
   // Find some packets.
   absl::Status packet_status =
       analyzer.FindPacketHittingRow("MyIngress.ports_exact", 0);
