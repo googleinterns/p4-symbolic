@@ -25,6 +25,7 @@
 #include "p4_symbolic/ir/ir.h"
 #include "p4_symbolic/ir/pdpi_driver.h"
 #include "p4_symbolic/ir/table_entries.h"
+#include "p4_symbolic/symbolic/symbolic.h"
 
 ABSL_FLAG(std::string, p4info, "",
           "The path to the p4info protobuf file (required)");
@@ -107,7 +108,31 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
-  std::cout << ir_status.value().DebugString() << std::endl;
+  // std::cout << ir_status.value().DebugString() << std::endl;
+
+  p4_symbolic::symbolic::Analyzer analyzer;
+  absl::Status analyzer_status = analyzer.Analyze(ir_status.value());
+  if (!analyzer_status.ok()) {
+    std::cerr << "Could not analyze program symbolically: " << analyzer_status
+              << std::endl;
+    return 1;
+  }
+
+  // Find some packets.
+  absl::Status packet_status =
+      analyzer.FindPacketHittingRow("MyIngress.ports_exact", 0);
+  if (!packet_status.ok()) {
+    std::cerr << "Could not find desired packet: " << packet_status
+              << std::endl;
+    return 1;
+  }
+
+  packet_status = analyzer.FindPacketHittingRow("MyIngress.ports_exact", 1);
+  if (!packet_status.ok()) {
+    std::cerr << "Could not find desired packet: " << packet_status
+              << std::endl;
+    return 1;
+  }
 
   // Clean up
   google::protobuf::ShutdownProtobufLibrary();

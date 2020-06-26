@@ -14,75 +14,321 @@
 
 #include "p4_symbolic/symbolic/symbolic.h"
 
+#include <iostream>
+
+#include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 
 namespace p4_symbolic {
 namespace symbolic {
 
-void Analyzer::Analyze(const ir::P4Program &program) {
-  this->program = program;
-}
+absl::Status Analyzer::Analyze(ir::P4Program program) {
+  this->kProgram = program;
 
-void AnalyzeHeaderType(const ir::HeaderType &header_type) {
-  const string &header_type_name = header_type.name();
-  for (const auto &[_, header_field] : header_type.fields()) {
-    this->AnalyzeHeaderField(header_field, header_type_name);
+  for (const auto &[_, header_type] : program.headers()) {
+    RETURN_IF_ERROR(this->AnalyzeHeaderType(header_type));
   }
+
+  // Visit actions first to define symbolic expressions for their parameters.
+  // Then visit tables, since their entries will use the action parameters
+  // symbolic expressions.
+  // TODO(babman): ensure this order is fine for more complex workflows,
+  //               e.g. VRF, we may need to traverse actions + tables in order,
+  //               starting from init_table?
+  for (const auto &[_, action] : program.actions()) {
+    RETURN_IF_ERROR(this->AnalyzeAction(action));
+  }
+  for (const auto &[_, table] : program.tables()) {
+    RETURN_IF_ERROR(this->AnalyzeTable(table));
+  }
+
+  return absl::OkStatus();
 }
 
-void AnalyzeHeaderField(const ir::HeaderField &header_field,
-                        const string &header_type) {
-  const string &full_name =
+absl::Status Analyzer::AnalyzeHeaderType(const ir::HeaderType &header_type) {
+  const std::string &header_type_name = header_type.name();
+  for (const auto &[_, header_field] : header_type.fields()) {
+    RETURN_IF_ERROR(this->AnalyzeHeaderField(header_field, header_type_name));
+  }
+  return absl::OkStatus();
+}
+
+absl::Status Analyzer::AnalyzeHeaderField(const ir::HeaderField &header_field,
+                                          const std::string &header_type) {
+  const std::string &full_name =
       absl::StrFormat("%s.%s", header_type, header_field.name());
-  this->fields_map[full_name] = this->context.int_const(full_name);
+  this->kFieldsMap.insert(
+      {full_name, this->kContext.int_const(full_name.c_str())});
+  return absl::OkStatus();
 }
 
-void AnalyzeTable(const ir::Table &table) {
-  const string &table_name = table.table_definition().preamble().name();
+absl::Status Analyzer::AnalyzeTable(const ir::Table &table) {
+  const std::string &table_name = table.table_definition().preamble().name();
 
-  for (const ir::TableEntry &entry : table.table_implementation().entries()) {
-    for (const auto &[id, match] : table.table_definition().match_fields_by_id()) {
+  for (int row = 0; row < table.table_implementation().entries_size(); row++) {
+    const ir::TableEntry &entry = table.table_implementation().entries(row);
+    const std::string &complete_match_name =
+        absl::StrFormat("%s_%d", table_name, row);
+
+    // Symbolic variable representing this row being matched.
+    z3::expr match_variable =
+        this->kContext.bool_const(complete_match_name.c_str());
+    this->kEntriesMap.insert({complete_match_name, match_variable});
+
+    // Iterate over all fields consistuting a complete match.
+    // A symbolic expressions is created for every partial match over a field.
+    std::vector<z3::expr> partial_matches;
+    for (const auto &[id, match] :
+         table.table_definition().match_fields_by_id()) {
+      p4::config::v1::MatchField match_definition = match.match_field();
+      const std::string &match_name =
+          absl::StrFormat("%s_%d", complete_match_name, id);
+
       // Match id is unique only within the enclosing table.
       // https://github.com/p4lang/p4runtime/blob/master/docs/v1/p4runtime-id-notes.md
       // Match id starts at 1, and proceeds in the same order the matches are
       // defined in, which is identical to the order they are provided by in
       // the table entries file.
       int index = id - 1;  // index of corresponding value in the table entry.
+
+      // TODO(babman): Support bit vectors.
       int value = entry.match_values(index);
+
+      // TODO(babman): We should put in the expression of the match from bmv2
+      //               json in the IR, and use instead of the name.
+      //               @konne mentioned this before in a meeting.
+      const std::string &header_field_symbolic_name = match_definition.name();
+      if (this->kFieldsMap.count(header_field_symbolic_name) != 1) {
+        return absl::Status(absl::StatusCode::kInvalidArgument,
+                            absl::StrCat("Table ", table_name,
+                                         " has match on unknown expression ",
+                                         header_field_symbolic_name));
+      }
+      const z3::expr &header_field_expr =
+          this->kFieldsMap.at(header_field_symbolic_name);
+
+      // Return an error if the match type is unsupported.
+      if (match_definition.match_case() !=
+          p4::config::v1::MatchField::kMatchType) {
+        // Arch-specific match type.
+        return absl::Status(absl::StatusCode::kInvalidArgument,
+                            absl::StrCat("Table ", table_name,
+                                         " has match with non-standard type"));
+      }
+
+      // Create symbolic match expression using the value from entry,
+      // and the symbolic expression of the matched field/expression.
+      switch (match_definition.match_type()) {
+        case p4::config::v1::MatchField::EXACT:
+          partial_matches.push_back(header_field_expr == value);
+          break;
+
+        default:  // TODO(babman): support the other match types.
+          return absl::Status(
+              absl::StatusCode::kInvalidArgument,
+              absl::StrCat("Table ", table_name, " has unsupported match type ",
+                           match_definition.match_type()));
+      }
     }
-    // Start by defining a symbolic expression representing a *potential* match.
-    // This is ignoring priorities/overlaps.
-    // TODO(babman): Add support for priorities
+
+    // Define an expression expressing what it means to match this row.
+    // This complete match is the conjunction of all above partial matches.
+    // TODO(babman): Add support for priorities, by adding negation of all
+    //               higher priority matches to the conjunction.
+    //               A better way to do this first, is sort by priority,
+    //               and keep a running vector of all previously created
+    //               complete symbolic match expressions, and negate those.
+    z3::expr complete_match_expr = this->kContext.bool_val(true);
+    for (const auto &partial_match : partial_matches) {
+      complete_match_expr = complete_match_expr && partial_match;
+    }
+    this->kConstraints.push_back(match_variable == complete_match_expr);
+
+    // Constrain the values of the action parameter when this entry is matched.
+    const std::string &action_name = entry.action();
+    if (this->kProgram.actions().count(action_name) != 1) {
+      return absl::Status(
+          absl::StatusCode::kInvalidArgument,
+          absl::StrCat("Table ", table_name, " has match entry ",
+                       entry.DebugString(), " referring to unknown action ",
+                       action_name));
+    }
+
+    const ir::Action &action = this->kProgram.actions().at(action_name);
+    const auto &parameters = action.action_definition().params_by_id();
+    for (int p = 0; p < entry.action_parameters_size(); p++) {
+      // TODO(babman): switch to bit vectors.
+      int value = entry.action_parameters(p);
+      if (parameters.count(p + 1) != 1) {
+        return absl::Status(
+            absl::StatusCode::kInvalidArgument,
+            absl::StrCat("Table ", table_name, " has match entry ",
+                         entry.DebugString(), " was too many parameters"));
+      }
+      const std::string &parameter_name = parameters.at(p + 1).param().name();
+      const std::string &full_parameter_name =
+          absl::StrFormat("%s.%s", action_name, parameter_name);
+      if (this->kVariablesMap.count(full_parameter_name) != 1) {
+        return absl::Status(
+            absl::StatusCode::kInvalidArgument,
+            absl::StrCat(
+                "Table ", table_name, " has match entry ", entry.DebugString(),
+                " referring to un-analyzed parameter ", full_parameter_name));
+      }
+
+      this->kConstraints.push_back(
+          z3::implies(match_variable,
+                      this->kVariablesMap.at(full_parameter_name) == value));
+    }
+  }
+
+  return absl::OkStatus();
+}
+
+absl::Status Analyzer::AnalyzeAction(const ir::Action &action) {
+  const std::string &action_name = action.action_definition().preamble().name();
+
+  // Create a symbolic variable corresponding to every variable.
+  for (const auto &[name, _] : action.action_implementation().variables()) {
+    const std::string &full_variable_name =
+        absl::StrFormat("%s.%s", action_name, name);
+    // TODO(babman): Take type into consideration when using bit vectors.
+    this->kVariablesMap.insert(
+        {full_variable_name,
+         this->kContext.int_const(full_variable_name.c_str())});
+  }
+
+  // Analyze every statement in the body one at a time.
+  for (const auto &statement : action.action_implementation().action_body()) {
+    RETURN_IF_ERROR(this->AnalyzeStatement(statement, action_name));
+  }
+
+  return absl::OkStatus();
+}
+
+absl::Status Analyzer::AnalyzeStatement(const ir::Statement &statement,
+                                        const std::string &action) {
+  switch (statement.statement_case()) {
+    case ir::Statement::kAssignment:
+      return this->AnalyzeAssignmentStatement(statement.assignment(), action);
+
+    default:
+      return absl::Status(
+          absl::StatusCode::kUnimplemented,
+          absl::StrCat("Action ", action, " contains unsupported statement ",
+                       statement.DebugString()));
   }
 }
 
-void AnalyzeAction(const ir::Action &action) {
+absl::Status Analyzer::AnalyzeAssignmentStatement(
+    const ir::AssignmentStatement &assignment, const std::string &action) {
+  ASSIGN_OR_RETURN(z3::expr * left,
+                   this->AnalyzeLValue(assignment.left(), action));
+  ASSIGN_OR_RETURN(z3::expr * right,
+                   this->AnalyzeRValue(assignment.right(), action));
+  this->kConstraints.push_back(*left == *right);
+  return absl::OkStatus();
 }
 
-void AnalyzeStatement(const ir::Statement &statement,
-                      const string &action) {
+pdpi::StatusOr<z3::expr *> Analyzer::AnalyzeLValue(const ir::LValue &lvalue,
+                                                   const std::string &action) {
+  switch (lvalue.lvalue_case()) {
+    case ir::LValue::kFieldValue:
+      return this->AnalyzeFieldValue(lvalue.field_value(), action);
+
+    case ir::LValue::kVariableValue:
+      return this->AnalyzeVariable(lvalue.variable_value(), action);
+
+    default:
+      return absl::Status(
+          absl::StatusCode::kUnimplemented,
+          absl::StrCat("Action ", action, " contains unsupported LValue ",
+                       lvalue.DebugString()));
+  }
 }
 
-void AnalyzeAssignmentStatement(const ir::AssignmentStatement &assignment,
-                                const string &action) {
+pdpi::StatusOr<z3::expr *> Analyzer::AnalyzeRValue(const ir::RValue &rvalue,
+                                                   const std::string &action) {
+  switch (rvalue.rvalue_case()) {
+    case ir::RValue::kFieldValue:
+      return this->AnalyzeFieldValue(rvalue.field_value(), action);
+
+    case ir::RValue::kVariableValue:
+      return this->AnalyzeVariable(rvalue.variable_value(), action);
+
+    default:
+      return absl::Status(
+          absl::StatusCode::kUnimplemented,
+          absl::StrCat("Action ", action, " contains unsupported RValue ",
+                       rvalue.DebugString()));
+  }
 }
 
-void AnalyzeLValue(const ir::LValue &lvalue,
-                   const string &action) {
+pdpi::StatusOr<z3::expr *> Analyzer::AnalyzeFieldValue(
+    const ir::FieldValue &field_value, const std::string &action) {
+  const std::string &name = absl::StrFormat("%s.%s", field_value.header_name(),
+                                            field_value.field_name());
+  if (this->kFieldsMap.count(name) != 1) {
+    return absl::Status(
+        absl::StatusCode::kInvalidArgument,
+        absl::StrCat("Action ", action, " referes to unknown field ", name));
+  }
+
+  return &this->kFieldsMap.at(name);
 }
 
-void AnalyzeRValue(const ir::RValue &rvalue,
-                   const string &action) {
+pdpi::StatusOr<z3::expr *> Analyzer::AnalyzeVariable(
+    const ir::Variable &variable, const std::string &action) {
+  const std::string &name = absl::StrFormat("%s.%s", action, variable.name());
+  if (this->kVariablesMap.count(name) != 1) {
+    return absl::Status(
+        absl::StatusCode::kInvalidArgument,
+        absl::StrCat("Action ", action, " referes to unknown variable ", name));
+  }
+
+  return &this->kVariablesMap.at(name);
 }
 
-void AnalyzeFieldValue(const ir::FieldValue &field_value,
-                       const string &action) {
-}
+absl::Status Analyzer::FindPacketHittingRow(const std::string &table, int row) {
+  z3::solver solver(this->kContext);
+  for (const z3::expr &constraint : this->kConstraints) {
+    solver.add(constraint);
+  }
 
-void AnalyzeVariable(const ir::Variable &variable,
-                     const string &action) {
-}
+  const std::string &full_name = absl::StrFormat("%s_%d", table, row);
+  if (this->kEntriesMap.count(full_name) != 1) {
+    return absl::Status(
+        absl::StatusCode::kInvalidArgument,
+        absl::StrFormat("Table %s or row %d do not exist", table, row));
+  }
 
+  solver.add(this->kEntriesMap.at(full_name));
+
+  std::cout << solver.to_smt2() << std::endl;
+
+  switch (solver.check()) {
+    case z3::unsat:
+      return absl::Status(
+          absl::StatusCode::kInvalidArgument,
+          absl::StrFormat("Table %s and row %d is impossible to hit", table,
+                          row));
+
+    case z3::unknown:
+      return absl::Status(
+          absl::StatusCode::kInvalidArgument,
+          absl::StrFormat("Could not find packet to hit Table %s and row %d",
+                          table, row));
+
+    case z3::sat:
+      break;
+  }
+
+  // TODO(babman): Extract packet in a reasonable format.
+  z3::model packet_model = solver.get_model();
+  std::cout << packet_model << std::endl;
+
+  return absl::OkStatus();
+}
 
 }  // namespace symbolic
 }  // namespace p4_symbolic

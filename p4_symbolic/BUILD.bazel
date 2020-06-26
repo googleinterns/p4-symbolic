@@ -21,12 +21,14 @@ cc_binary(
     srcs = [
         "main.cc",
     ],
+    linkopts = ["-lz3"],
     visibility = ["//p4_symbolic/ir:__pkg__"],
     deps = [
         "//p4_symbolic/bmv2",
         "//p4_symbolic/ir",
         "//p4_symbolic/ir:pdpi_driver",
         "//p4_symbolic/ir:table_entries",
+        "//p4_symbolic/symbolic",
         "@com_google_absl//absl/flags:flag",
         "@com_google_absl//absl/flags:parse",
         "@com_google_absl//absl/flags:usage",

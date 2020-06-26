@@ -25,6 +25,8 @@ cc_library(
     visibility = ["//p4_symbolic:__subpackages__"],
     deps = [
         "//p4_symbolic/ir:ir_cc_proto",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
+        "@p4_pdpi//p4_pdpi/utils:status_utils",
     ],
 )

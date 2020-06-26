@@ -19,49 +19,61 @@
 #include <unordered_map>
 #include <vector>
 
-#include "z3++.h"  // added as a system dependency for now.
-
+#include "absl/status/status.h"
+#include "p4_pdpi/utils/status_utils.h"
 #include "p4_symbolic/ir/ir.pb.h"
+#include "z3++.h"  // added as a system dependency for now.
 
 namespace p4_symbolic {
 namespace symbolic {
 
 class Analyzer {
  protected:
-  const ir::P4Program &program;
-  z3::context context;
+  ir::P4Program kProgram;
+  z3::context kContext;
 
   // Maps header fields full names to their corresponding symbolic expression.
   // A header field name is on the form <header_type_name>.<field_name>.
-  std::unordered_map<std::string, z3::expr> fields_map;
+  std::unordered_map<std::string, z3::expr> kFieldsMap;
 
   // Maps variable full names to their corresponding symbolic expression.
   // A variable full name is on the form <action_full_name>.<variable_name>,
   // where action is the enclosing action in which the variable was defined.
-  std::unordered_map<std::string, z3::expr> variables_map;
+  std::unordered_map<std::string, z3::expr> kVariablesMap;
 
-  // Maps a table full name to the corresponding symbolic expressions
-  // representing that an entry in that table was matched.
-  // The expressions are stored as a vector matching the table entries by index,
-  // such that: entries_map['table1'][i] <=> row i in table1 was hit.
-  std::unordered_map<std::string, std::vector<z3::expr>> entries_map;
+  // Maps a table full name and row index to the corresponding symbolic
+  // expression representing matching with that row, such that:
+  // entries_map['table1_3'] <=> row at index 3 in table1 was hit.
+  std::unordered_map<std::string, z3::expr> kEntriesMap;
+
+  // Symbolic constraints that describe relationships between various variables
+  // and fields in the program.
+  std::vector<z3::expr> kConstraints;
 
   // Header related functions.
-  void AnalyzeHeaderType(const ir::HeaderType&);
-  void AnalyzeHeaderField(const ir::HeaderField&, const string&);
+  absl::Status AnalyzeHeaderType(const ir::HeaderType&);
+  absl::Status AnalyzeHeaderField(const ir::HeaderField&, const std::string&);
 
   // Table related functions.
-  void AnalyzeTable(const ir::Table&);
+  absl::Status AnalyzeTable(const ir::Table&);
 
-  // Action, statements, and expressions.
-  void AnalyzeAction(const ir::Action&);
-  void AnalyzeStatement(const ir::Statement&, const string&);
-  void AnalyzeAssignmentStatement(const ir::AssignmentStatement&, const string&);
-  void AnalyzeLValue(const ir::LValue&, const string&);
-  void AnalyzeRValue(const ir::RValue&, const string&);
-  void AnalyzeFieldValue(const ir::FieldValue&, const string&);
-  void AnalyzeVariable(const ir::Variable&, const string&);
-  
+  // Actions and statements.
+  absl::Status AnalyzeAction(const ir::Action&);
+  absl::Status AnalyzeStatement(const ir::Statement&, const std::string&);
+  absl::Status AnalyzeAssignmentStatement(const ir::AssignmentStatement&,
+                                          const std::string&);
+
+  // Expressions: these construct a z3 equivalent symbolic expression and
+  // return it.
+  pdpi::StatusOr<z3::expr*> AnalyzeLValue(const ir::LValue&,
+                                          const std::string&);
+  pdpi::StatusOr<z3::expr*> AnalyzeRValue(const ir::RValue&,
+                                          const std::string&);
+  pdpi::StatusOr<z3::expr*> AnalyzeFieldValue(const ir::FieldValue&,
+                                              const std::string&);
+  pdpi::StatusOr<z3::expr*> AnalyzeVariable(const ir::Variable&,
+                                            const std::string&);
+
  public:
   Analyzer() = default;
 
@@ -72,7 +84,10 @@ class Analyzer {
   Analyzer& operator=(Analyzer&&) = delete;
 
   // Entry point
-  void Analyze(const ir::P4Program&);
+  absl::Status Analyze(ir::P4Program);
+
+  // API for finding test packets after analysis.
+  absl::Status FindPacketHittingRow(const std::string&, int);
 };
 
 }  // namespace symbolic
