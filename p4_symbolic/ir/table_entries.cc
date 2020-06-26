@@ -14,10 +14,6 @@
 
 #include "p4_symbolic/ir/table_entries.h"
 
-#include <iostream>
-#include <regex>
-#include <string>
-
 #include "absl/strings/str_format.h"
 #include "absl/strings/str_split.h"
 #include "p4_symbolic/util/io.h"
