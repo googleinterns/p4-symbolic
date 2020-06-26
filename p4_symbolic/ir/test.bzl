@@ -58,9 +58,9 @@ def ir_parsing_test(name, p4_program, golden_file, table_entries = None, p4_deps
         name = parse_name,
         srcs = [":" + p4c_name, p4info_file] + optional_table_entries,
         outs = [output_filename],
-        tools = ["//p4_symbolic:main"],
+        tools = ["//p4_symbolic/ir:test"],
         cmd = (
-            "$(location //p4_symbolic:main) --bmv2=$(location %s) " +
+            "$(location //p4_symbolic/ir:test) --bmv2=$(location %s) " +
             "--p4info=$(location %s) %s &> $(OUTS) || true"
         ) % (":" + p4c_name, p4info_file, optional_table_entry_arg),
     )

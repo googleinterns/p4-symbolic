@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("@rules_cc//cc:defs.bzl", "cc_library", "cc_proto_library")
+load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library", "cc_proto_library")
 load("@rules_proto//proto:defs.bzl", "proto_library")
 load("//p4_symbolic/ir:test.bzl", "ir_parsing_test")
 
@@ -85,10 +85,24 @@ cc_library(
     ],
 )
 
+cc_binary(
+    name = "test",
+    srcs = [
+        "test.cc",
+    ],
+    deps = [
+        "//p4_symbolic:parser",
+        "@com_google_absl//absl/flags:flag",
+        "@com_google_absl//absl/flags:parse",
+        "@com_google_absl//absl/flags:usage",
+        "@com_google_absl//absl/strings",
+    ],
+)
+
 # Golden file testing rules to test p4_symbolic/ir/ir.cc.
 ir_parsing_test(
     name = "port_table_test",
-    golden_file = "expected/table.pb.txt",
+    golden_file = "expected/table.txt",
     p4_program = "//p4-samples:port-table/table.p4",
     table_entries = "//p4-samples:port-table/entries.txt",
 )

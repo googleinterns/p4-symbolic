@@ -12,7 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Stub main file for debugging (for now).
+// Main file for finding P4 test packets symbolically.
+// Expects input bmv2 json, p4info, and table entries files as command
+// line flags.
+// Produces test packets that hit every row in the P4 program tables.
 
 #include <iostream>
 #include <string>
@@ -22,9 +25,7 @@
 #include "absl/flags/usage.h"
 #include "absl/strings/str_format.h"
 #include "p4_symbolic/bmv2/bmv2.h"
-#include "p4_symbolic/ir/ir.h"
-#include "p4_symbolic/ir/pdpi_driver.h"
-#include "p4_symbolic/ir/table_entries.h"
+#include "p4_symbolic/parser.h"
 #include "p4_symbolic/symbolic/symbolic.h"
 
 ABSL_FLAG(std::string, p4info, "",
@@ -64,54 +65,17 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
-  // Parse pdpi.
-  pdpi::StatusOr<pdpi::ir::IrP4Info> p4info_or_status =
-      p4_symbolic::ir::ParseP4InfoFile(p4info_path);
-
-  if (!p4info_or_status.ok()) {
-    std::cerr << "Could not parse p4info: " << p4info_or_status.status()
-              << std::endl;
-    return 1;
-  }
-
-  // Parse bmv2 json.
-  pdpi::StatusOr<p4_symbolic::bmv2::P4Program> bmv2_or_status =
-      p4_symbolic::bmv2::ParseBmv2JsonFile(bmv2_path);
-
-  if (!bmv2_or_status.ok()) {
-    std::cerr << "Could not parse bmv2 JSON: " << bmv2_or_status.status()
-              << std::endl;
-    return 1;
-  }
-
-  // Parse table entries.
-  p4_symbolic::ir::TableEntries table_entries;
-  if (!entries_path.empty()) {
-    pdpi::StatusOr<p4_symbolic::ir::TableEntries> table_entries_or_status =
-        p4_symbolic::ir::ParseAndFillEntries(p4info_or_status.value(),
-                                             entries_path);
-
-    if (!table_entries_or_status.ok()) {
-      std::cerr << "Could not parse table entries: "
-                << table_entries_or_status.status() << std::endl;
-      return 1;
-    }
-    table_entries = table_entries_or_status.value();
-  }
-
   // Transform to IR.
-  pdpi::StatusOr<p4_symbolic::ir::P4Program> ir_status =
-      p4_symbolic::ir::Bmv2AndP4infoToIr(bmv2_or_status.value(),
-                                         p4info_or_status.value());
-  if (!ir_status.ok()) {
-    std::cerr << "Could not transform to IR: " << ir_status.status()
+  pdpi::StatusOr<p4_symbolic::symbolic::Dataplane> parser_status =
+      p4_symbolic::ParseToIr(bmv2_path, p4info_path, entries_path);
+  if (!parser_status.ok()) {
+    std::cerr << "Could not transform to IR: " << parser_status.status()
               << std::endl;
     return 1;
   }
 
   // Analyze program symbolically.
-  p4_symbolic::ir::P4Program program = ir_status.value();
-  p4_symbolic::symbolic::Dataplane dataplane = {program, table_entries};
+  p4_symbolic::symbolic::Dataplane dataplane = parser_status.value();
   pdpi::StatusOr<std::unique_ptr<p4_symbolic::symbolic::SolverState>>
       solver_status = p4_symbolic::symbolic::EvaluateP4Pipeline(
           dataplane, std::vector<int>{0, 1});
@@ -124,8 +88,8 @@ int main(int argc, char *argv[]) {
   // Find a packet matching every entry of every table.
   const std::unique_ptr<p4_symbolic::symbolic::SolverState> &solver_state =
       solver_status.value();
-  for (const auto &[name, table] : program.tables()) {
-    for (int i = 0; i < table_entries[name].size(); i++) {
+  for (const auto &[name, table] : dataplane.program.tables()) {
+    for (int i = 0; i < dataplane.entries[name].size(); i++) {
       std::cout << "Finding packet for table " << name << " and row " << i
                 << std::endl;
 
