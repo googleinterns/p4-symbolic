@@ -1,0 +1,8 @@
+Finding packet for table MyIngress.ports_exact and row 0
+	standard_metadata.ingress_port = 0
+	standard_metadata.egress_spec = 1
+
+Finding packet for table MyIngress.ports_exact and row 1
+	standard_metadata.ingress_port = 1
+	standard_metadata.egress_spec = 0
+

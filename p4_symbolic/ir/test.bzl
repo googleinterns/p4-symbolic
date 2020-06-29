@@ -51,7 +51,7 @@ def ir_parsing_test(name, p4_program, golden_file, table_entries = None, p4_deps
         p4runtime_files = [p4info_file],
     )
 
-    # Use p4_symbolic/main.cc to parse input json with p4info and dump
+    # Use p4_symbolic/ir/test.cc to parse input json with p4info and dump
     # (tmp) output .pb.txt.
     output_filename = name + "_tmp.pb.txt"
     native.genrule(

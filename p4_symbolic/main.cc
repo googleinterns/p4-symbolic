@@ -120,8 +120,10 @@ int main(int argc, char *argv[]) {
       std::optional<p4_symbolic::symbolic::ConcreteContext> packet_option =
           packet_status.value();
       if (packet_option) {
-        std::cout << packet_option.value().ingress_port << std::endl;
-        std::cout << packet_option.value().egress_port << std::endl;
+        std::cout << "\tstandard_metadata.ingress_port = "
+                  << packet_option.value().ingress_port << std::endl;
+        std::cout << "\tstandard_metadata.egress_spec = "
+                  << packet_option.value().egress_port << std::endl;
       } else {
         std::cout << "Cannot find solution!" << std::endl;
       }
