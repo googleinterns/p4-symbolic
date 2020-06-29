@@ -83,6 +83,12 @@ class Analyzer {
 
  public:
   Analyzer() = default;
+  ~Analyzer() {
+    // clean up Z3 internal memory datastructures, Z3 can still be
+    // used after this, as if Z3 has been freshly loaded.
+    // https://github.com/Z3Prover/z3/issues/157
+    Z3_finalize_memory();
+  }
 
   // Class is not copyable or movable.
   Analyzer(const Analyzer&) = delete;
