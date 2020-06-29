@@ -18,6 +18,8 @@
 #ifndef P4_SYMBOLIC_PARSER_H_
 #define P4_SYMBOLIC_PARSER_H_
 
+#include <string>
+
 #include "p4_pdpi/utils/status_utils.h"
 #include "p4_symbolic/ir/ir.pb.h"
 #include "p4_symbolic/symbolic/symbolic.h"

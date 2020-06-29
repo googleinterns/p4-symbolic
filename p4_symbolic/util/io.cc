@@ -25,27 +25,51 @@
 namespace p4_symbolic {
 namespace util {
 
+namespace {
+
+absl::Status ErrorNoToAbsl(const char *operation, const std::string &path) {
+  switch (errno) {
+    case EACCES:
+    case ENOENT:
+      return absl::Status(absl::StatusCode::kNotFound,
+                          absl::StrFormat("%s: %s", strerror(errno), path));
+    default:
+      return absl::Status(absl::StatusCode::kUnknown,
+                          absl::StrFormat("Cannot %s file %s, errno = %d",
+                                          operation, path, errno));
+  }
+}
+
+}  // namespace
+
 pdpi::StatusOr<std::string> ReadFile(const std::string &path) {
   std::ifstream f;
   f.open(path.c_str());
   if (f.fail()) {
-    std::string err;
-    switch (errno) {
-      case EACCES:
-      case ENOENT:
-        err = absl::StrFormat("%s: %s", strerror(errno), path);
-        return pdpi::StatusOr<std::string>(
-            absl::Status(absl::StatusCode::kNotFound, err));
-      default:
-        err = absl::StrFormat("Cannot read file %s, errno = %d", path, errno);
-        return pdpi::StatusOr<std::string>(
-            absl::Status(absl::StatusCode::kUnknown, err));
-    }
+    return ErrorNoToAbsl("open", path);
   }
-
   f >> std::noskipws;  // Read whitespaces.
-  return std::string(std::istreambuf_iterator<char>(f),
-                     std::istreambuf_iterator<char>());
+  std::string result(std::istreambuf_iterator<char>(f),
+                     (std::istreambuf_iterator<char>()));
+  if (f.bad()) {
+    return ErrorNoToAbsl("read", path);
+  }
+  f.close();
+  return result;
+}
+
+absl::Status WriteFile(const std::string &content, const std::string &path) {
+  std::ofstream f;
+  f.open(path.c_str());
+  if (f.fail()) {
+    return ErrorNoToAbsl("open", path);
+  }
+  f << content;
+  f.close();
+  if (f.bad()) {
+    return ErrorNoToAbsl("write", path);
+  }
+  return absl::OkStatus();
 }
 
 }  // namespace util

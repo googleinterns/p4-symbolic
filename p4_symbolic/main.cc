@@ -23,10 +23,12 @@
 #include "absl/flags/flag.h"
 #include "absl/flags/parse.h"
 #include "absl/flags/usage.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "p4_symbolic/bmv2/bmv2.h"
 #include "p4_symbolic/parser.h"
 #include "p4_symbolic/symbolic/symbolic.h"
+#include "p4_symbolic/util/io.h"
 
 ABSL_FLAG(std::string, p4info, "",
           "The path to the p4info protobuf file (required)");
@@ -35,7 +37,7 @@ ABSL_FLAG(std::string, entries, "",
           "The path to the table entries txt file (optional), leave this empty "
           "if the input p4 program contains no (explicit) tables for which "
           "entries are needed.");
-ABSL_FLAG(bool, debug, false, "Dump the SMT program for debugging");
+ABSL_FLAG(std::string, debug, "", "Dump the SMT program for debugging");
 
 // The main test routine for parsing bmv2 json with protobuf.
 // Parses bmv2 json that is fed in through stdin and dumps
@@ -56,6 +58,7 @@ int main(int argc, char *argv[]) {
   const std::string &p4info_path = absl::GetFlag(FLAGS_p4info);
   const std::string &bmv2_path = absl::GetFlag(FLAGS_bmv2);
   const std::string &entries_path = absl::GetFlag(FLAGS_entries);
+  const std::string &debug_path = absl::GetFlag(FLAGS_debug);
   if (p4info_path.empty()) {
     std::cerr << "Missing argument: --p4info=<file>" << std::endl;
     return 1;
@@ -71,7 +74,6 @@ int main(int argc, char *argv[]) {
   if (!parser_status.ok()) {
     std::cerr << "Could not transform to IR: " << parser_status.status()
               << std::endl;
-    return 1;
   }
 
   // Analyze program symbolically.
@@ -86,6 +88,7 @@ int main(int argc, char *argv[]) {
   }
 
   // Find a packet matching every entry of every table.
+  std::string debug_smt_formula = "";
   const std::unique_ptr<p4_symbolic::symbolic::SolverState> &solver_state =
       solver_status.value();
   for (const auto &[name, table] : dataplane.program.tables()) {
@@ -102,12 +105,10 @@ int main(int argc, char *argv[]) {
                     match.entry_index == i);
           };
 
-      // Debugging.
-      if (absl::GetFlag(FLAGS_debug)) {
-        std::cout << p4_symbolic::symbolic::DebugSMT(solver_state,
-                                                     table_entry_assertion)
-                  << std::endl;
-      }
+      debug_smt_formula = absl::StrCat(
+          debug_smt_formula,
+          p4_symbolic::symbolic::DebugSMT(solver_state, table_entry_assertion),
+          "\n");
 
       pdpi::StatusOr<std::optional<p4_symbolic::symbolic::ConcreteContext>>
           packet_status =
@@ -125,6 +126,17 @@ int main(int argc, char *argv[]) {
         std::cout << "Cannot find solution!" << std::endl;
       }
       std::cout << std::endl;
+    }
+  }
+
+  // Debugging.
+  if (!debug_path.empty()) {
+    absl::Status debug_status =
+        p4_symbolic::util::WriteFile(debug_smt_formula, debug_path);
+    if (!debug_status.ok()) {
+      std::cerr << "Could not dump debugging SMT program: " << debug_status
+                << std::endl;
+      return 1;
     }
   }
 
