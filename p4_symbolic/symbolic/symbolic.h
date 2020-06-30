@@ -15,6 +15,7 @@
 #ifndef P4_SYMBOLIC_SYMBOLIC_SYMBOLIC_H_
 #define P4_SYMBOLIC_SYMBOLIC_SYMBOLIC_H_
 
+#include <map>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -103,8 +104,8 @@ class Analyzer {
   std::string DebugSMT();
 
   // API for finding test packets after analysis.
-  pdpi::StatusOr<std::unordered_map<std::string, std::string>>
-  FindPacketHittingRow(const std::string&, int);
+  pdpi::StatusOr<std::map<std::string, std::string>> FindPacketHittingRow(
+      const std::string&, int);
 };
 
 }  // namespace symbolic

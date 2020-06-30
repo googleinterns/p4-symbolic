@@ -130,9 +130,8 @@ int main(int argc, char *argv[]) {
       std::cout << "Finding packet for table " << name << " and row " << i
                 << std::endl;
 
-      pdpi::StatusOr<std::unordered_map<std::string, std::string>>
-          packet_status =
-              analyzer.FindPacketHittingRow("MyIngress.ports_exact", 0);
+      pdpi::StatusOr<std::map<std::string, std::string>> packet_status =
+          analyzer.FindPacketHittingRow(name, i);
       if (!packet_status.ok()) {
         std::cout << "\t" << packet_status.status() << std::endl << std::endl;
         continue;

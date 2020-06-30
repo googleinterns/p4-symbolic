@@ -336,7 +336,7 @@ std::string Analyzer::DebugSMT() {
   return solver.to_smt2();
 }
 
-pdpi::StatusOr<std::unordered_map<std::string, std::string>>
+pdpi::StatusOr<std::map<std::string, std::string>>
 Analyzer::FindPacketHittingRow(const std::string &table, int row) {
   z3::solver solver(this->kContext);
   for (const z3::expr &constraint : this->kConstraints) {
@@ -367,7 +367,7 @@ Analyzer::FindPacketHittingRow(const std::string &table, int row) {
     case z3::sat:
     default:
       z3::model packet_model = solver.get_model();
-      std::unordered_map<std::string, std::string> output;
+      std::map<std::string, std::string> output;
       for (const auto &[name, field] : this->kFieldsMap) {
         if (!field.is_const()) {
           continue;
