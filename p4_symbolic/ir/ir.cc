@@ -354,18 +354,9 @@ pdpi::StatusOr<P4Program> Bmv2AndP4infoToIr(const bmv2::P4Program &bmv2,
     const std::string &table_alias = pair.table_alias;
     const std::string &action_alias = entry.action();
 
-    if (pdpi.tables_by_name().count(table_alias) != 1) {
-      return absl::Status(
-          absl::StatusCode::kInvalidArgument,
-          absl::StrCat("Table ", table_alias,
-                       " from entries is missing from p4info!"));
-    }
-    if (pdpi.actions_by_name().count(action_alias) != 1) {
-      return absl::Status(
-          absl::StatusCode::kInvalidArgument,
-          absl::StrCat("Action ", action_alias,
-                       " from entries is missing from p4info!"));
-    }
+    // Make sure both table and action referred to by entry exist.
+    RET_CHECK(pdpi.tables_by_name().count(table_alias) == 1);
+    RET_CHECK(pdpi.actions_by_name().count(action_alias) == 1);
 
     const std::string &table_name =
         pdpi.tables_by_name().at(table_alias).preamble().name();
