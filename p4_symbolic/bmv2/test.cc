@@ -27,14 +27,7 @@
 #include "google/protobuf/text_format.h"
 #include "google/protobuf/util/json_util.h"
 #include "p4_symbolic/bmv2/bmv2.h"
-
-// Write a string to a file.
-void WriteFile(char path[], const std::string& content) {
-  std::ofstream out;
-  out.open(path);
-  out << content;
-  out.close();
-}
+#include "p4_symbolic/util/io.h"
 
 // The main test routine for parsing bmv2 json with protobuf.
 // Parses bmv2 json file and dumps the resulting bmv2 protobuf
@@ -63,7 +56,7 @@ int main(int argc, char* argv[]) {
   }
 
   // Dumping protobuf.
-  WriteFile(argv[2], bmv2_or_status.value().DebugString());
+  p4_symbolic::util::WriteFile(bmv2_or_status.value().DebugString(), argv[2]);
 
   // Dumping JSON.
   google::protobuf::util::JsonPrintOptions dumping_options;
@@ -74,7 +67,7 @@ int main(int argc, char* argv[]) {
   std::string json_output_str;
   google::protobuf::util::MessageToJsonString(
       bmv2_or_status.value(), &json_output_str, dumping_options);
-  WriteFile(argv[3], json_output_str);
+  p4_symbolic::util::WriteFile(json_output_str, argv[3]);
 
   // Clean up.
   google::protobuf::ShutdownProtobufLibrary();

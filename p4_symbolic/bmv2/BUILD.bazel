@@ -55,6 +55,7 @@ cc_binary(
     deps = [
         ":bmv2",
         ":bmv2_cc_proto",
+        "//p4_symbolic/util",
     ],
 )
 
