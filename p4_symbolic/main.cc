@@ -23,8 +23,10 @@
 #include "absl/flags/flag.h"
 #include "absl/flags/parse.h"
 #include "absl/flags/usage.h"
+#include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
+#include "p4_pdpi/utils/status_utils.h"
 #include "p4_symbolic/bmv2/bmv2.h"
 #include "p4_symbolic/parser.h"
 #include "p4_symbolic/symbolic/symbolic.h"
@@ -39,58 +41,31 @@ ABSL_FLAG(std::string, entries, "",
           "entries are needed.");
 ABSL_FLAG(std::string, debug, "", "Dump the SMT program for debugging");
 
-// The main test routine for parsing bmv2 json with protobuf.
-// Parses bmv2 json that is fed in through stdin and dumps
-// the resulting native protobuf and json data to files.
-// Expects the paths of the protobuf output file and json
-// output file to be passed as command line arguments respectively.
-int main(int argc, char *argv[]) {
-  // Verify link and compile versions are the same.
-  GOOGLE_PROTOBUF_VERIFY_VERSION;
-
-  // Command line arugments and help message.
-  absl::SetProgramUsageMessage(
-      absl::StrFormat("usage: %s %s", argv[0],
-                      "--bmv2=path/to/bmv2.json --p4info=path/to/p4info.pb.txt "
-                      "[--entries=path/to/table_entries.txt]"));
-  absl::ParseCommandLine(argc, argv);
-
+namespace {
+// Parse input P4 program, analyze it symbolically
+// and generate test pakcets.
+absl::Status ParseAndEvaluate() {
   const std::string &p4info_path = absl::GetFlag(FLAGS_p4info);
   const std::string &bmv2_path = absl::GetFlag(FLAGS_bmv2);
   const std::string &entries_path = absl::GetFlag(FLAGS_entries);
   const std::string &debug_path = absl::GetFlag(FLAGS_debug);
-  if (p4info_path.empty()) {
-    std::cerr << "Missing argument: --p4info=<file>" << std::endl;
-    return 1;
-  }
-  if (bmv2_path.empty()) {
-    std::cerr << "Missing argument: --bmv2=<file>" << std::endl;
-    return 1;
-  }
+
+  RET_CHECK(!p4info_path.empty());
+  RET_CHECK(!bmv2_path.empty());
 
   // Transform to IR.
-  pdpi::StatusOr<p4_symbolic::symbolic::Dataplane> parser_status =
-      p4_symbolic::ParseToIr(bmv2_path, p4info_path, entries_path);
-  if (!parser_status.ok()) {
-    std::cerr << "Could not transform to IR: " << parser_status.status()
-              << std::endl;
-  }
+  ASSIGN_OR_RETURN(
+      p4_symbolic::symbolic::Dataplane dataplane,
+      p4_symbolic::ParseToIr(bmv2_path, p4info_path, entries_path));
 
-  // Analyze program symbolically.
-  p4_symbolic::symbolic::Dataplane dataplane = parser_status.value();
-  pdpi::StatusOr<std::unique_ptr<p4_symbolic::symbolic::SolverState>>
-      solver_status = p4_symbolic::symbolic::EvaluateP4Pipeline(
-          dataplane, std::vector<int>{0, 1});
-  if (!solver_status.ok()) {
-    std::cerr << "Could not analyze program symbolically: "
-              << solver_status.status() << std::endl;
-    return 1;
-  }
+  // Evaluate program symbolically.
+  ASSIGN_OR_RETURN(
+      const std::unique_ptr<p4_symbolic::symbolic::SolverState> &solver_state,
+      p4_symbolic::symbolic::EvaluateP4Pipeline(dataplane,
+                                                std::vector<int>{0, 1}));
 
   // Find a packet matching every entry of every table.
   std::string debug_smt_formula = "";
-  const std::unique_ptr<p4_symbolic::symbolic::SolverState> &solver_state =
-      solver_status.value();
   for (const auto &[name, table] : dataplane.program.tables()) {
     for (int i = 0; i < dataplane.entries[name].size(); i++) {
       std::cout << "Finding packet for table " << name << " and row " << i
@@ -110,15 +85,10 @@ int main(int argc, char *argv[]) {
           p4_symbolic::symbolic::DebugSMT(solver_state, table_entry_assertion),
           "\n");
 
-      pdpi::StatusOr<std::optional<p4_symbolic::symbolic::ConcreteContext>>
-          packet_status =
-              p4_symbolic::symbolic::Solve(solver_state, table_entry_assertion);
-      if (!packet_status.ok()) {
-        std::cout << "\t" << packet_status.status() << std::endl << std::endl;
-        continue;
-      }
-      std::optional<p4_symbolic::symbolic::ConcreteContext> packet_option =
-          packet_status.value();
+      ASSIGN_OR_RETURN(
+          std::optional<p4_symbolic::symbolic::ConcreteContext> packet_option,
+          p4_symbolic::symbolic::Solve(solver_state, table_entry_assertion));
+
       if (packet_option) {
         std::cout << "\tstandard_metadata.ingress_port = "
                   << packet_option.value().ingress_port << std::endl;
@@ -133,17 +103,37 @@ int main(int argc, char *argv[]) {
 
   // Debugging.
   if (!debug_path.empty()) {
-    absl::Status debug_status =
-        p4_symbolic::util::WriteFile(debug_smt_formula, debug_path);
-    if (!debug_status.ok()) {
-      std::cerr << "Could not dump debugging SMT program: " << debug_status
-                << std::endl;
-      return 1;
-    }
+    RETURN_IF_ERROR(
+        p4_symbolic::util::WriteFile(debug_smt_formula, debug_path));
   }
+
+  return absl::OkStatus();
+}
+
+}  // namespace
+
+int main(int argc, char *argv[]) {
+  // Verify link and compile versions are the same.
+  GOOGLE_PROTOBUF_VERIFY_VERSION;
+
+  // Command line arugments and help message.
+  absl::SetProgramUsageMessage(
+      absl::StrFormat("usage: %s %s", argv[0],
+                      "--bmv2=path/to/bmv2.json --p4info=path/to/p4info.pb.txt "
+                      "[--entries=path/to/table_entries.txt]"));
+  absl::ParseCommandLine(argc, argv);
+
+  // Run code
+  absl::Status status = ParseAndEvaluate();
 
   // Clean up
   google::protobuf::ShutdownProtobufLibrary();
+
+  // Error handling.
+  if (!status.ok()) {
+    std::cerr << "Error: " << status << std::endl;
+    return 1;
+  }
 
   return 0;
 }

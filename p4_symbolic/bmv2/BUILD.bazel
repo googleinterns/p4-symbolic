@@ -56,6 +56,8 @@ cc_binary(
         ":bmv2",
         ":bmv2_cc_proto",
         "//p4_symbolic/util",
+        "@com_google_absl//absl/status",
+        "@p4_pdpi//p4_pdpi/utils:status_utils",
     ],
 )
 

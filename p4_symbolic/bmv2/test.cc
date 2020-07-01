@@ -24,10 +24,38 @@
 #include <iostream>
 #include <string>
 
+#include "absl/status/status.h"
 #include "google/protobuf/text_format.h"
 #include "google/protobuf/util/json_util.h"
+#include "p4_pdpi/utils/status_utils.h"
 #include "p4_symbolic/bmv2/bmv2.h"
 #include "p4_symbolic/util/io.h"
+
+namespace {
+
+absl::Status Test(char* argv[]) {
+  // Parse JSON using bmv2.cc.
+  ASSIGN_OR_RETURN(p4_symbolic::bmv2::P4Program bmv2,
+                   p4_symbolic::bmv2::ParseBmv2JsonFile(argv[1]));
+
+  // Dumping protobuf.
+  RETURN_IF_ERROR(p4_symbolic::util::WriteFile(bmv2.DebugString(), argv[2]));
+
+  // Dumping JSON.
+  google::protobuf::util::JsonPrintOptions dumping_options;
+  dumping_options.add_whitespace = true;
+  dumping_options.always_print_primitive_fields = true;
+  dumping_options.preserve_proto_field_names = true;
+
+  std::string json_output_str;
+  google::protobuf::util::MessageToJsonString(bmv2, &json_output_str,
+                                              dumping_options);
+  RETURN_IF_ERROR(p4_symbolic::util::WriteFile(json_output_str, argv[3]));
+
+  return absl::OkStatus();
+}
+
+}  // namespace
 
 // The main test routine for parsing bmv2 json with protobuf.
 // Parses bmv2 json file and dumps the resulting bmv2 protobuf
@@ -46,32 +74,17 @@ int main(int argc, char* argv[]) {
     return 0;
   }
 
-  // Parse JSON using bmv2.cc.
-  pdpi::StatusOr<p4_symbolic::bmv2::P4Program> bmv2_or_status =
-      p4_symbolic::bmv2::ParseBmv2JsonFile(argv[1]);
-  if (!bmv2_or_status.ok()) {
-    std::cerr << "Error reading input file: " << bmv2_or_status.status()
-              << std::endl;
-    return 1;
-  }
-
-  // Dumping protobuf.
-  p4_symbolic::util::WriteFile(bmv2_or_status.value().DebugString(), argv[2]);
-
-  // Dumping JSON.
-  google::protobuf::util::JsonPrintOptions dumping_options;
-  dumping_options.add_whitespace = true;
-  dumping_options.always_print_primitive_fields = true;
-  dumping_options.preserve_proto_field_names = true;
-
-  std::string json_output_str;
-  google::protobuf::util::MessageToJsonString(
-      bmv2_or_status.value(), &json_output_str, dumping_options);
-  p4_symbolic::util::WriteFile(json_output_str, argv[3]);
+  // Test.
+  absl::Status status = Test(argv);
 
   // Clean up.
   google::protobuf::ShutdownProtobufLibrary();
 
-  // Exit.
+  // Error handling.
+  if (!status.ok()) {
+    std::cerr << "Error: " << status << std::endl;
+    return 1;
+  }
+
   return 0;
 }
