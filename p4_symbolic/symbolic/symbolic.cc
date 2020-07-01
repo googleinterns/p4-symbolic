@@ -253,17 +253,17 @@ absl::Status Analyzer::AnalyzeStatement(const ir::Statement &statement,
 absl::Status Analyzer::AnalyzeAssignmentStatement(
     const ir::AssignmentStatement &assignment, const z3::expr &precondition,
     const std::string &action) {
-  ASSIGN_OR_RETURN(z3::expr * left, this->AnalyzeLValue(assignment.left(),
-                                                        precondition, action));
-  ASSIGN_OR_RETURN(z3::expr * right, this->AnalyzeRValue(assignment.right(),
-                                                         precondition, action));
-  this->constraints_.push_back(z3::implies(precondition, (*left == *right)));
+  ASSIGN_OR_RETURN(z3::expr left, this->AnalyzeLValue(assignment.left(),
+                                                      precondition, action));
+  ASSIGN_OR_RETURN(z3::expr right, this->AnalyzeRValue(assignment.right(),
+                                                       precondition, action));
+  this->constraints_.push_back(z3::implies(precondition, (left == right)));
   return absl::OkStatus();
 }
 
-pdpi::StatusOr<z3::expr *> Analyzer::AnalyzeLValue(const ir::LValue &lvalue,
-                                                   const z3::expr &precondition,
-                                                   const std::string &action) {
+pdpi::StatusOr<z3::expr> Analyzer::AnalyzeLValue(const ir::LValue &lvalue,
+                                                 const z3::expr &precondition,
+                                                 const std::string &action) {
   switch (lvalue.lvalue_case()) {
     case ir::LValue::kFieldValue:
       return this->AnalyzeFieldValue(lvalue.field_value(), precondition,
@@ -281,9 +281,9 @@ pdpi::StatusOr<z3::expr *> Analyzer::AnalyzeLValue(const ir::LValue &lvalue,
   }
 }
 
-pdpi::StatusOr<z3::expr *> Analyzer::AnalyzeRValue(const ir::RValue &rvalue,
-                                                   const z3::expr &precondition,
-                                                   const std::string &action) {
+pdpi::StatusOr<z3::expr> Analyzer::AnalyzeRValue(const ir::RValue &rvalue,
+                                                 const z3::expr &precondition,
+                                                 const std::string &action) {
   switch (rvalue.rvalue_case()) {
     case ir::RValue::kFieldValue:
       return this->AnalyzeFieldValue(rvalue.field_value(), precondition,
@@ -301,7 +301,7 @@ pdpi::StatusOr<z3::expr *> Analyzer::AnalyzeRValue(const ir::RValue &rvalue,
   }
 }
 
-pdpi::StatusOr<z3::expr *> Analyzer::AnalyzeFieldValue(
+pdpi::StatusOr<z3::expr> Analyzer::AnalyzeFieldValue(
     const ir::FieldValue &field_value, const z3::expr &precondition,
     const std::string &action) {
   const std::string &name = absl::StrFormat("%s.%s", field_value.header_name(),
@@ -312,12 +312,12 @@ pdpi::StatusOr<z3::expr *> Analyzer::AnalyzeFieldValue(
         absl::StrCat("Action ", action, " referes to unknown field ", name));
   }
 
-  return &this->fields_map_.at(name);
+  return this->fields_map_.at(name);
 }
 
-pdpi::StatusOr<z3::expr *> Analyzer::AnalyzeVariable(
-    const ir::Variable &variable, const z3::expr &precondition,
-    const std::string &action) {
+pdpi::StatusOr<z3::expr> Analyzer::AnalyzeVariable(const ir::Variable &variable,
+                                                   const z3::expr &precondition,
+                                                   const std::string &action) {
   const std::string &name = absl::StrFormat("%s.%s", action, variable.name());
   if (this->variables_map_.count(name) != 1) {
     return absl::Status(
@@ -325,7 +325,7 @@ pdpi::StatusOr<z3::expr *> Analyzer::AnalyzeVariable(
         absl::StrCat("Action ", action, " referes to unknown variable ", name));
   }
 
-  return &this->variables_map_.at(name);
+  return this->variables_map_.at(name);
 }
 
 std::string Analyzer::DebugSMT() {

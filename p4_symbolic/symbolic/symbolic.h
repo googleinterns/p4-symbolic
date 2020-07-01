@@ -78,18 +78,18 @@ class Analyzer {
 
   // Expressions: these construct a z3 equivalent symbolic expression and
   // return it.
-  pdpi::StatusOr<z3::expr *> AnalyzeLValue(const ir::LValue &lvalue,
-                                           const z3::expr &precondition,
-                                           const std::string &action);
-  pdpi::StatusOr<z3::expr *> AnalyzeRValue(const ir::RValue &rvalue,
-                                           const z3::expr &precondition,
-                                           const std::string &action);
-  pdpi::StatusOr<z3::expr *> AnalyzeFieldValue(
-      const ir::FieldValue &field_value, const z3::expr &precondition,
-      const std::string &action);
-  pdpi::StatusOr<z3::expr *> AnalyzeVariable(const ir::Variable &variable,
+  pdpi::StatusOr<z3::expr> AnalyzeLValue(const ir::LValue &lvalue,
+                                         const z3::expr &precondition,
+                                         const std::string &action);
+  pdpi::StatusOr<z3::expr> AnalyzeRValue(const ir::RValue &rvalue,
+                                         const z3::expr &precondition,
+                                         const std::string &action);
+  pdpi::StatusOr<z3::expr> AnalyzeFieldValue(const ir::FieldValue &field_value,
                                              const z3::expr &precondition,
                                              const std::string &action);
+  pdpi::StatusOr<z3::expr> AnalyzeVariable(const ir::Variable &variable,
+                                           const z3::expr &precondition,
+                                           const std::string &action);
 
  public:
   Analyzer() = default;
