@@ -64,7 +64,7 @@ int main(int argc, char *argv[]) {
 
   // Parse pdpi.
   pdpi::StatusOr<pdpi::ir::IrP4Info> p4info_or_status =
-      p4_symbolic::ir::ParseP4InfoFile(p4info_path.c_str());
+      p4_symbolic::ir::ParseP4InfoFile(p4info_path);
 
   if (!p4info_or_status.ok()) {
     std::cerr << "Could not parse p4info: " << p4info_or_status.status()
@@ -74,7 +74,7 @@ int main(int argc, char *argv[]) {
 
   // Parse bmv2 json.
   pdpi::StatusOr<p4_symbolic::bmv2::P4Program> bmv2_or_status =
-      p4_symbolic::bmv2::ParseBmv2JsonFile(bmv2_path.c_str());
+      p4_symbolic::bmv2::ParseBmv2JsonFile(bmv2_path);
 
   if (!bmv2_or_status.ok()) {
     std::cerr << "Could not parse bmv2 JSON: " << bmv2_or_status.status()
@@ -86,7 +86,7 @@ int main(int argc, char *argv[]) {
   p4_symbolic::ir::TableEntries table_entries;
   if (!entries_path.empty()) {
     pdpi::StatusOr<p4_symbolic::ir::TableEntries> table_entries_or_status =
-        p4_symbolic::ir::ParseAndFillEntries(entries_path.c_str());
+        p4_symbolic::ir::ParseAndFillEntries(entries_path);
 
     if (!table_entries_or_status.ok()) {
       std::cerr << "Could not parse table entries: "

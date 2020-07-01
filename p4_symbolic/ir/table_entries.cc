@@ -21,8 +21,7 @@
 namespace p4_symbolic {
 namespace ir {
 
-pdpi::StatusOr<std::pair<std::string, TableEntry>> ParseLine(
-    const std::string &line) {
+pdpi::StatusOr<TableEntryPair> ParseLine(const std::string &line) {
   std::vector<std::string> tokens =
       absl::StrSplit(line, ' ', absl::SkipWhitespace());
   if (tokens.size() < 3) {
@@ -55,19 +54,20 @@ pdpi::StatusOr<std::pair<std::string, TableEntry>> ParseLine(
     }
   }
 
-  return std::make_pair(tokens[1], output);
+  return TableEntryPair{tokens[1], output};
 }
 
-pdpi::StatusOr<TableEntries> ParseAndFillEntries(const char *entries_path) {
+pdpi::StatusOr<TableEntries> ParseAndFillEntries(
+    const std::string &entries_path) {
   ASSIGN_OR_RETURN(std::string file_content, util::ReadFile(entries_path));
 
   // Skip empty lines or ones that only contain whitespace.
   std::vector<std::string> lines =
       absl::StrSplit(file_content, '\n', absl::SkipWhitespace());
 
-  std::vector<std::pair<std::string, TableEntry>> output;
+  TableEntries output;
   for (const std::string &line : lines) {
-    ASSIGN_OR_RETURN(auto entry, ParseLine(line));
+    ASSIGN_OR_RETURN(TableEntryPair entry, ParseLine(line));
     output.push_back(entry);
   }
 

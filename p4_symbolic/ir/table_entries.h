@@ -28,10 +28,19 @@
 namespace p4_symbolic {
 namespace ir {
 
-using TableEntries = std::vector<std::pair<std::string, TableEntry>>;
+struct TableEntryPair {
+  // The alias of the table this entry belongs to.
+  // This is translated to a fully qualified name during the IR transformation.
+  std::string table_alias;
+  // This is injected into the IR structure when the IR is produced.
+  TableEntry entry_data;
+};
+
+using TableEntries = std::vector<TableEntryPair>;
 
 // Parses entries read from entries_path, and fills them in given ir in place.
-pdpi::StatusOr<TableEntries> ParseAndFillEntries(const char *entries_path);
+pdpi::StatusOr<TableEntries> ParseAndFillEntries(
+    const std::string &entries_path);
 
 }  // namespace ir
 }  // namespace p4_symbolic
