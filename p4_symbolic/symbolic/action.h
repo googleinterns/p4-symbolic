@@ -40,8 +40,8 @@ pdpi::StatusOr<IntermediateState> EvaluateAction(
     const ir::Action &action, const std::vector<z3::expr> &symbolic_parameters,
     const IntermediateState &state);
 
-// Internal functions used to Evaluate statements and expressions within an action
-// body. These are internal functions not used beyond this header and its
+// Internal functions used to Evaluate statements and expressions within an
+// action body. These are internal functions not used beyond this header and its
 // associated source file.
 
 // The scope of this action: maps local variable names to their symbolic values.
@@ -49,9 +49,9 @@ using ActionContext = std::unordered_map<std::string, z3::expr>;
 
 // Performs a switch case over support statement types and call the
 // appropriate function.
-pdpi::StatusOr<IntermediateState> EvaluateStatement(const ir::Statement &statement,
-                                           const IntermediateState &state,
-                                           ActionContext *context);
+pdpi::StatusOr<IntermediateState> EvaluateStatement(
+    const ir::Statement &statement, const IntermediateState &state,
+    ActionContext *context);
 
 // Constructs a symbolic expression for the assignment value, and either
 // constrains it in an enclosing assignment expression, or stores it in
@@ -63,18 +63,18 @@ pdpi::StatusOr<IntermediateState> EvaluateAssignmentStatement(
 // Constructs a symbolic expression corresponding to this value, according
 // to its type.
 pdpi::StatusOr<z3::expr> EvaluateRValue(const ir::RValue &rvalue,
-                                   const IntermediateState &state,
-                                   ActionContext *context);
+                                        const IntermediateState &state,
+                                        ActionContext *context);
 
 // Extract the field symbolic value from the symbolic state.
 pdpi::StatusOr<z3::expr> EvaluateFieldValue(const ir::FieldValue &field_value,
-                                       const IntermediateState &state,
-                                       ActionContext *context);
+                                            const IntermediateState &state,
+                                            ActionContext *context);
 
 // Looks up the symbolic value of the variable in the action scope.
 pdpi::StatusOr<z3::expr> EvaluateVariable(const ir::Variable &variable,
-                                     const IntermediateState &state,
-                                     ActionContext *context);
+                                          const IntermediateState &state,
+                                          ActionContext *context);
 
 }  // namespace action
 }  // namespace symbolic

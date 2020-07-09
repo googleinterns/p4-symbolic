@@ -93,7 +93,6 @@ struct SymbolicHeader {
 
   z3::expr icmp_type;  // 8 bit, valid if eth_type is ip
   z3::expr vid;        // 12 bit, valid if eth_type = 0x6007
-
 };
 
 // The symbolic counterpart of ConcreteMetadata. This can be used to constrain
@@ -146,7 +145,7 @@ struct ConcreteContext {
   int ingress_port;
   int egress_port;
   ConcreteHeader ingress_packet;  // Input packet into the program/switch.
-  ConcreteHeader egress_packet;  // Expected output packet.
+  ConcreteHeader egress_packet;   // Expected output packet.
   // Expected metadata field values at the end of execution.
   // E.g. if vrf is set to different values through out the execution of the
   // program on this packet, this will contain the last value set for the vrf.
@@ -198,9 +197,7 @@ struct SolverState {
   // Makes sense to use here, when SolverState is destructed, it means
   // no further analysis of the particular program is possible.
   // https://github.com/Z3Prover/z3/issues/157
-  ~SolverState() {
-    Z3_API Z3_reset_memory();
-  }
+  ~SolverState() { Z3_API Z3_reset_memory(); }
 };
 
 // Instances of these structs are passed around and returned between our
@@ -222,14 +219,13 @@ struct IntermediateStateAndMatch {
 // z3::expr portIsOne(const SymbolicContext &ctx) {
 //   return ctx.ingress_port == 1;
 // }
-using Assertion = std::function<z3::expr(const SymbolicContext&)>;
+using Assertion = std::function<z3::expr(const SymbolicContext &)>;
 
 // Symbolically evaluates/interprets the given program against the given
 // entries for every table in that program, and the available physical ports
 // on the switch.
 pdpi::StatusOr<SolverState> EvaluateP4Pipeline(
-    const Dataplane &data_plane,
-    const std::vector<int> &physical_ports);
+    const Dataplane &data_plane, const std::vector<int> &physical_ports);
 
 // Finds a concrete packet and flow in the program that satisfies the given
 // assertion and meets the structure constrained by solver_state.
