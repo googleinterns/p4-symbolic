@@ -12,8 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Contains functions used to symbolically run/interpret/analyze P4 tables and
-// their entries.
+// Contains functions used to symbolically evaluate P4 tables and their entries.
 // A table is turned into a sequence of if-conditions (one per entry),
 // each condition corresponds to having that entry matched on, and the
 // corresponding then body invokes the appropriate symbolic action expression
@@ -33,9 +32,9 @@ namespace p4_symbolic {
 namespace symbolic {
 namespace table {
 
-pdpi::StatusOr<SymbolicState> RunTable(
+pdpi::StatusOr<IntermediateStateAndMatch> EvaluateTable(
     const ir::Table &table, const std::vector<ir::TableEntry> &entries,
-    const SymbolicState &state);
+    const IntermediateState &state);
 
 }  // namespace table
 }  // namespace symbolic
