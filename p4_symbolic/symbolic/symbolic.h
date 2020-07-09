@@ -34,10 +34,28 @@ namespace symbolic {
 // A concrete output packet within a concrete context produced by our solver
 // will be of this type.
 struct ConcreteHeader {
-  // TODO(babman): add the remaining headers and switch ints to bits.
+  // TODO(babman): Switch to bit string.
   int eth_src;
   int eth_dst;
   int eth_type;
+
+  int outer_ipv4_src;
+  int outer_ipv4_dst;
+  int outer_ipv6_dst_upper;
+  int outer_ipv6_dst_lower;
+  int outer_protocol;
+  int outer_dscp;
+  int outer_ttl;
+
+  int inner_ipv4_dst;
+  int inner_ipv6_dst_upper;
+  int inner_ipv6_dst_lower;
+  int inner_protocol;
+  int inner_dscp;
+  int inner_ttl;
+
+  int icmp_type;
+  int vid;
 };
 
 // Maps the name of a metadata field to its concrete value.
@@ -53,9 +71,29 @@ using ConcreteMetadata = std::unordered_map<std::string, int>;
 // our solver. These handles can be used to contstrain the conrete output
 // packets.
 struct SymbolicHeader {
-  z3::expr eth_src;
-  z3::expr eth_Dst;
-  z3::expr eth_type;
+  // TODO(babman): Swith to bit strings.
+  z3::expr eth_src;   // 48 bit.
+  z3::expr eth_dst;   // 48 bit.
+  z3::expr eth_type;  // 16 bit.
+
+  z3::expr outer_ipv4_src;        // 32 bit, valid if eth_type = 0x0800
+  z3::expr outer_ipv4_dst;        // 32 bit, valid if eth_type = 0x0800
+  z3::expr outer_ipv6_dst_upper;  // 64 bit, valid if eth_type = 0x86dd
+  z3::expr outer_ipv6_dst_lower;  // 64 bit, valid if eth_type = 0x86dd
+  z3::expr outer_protocol;        // 8 bit, valid if eth_type is ip
+  z3::expr outer_dscp;            // 6 bit, valid if eth_type is ip
+  z3::expr outer_ttl;             // 8 bit, valid if eth_type is ip
+
+  z3::expr inner_ipv4_dst;        // 32 bit, valid if outer_protocol = 4
+  z3::expr inner_ipv6_dst_upper;  // 64 bit, valid if outer_protocol = 4
+  z3::expr inner_ipv6_dst_lower;  // 64 bit, valid if outer_protocol = 41
+  z3::expr inner_protocol;        // 8 bit, valid if outer_protocol = 4/41
+  z3::expr inner_dscp;            // 6 bit, valid if outer_protocol = 4/41
+  z3::expr inner_ttl;             // 8 bit, valid if outer_protocol = 4/41
+
+  z3::expr icmp_type;  // 8 bit, valid if eth_type is ip
+  z3::expr vid;        // 12 bit, valid if eth_type = 0x6007
+
 };
 
 // The symbolic counterpart of ConcreteMetadata. This can be used to constrain
