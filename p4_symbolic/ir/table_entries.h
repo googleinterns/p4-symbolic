@@ -21,6 +21,7 @@
 #include <string>
 #include <unordered_map>
 #include <utility>
+#include <unordered_map>
 #include <vector>
 
 #include "p4_pdpi/ir.h"
@@ -34,7 +35,7 @@ using TableEntries = std::unordered_map<std::string, std::vector<TableEntry>>;
 
 // Parses entries read from entries_path, and fills them in given ir in place.
 pdpi::StatusOr<TableEntries> ParseAndFillEntries(
-    const pdpi::ir::IrP4Info& pdpi, const std::string& entries_path);
+    const pdpi::ir::IrP4Info &pdpi, const std::string &entries_path);
 
 }  // namespace ir
 }  // namespace p4_symbolic
