@@ -18,20 +18,20 @@ cc_library(
     name = "symbolic",
     srcs = [
         "action.cc",
-        "names.cc",
         "symbolic.cc",
         "table.cc",
+        "util.cc",
     ],
     hdrs = [
         "action.h",
-        "names.h",
-        "structs.h",
         "symbolic.h",
         "table.h",
+        "util.h",
     ],
     visibility = ["//p4_symbolic:__subpackages__"],
     deps = [
         "//p4_symbolic/ir:ir_cc_proto",
+        "//p4_symbolic/ir:table_entries",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@com_google_protobuf//:protobuf_headers",

@@ -21,7 +21,6 @@
 #include <string>
 #include <unordered_map>
 #include <utility>
-#include <unordered_map>
 #include <vector>
 
 #include "p4_pdpi/ir.h"

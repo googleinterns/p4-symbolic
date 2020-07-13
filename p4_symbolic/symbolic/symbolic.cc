@@ -14,95 +14,74 @@
 
 #include "p4_symbolic/symbolic/symbolic.h"
 
-#include <memory>
-
-#include "absl/strings/str_format.h"
-#include "p4_symbolic/symbolic/action.h"
-#include "p4_symbolic/symbolic/names.h"
-#include "p4_symbolic/symbolic/table.h"
+#include "p4_symbolic/symbolic/util.h"
 
 namespace p4_symbolic {
 namespace symbolic {
 
-pdpi::StatusOr<SolverState> AnalyzeProgram(const ir::P4Program &program) {
-  // construct solver state for this program and the given context.
-  SolverState solver_state;
-  solver_state.program = program;
-  solver_state.context = std::unique_ptr<z3::context>(new z3::context());
-  solver_state.solver =
-      std::unique_ptr<z3::solver>(new z3::solver(*solver_state.context));
+pdpi::StatusOr<SolverState *> EvaluateP4Pipeline(
+    const Dataplane &data_plane, const std::vector<int> &physical_ports) {
+  // Context to use for defining z3 variables, etc..
+  z3::context *z3_context = new z3::context();
 
-  // Visit actions first to define symbolic expressions for their parameters.
-  // Then visit tables, since their entries will use the action parameters
-  // symbolic expressions.
-  // TODO(babman): ensure this order is fine for more complex workflows,
-  //               e.g. VRF, we may need to traverse actions + tables in order,
-  //               starting from init_table?
-  // TODO(babman): On second thought, I think this is ok, provided that we
-  //               create placeholder symbolic traces for actions prior to
-  //               fully analyzing them. This way an action calling another
-  //               action is guaranteed to find a symbolic trace for it to
-  //               instantiate regardless of analysis order.
-  for (const auto &[action_name, action] : program.actions()) {
-    ASSIGN_OR_RETURN(ActionSymbolicTrace action_trace,
-                     action::AnalyzeAction(action, solver_state));
-    solver_state.action_map.insert({action_name, action_trace});
+  // Construct an unconstrainted (free) SymbolicContext.
+  SymbolicContext symbolic_context = util::FreeSymbolicContext(z3_context);
+
+  // Construct solver state for this program.
+  SolverState *solver_state =
+      new SolverState{data_plane.program, data_plane.entries, symbolic_context,
+                      std::unique_ptr<z3::solver>(new z3::solver(*z3_context)),
+                      std::unique_ptr<z3::context>(z3_context)};
+
+  // Restrict ports to the available physical ports.
+  z3::expr ingress_port_domain = z3_context->bool_val(false);
+  z3::expr egress_port_domain = z3_context->bool_val(false);
+  for (int port : physical_ports) {
+    ingress_port_domain =
+        ingress_port_domain || symbolic_context.ingress_port == port;
+    egress_port_domain =
+        egress_port_domain || symbolic_context.egress_port == port;
   }
-  for (const auto &[_, table] : program.tables()) {
-    ASSIGN_OR_RETURN(z3::expr table_expression,
-                     table::AnalyzeTable(table, solver_state));
-    solver_state.solver->add(table_expression);
+  solver_state->solver->add(ingress_port_domain);
+  solver_state->solver->add(egress_port_domain);
+
+  // Visit tables and find their symbolic matches (and their actions).
+  for (const auto &[name, table] : data_plane.program.tables()) {
   }
 
   return solver_state;
 }
 
-std::string DebugSMT(const SolverState &solver_state) {
-  return solver_state.solver->to_smt2();
-}
+pdpi::StatusOr<ConcreteContext> Solve(SolverState *solver_state,
+                                      const Assertion &assertion) {
+  z3::expr constraint = assertion(solver_state->context);
 
-pdpi::StatusOr<Packet> FindPacketMatching(const SolverState &solver_state,
-                                          const std::string &table, int row) {
-  // TODO(babman): Negate higher priority matches after sorting, see table.cc.
-  solver_state.solver->push();
-  z3::expr entry_alias = solver_state.context->bool_const(
-      names::ForTableEntry(table, row).c_str());
-  solver_state.solver->add(entry_alias);
-
-  switch (solver_state.solver->check()) {
+  solver_state->solver->push();
+  solver_state->solver->add(constraint);
+  switch (solver_state->solver->check()) {
     case z3::unsat:
-      solver_state.solver->pop();
-      return absl::Status(
-          absl::StatusCode::kInvalidArgument,
-          absl::StrFormat("Table %s and row %d is impossible to hit", table,
-                          row));
+      solver_state->solver->pop();
+      return absl::Status(absl::StatusCode::kInvalidArgument,
+                          "Assertion and program are unsat!");
 
     case z3::unknown:
-      solver_state.solver->pop();
-      return absl::Status(
-          absl::StatusCode::kInvalidArgument,
-          absl::StrFormat("Could not find packet to hit Table %s and row %d",
-                          table, row));
+      solver_state->solver->pop();
+      return absl::Status(absl::StatusCode::kInvalidArgument,
+                          "Z3 cannot find satisifying packet model!");
 
     case z3::sat:
     default:
-      z3::model packet_model = solver_state.solver->get_model();
-      std::map<std::string, std::string> output;
-      for (unsigned int i = 0; i < packet_model.size(); i++) {
-        z3::func_decl field_declaration = packet_model[i];
-        if (!field_declaration.is_const()) {
-          continue;
-        }
-        output[field_declaration.to_string()] =
-            packet_model.get_const_interp(field_declaration).to_string();
-      }
-
-      solver_state.solver->pop();
-      return output;
+      z3::model packet_model = solver_state->solver->get_model();
+      ConcreteContext result =
+          util::ExtractFromModel(solver_state->context, packet_model);
+      solver_state->solver->pop();
+      return result;
   }
 }
 
-void CleanUpMemory() { Z3_finalize_memory(); }
+std::string DebugSMT(SolverState *solver_state) {
+  return solver_state->solver->to_smt2();
+}
 
 }  // namespace symbolic
 }  // namespace p4_symbolic

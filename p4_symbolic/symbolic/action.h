@@ -12,8 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Contains functions used to symbolically analyze/interprate actions
-// and their bodies.
+// Contains functions used to symbolically evaluate actions and their bodies.
 // An action is represented as a boolean symbolic z3 expression over
 // unconstrained symbolic parameters corresponding to its actual P4 parameters.
 
@@ -22,28 +21,60 @@
 
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 #include "p4_pdpi/utils/status_utils.h"
 #include "p4_symbolic/ir/ir.pb.h"
-#include "p4_symbolic/symbolic/structs.h"
+#include "p4_symbolic/symbolic/symbolic.h"
 #include "z3++.h"
 
 namespace p4_symbolic {
 namespace symbolic {
 namespace action {
 
-// The context of analyzing an action body is a mapping between
-// variables and symbolic values in its scope.
-struct ActionContext {
-  std::string action_name;
-  // Variable name to its corresponding symbolic expression.
-  std::unordered_map<std::string, z3::expr> scope;
-};
+// Symbolically evaluates the given action on the given symbolic parameters.
+// This produces a symbolic expression on the symbolic parameters that is
+// semantically equivalent to the behavior of the action on its concrete
+// parameters.
+pdpi::StatusOr<SymbolicPerPacketState> EvaluateAction(
+    const ir::Action &action, const std::vector<z3::expr> &symbolic_parameters,
+    const SymbolicPerPacketState &state);
 
-// Symbolically Analyzes the given program, generating z3 symbolic
-// expressions and that are later solved to produce concerete packets.
-pdpi::StatusOr<ActionSymbolicTrace> AnalyzeAction(
-    const ir::Action &action, const SolverState &solver_state);
+// Internal functions used to Evaluate statements and expressions within an
+// action body. These are internal functions not used beyond this header and its
+// associated source file.
+
+// The scope of this action: maps local variable names to their symbolic values.
+using ActionContext = std::unordered_map<std::string, z3::expr>;
+
+// Performs a switch case over support statement types and call the
+// appropriate function.
+pdpi::StatusOr<SymbolicPerPacketState> EvaluateStatement(
+    const ir::Statement &statement, const SymbolicPerPacketState &state,
+    ActionContext *context);
+
+// Constructs a symbolic expression for the assignment value, and either
+// constrains it in an enclosing assignment expression, or stores it in
+// the action scope.
+pdpi::StatusOr<SymbolicPerPacketState> EvaluateAssignmentStatement(
+    const ir::AssignmentStatement &assignment,
+    const SymbolicPerPacketState &state, ActionContext *context);
+
+// Constructs a symbolic expression corresponding to this value, according
+// to its type.
+pdpi::StatusOr<z3::expr> EvaluateRValue(const ir::RValue &rvalue,
+                                        const SymbolicPerPacketState &state,
+                                        ActionContext *context);
+
+// Extract the field symbolic value from the symbolic state.
+pdpi::StatusOr<z3::expr> EvaluateFieldValue(const ir::FieldValue &field_value,
+                                            const SymbolicPerPacketState &state,
+                                            ActionContext *context);
+
+// Looks up the symbolic value of the variable in the action scope.
+pdpi::StatusOr<z3::expr> EvaluateVariable(const ir::Variable &variable,
+                                          const SymbolicPerPacketState &state,
+                                          ActionContext *context);
 
 }  // namespace action
 }  // namespace symbolic
