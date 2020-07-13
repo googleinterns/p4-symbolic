@@ -16,6 +16,7 @@
 
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include "absl/strings/str_cat.h"
@@ -343,7 +344,6 @@ pdpi::StatusOr<P4Program> Bmv2AndP4infoToIr(const bmv2::P4Program &bmv2,
                         "BMV2 file contains no pipelines!");
   }
   output.set_initial_table(bmv2.pipelines(0).init_table());
-
   return output;
 }
 

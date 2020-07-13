@@ -32,10 +32,16 @@ load("//p4_symbolic/bmv2:test.bzl", "exact_diff_test")
 #    the specified expected file.
 # Use the p4_deps list to specify dependent files that p4_program input
 # file depends on (e.g. by including them).
-def ir_parsing_test(name, p4_program, golden_file, p4_deps = []):
+def ir_parsing_test(name, p4_program, golden_file, table_entries = None, p4_deps = []):
     p4c_name = "%s_p4c" % name
     parse_name = "%s_parse" % name
     p4info_file = "%s_bazel-p4c-tmp-output/p4info.pb.txt" % p4c_name
+
+    optional_table_entries = []
+    optional_table_entry_arg = ""
+    if table_entries:
+        optional_table_entries = [table_entries]
+        optional_table_entry_arg = "--entries=$(location %s)" % table_entries
 
     # Run p4c to get bmv2 JSON and p4info.pb.txt files.
     run_p4c(
@@ -50,13 +56,13 @@ def ir_parsing_test(name, p4_program, golden_file, p4_deps = []):
     output_filename = name + "_tmp.pb.txt"
     native.genrule(
         name = parse_name,
-        srcs = [":" + p4c_name, p4info_file],
+        srcs = [":" + p4c_name, p4info_file] + optional_table_entries,
         outs = [output_filename],
         tools = ["//p4_symbolic:main"],
         cmd = (
             "$(location //p4_symbolic:main) --bmv2=$(location %s) " +
-            "--p4info=$(location %s) &> $(OUTS) || true"
-        ) % (":" + p4c_name, p4info_file),
+            "--p4info=$(location %s) %s &> $(OUTS) || true"
+        ) % (":" + p4c_name, p4info_file, optional_table_entry_arg),
     )
 
     # Exact diff test between output and golden protobuf files.

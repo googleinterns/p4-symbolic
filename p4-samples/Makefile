@@ -54,7 +54,7 @@ veth:
 #
 control_plane: $(SIMPLE_SWITCH_PID)
 	@echo "simple_switch_CLI logs available at $(SIMPLE_SWITCH_CLI_LOG)"
-	@simple_switch_CLI <<< $$'$(CONTROL_PLANE_COMMANDS)' > $(SIMPLE_SWITCH_CLI_LOG)
+	@simple_switch_CLI <<< $(CONTROL_PLANE_COMMANDS) > $(SIMPLE_SWITCH_CLI_LOG)
 
 #
 # Sending Test Packets

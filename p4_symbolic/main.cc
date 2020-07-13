@@ -24,10 +24,15 @@
 #include "p4_symbolic/bmv2/bmv2.h"
 #include "p4_symbolic/ir/ir.h"
 #include "p4_symbolic/ir/pdpi_driver.h"
+#include "p4_symbolic/ir/table_entries.h"
 
 ABSL_FLAG(std::string, p4info, "",
           "The path to the p4info protobuf file (required)");
 ABSL_FLAG(std::string, bmv2, "", "The path to the bmv2 json file (required)");
+ABSL_FLAG(std::string, entries, "",
+          "The path to the table entries txt file (optional), leave this empty "
+          "if the input p4 program contains no (explicit) tables for which "
+          "entries are needed.");
 
 // The main test routine for parsing bmv2 json with protobuf.
 // Parses bmv2 json that is fed in through stdin and dumps
@@ -39,13 +44,15 @@ int main(int argc, char *argv[]) {
   GOOGLE_PROTOBUF_VERIFY_VERSION;
 
   // Command line arugments and help message.
-  absl::SetProgramUsageMessage(absl::StrFormat(
-      "usage: %s %s", argv[0],
-      "--bmv2=path/to/bmv2.json --p4info=path/to/p4info.pb.txt"));
+  absl::SetProgramUsageMessage(
+      absl::StrFormat("usage: %s %s", argv[0],
+                      "--bmv2=path/to/bmv2.json --p4info=path/to/p4info.pb.txt "
+                      "[--entries=path/to/table_entries.txt]"));
   absl::ParseCommandLine(argc, argv);
 
   const std::string &p4info_path = absl::GetFlag(FLAGS_p4info);
   const std::string &bmv2_path = absl::GetFlag(FLAGS_bmv2);
+  const std::string &entries_path = absl::GetFlag(FLAGS_entries);
   if (p4info_path.empty()) {
     std::cerr << "Missing argument: --p4info=<file>" << std::endl;
     return 1;
@@ -57,7 +64,7 @@ int main(int argc, char *argv[]) {
 
   // Parse pdpi.
   pdpi::StatusOr<pdpi::ir::IrP4Info> p4info_or_status =
-      p4_symbolic::ir::ParseP4InfoFile(p4info_path.c_str());
+      p4_symbolic::ir::ParseP4InfoFile(p4info_path);
 
   if (!p4info_or_status.ok()) {
     std::cerr << "Could not parse p4info: " << p4info_or_status.status()
@@ -67,12 +74,27 @@ int main(int argc, char *argv[]) {
 
   // Parse bmv2 json.
   pdpi::StatusOr<p4_symbolic::bmv2::P4Program> bmv2_or_status =
-      p4_symbolic::bmv2::ParseBmv2JsonFile(bmv2_path.c_str());
+      p4_symbolic::bmv2::ParseBmv2JsonFile(bmv2_path);
 
   if (!bmv2_or_status.ok()) {
     std::cerr << "Could not parse bmv2 JSON: " << bmv2_or_status.status()
               << std::endl;
     return 1;
+  }
+
+  // Parse table entries.
+  p4_symbolic::ir::TableEntries table_entries;
+  if (!entries_path.empty()) {
+    pdpi::StatusOr<p4_symbolic::ir::TableEntries> table_entries_or_status =
+        p4_symbolic::ir::ParseAndFillEntries(p4info_or_status.value(),
+                                             entries_path);
+
+    if (!table_entries_or_status.ok()) {
+      std::cerr << "Could not parse table entries: "
+                << table_entries_or_status.status() << std::endl;
+      return 1;
+    }
+    table_entries = table_entries_or_status.value();
   }
 
   // Transform to IR and print.

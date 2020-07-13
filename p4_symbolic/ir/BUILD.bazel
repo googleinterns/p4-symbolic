@@ -48,6 +48,24 @@ cc_library(
 )
 
 cc_library(
+    name = "table_entries",
+    srcs = [
+        "table_entries.cc",
+    ],
+    hdrs = [
+        "table_entries.h",
+    ],
+    visibility = ["//p4_symbolic:__subpackages__"],
+    deps = [
+        ":ir_cc_proto",
+        "//p4_symbolic/util",
+        "@com_google_absl//absl/strings",
+        "@p4_pdpi//p4_pdpi:pdpi",
+        "@p4_pdpi//p4_pdpi/utils:status_utils",
+    ],
+)
+
+cc_library(
     name = "ir",
     srcs = [
         "ir.cc",
@@ -58,16 +76,19 @@ cc_library(
     visibility = ["//p4_symbolic:__subpackages__"],
     deps = [
         ":ir_cc_proto",
+        ":table_entries",
         "//p4_symbolic/bmv2:bmv2_cc_proto",
         "@com_google_absl//absl/strings",
         "@com_google_protobuf//:protobuf_headers",
         "@p4_pdpi//p4_pdpi:pdpi",
+        "@p4_pdpi//p4_pdpi/utils:status_utils",
     ],
 )
 
 # Golden file testing rules to test p4_symbolic/ir/ir.cc.
 ir_parsing_test(
-    name = "port_table",
+    name = "port_table_test",
     golden_file = "expected/table.pb.txt",
     p4_program = "//p4-samples:port-table/table.p4",
+    table_entries = "//p4-samples:port-table/entries.txt",
 )

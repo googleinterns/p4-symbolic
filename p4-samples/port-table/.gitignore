@@ -1,4 +1,5 @@
 *.json
 *.p4i
-*.logs
+*.log
 *.pid
+*.pb.txt

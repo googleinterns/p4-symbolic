@@ -25,9 +25,9 @@
 namespace p4_symbolic {
 namespace util {
 
-pdpi::StatusOr<std::string> ReadFile(const char *path) {
+pdpi::StatusOr<std::string> ReadFile(const std::string &path) {
   std::ifstream f;
-  f.open(path);
+  f.open(path.c_str());
   if (f.fail()) {
     std::string err;
     switch (errno) {

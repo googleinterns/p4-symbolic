@@ -12,27 +12,31 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// This file defines the API for transforming a bmv2 protobuf (representing
-// the input bmv2 json file) together with a pdpi protobuf (representing the
-// p4info file) into our IR protobuf for consumption.
+// This file parses table entries attached to a p4 program, and fills them
+// into the IR of that program.
 
-#ifndef P4_SYMBOLIC_IR_IR_H_
-#define P4_SYMBOLIC_IR_IR_H_
+#ifndef P4_SYMBOLIC_IR_TABLE_ENTRIES_H_
+#define P4_SYMBOLIC_IR_TABLE_ENTRIES_H_
+
+#include <string>
+#include <unordered_map>
+#include <utility>
+#include <vector>
 
 #include "p4_pdpi/ir.h"
 #include "p4_pdpi/utils/status_utils.h"
-#include "p4_symbolic/bmv2/bmv2.pb.h"
 #include "p4_symbolic/ir/ir.pb.h"
-#include "p4_symbolic/ir/table_entries.h"
 
 namespace p4_symbolic {
 namespace ir {
 
-// Transforms bmv2 protobuf and pdpi protobuf into our IR protobuf.
-pdpi::StatusOr<P4Program> Bmv2AndP4infoToIr(const bmv2::P4Program& bmv2,
-                                            const pdpi::ir::IrP4Info& pdpi);
+using TableEntries = std::unordered_map<std::string, std::vector<TableEntry>>;
+
+// Parses entries read from entries_path, and fills them in given ir in place.
+pdpi::StatusOr<TableEntries> ParseAndFillEntries(
+    const pdpi::ir::IrP4Info& pdpi, const std::string& entries_path);
 
 }  // namespace ir
 }  // namespace p4_symbolic
 
-#endif  // P4_SYMBOLIC_IR_IR_H_
+#endif  // P4_SYMBOLIC_IR_TABLE_ENTRIES_H_
