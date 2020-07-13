@@ -30,8 +30,7 @@ namespace ir {
 
 // Transforms bmv2 protobuf and pdpi protobuf into our IR protobuf.
 pdpi::StatusOr<P4Program> Bmv2AndP4infoToIr(const bmv2::P4Program& bmv2,
-                                            const pdpi::ir::IrP4Info& pdpi,
-                                            const TableEntries& table_entries);
+                                            const pdpi::ir::IrP4Info& pdpi);
 
 }  // namespace ir
 }  // namespace p4_symbolic

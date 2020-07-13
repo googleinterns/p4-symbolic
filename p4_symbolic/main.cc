@@ -86,7 +86,8 @@ int main(int argc, char *argv[]) {
   p4_symbolic::ir::TableEntries table_entries;
   if (!entries_path.empty()) {
     pdpi::StatusOr<p4_symbolic::ir::TableEntries> table_entries_or_status =
-        p4_symbolic::ir::ParseAndFillEntries(entries_path);
+        p4_symbolic::ir::ParseAndFillEntries(p4info_or_status.value(),
+                                             entries_path);
 
     if (!table_entries_or_status.ok()) {
       std::cerr << "Could not parse table entries: "
@@ -98,8 +99,8 @@ int main(int argc, char *argv[]) {
 
   // Transform to IR and print.
   pdpi::StatusOr<p4_symbolic::ir::P4Program> ir_status =
-      p4_symbolic::ir::Bmv2AndP4infoToIr(
-          bmv2_or_status.value(), p4info_or_status.value(), table_entries);
+      p4_symbolic::ir::Bmv2AndP4infoToIr(bmv2_or_status.value(),
+                                         p4info_or_status.value());
   if (!ir_status.ok()) {
     std::cerr << "Could not transform to IR: " << ir_status.status()
               << std::endl;

@@ -34,6 +34,17 @@ package p4_symbolic.ir;
 import "p4_pdpi/ir.proto";
 import "p4_symbolic/bmv2/bmv2.proto";
 
+// Table entry parsed from P4RT/simple_switch_CLI.
+message TableEntry {
+  // Name of the target action, matches the format of the key
+  // in P4Program#actions.
+  string action = 1;
+  // Values to match on.
+  repeated int32 match_values = 2;  // TODO(babman): turn to hex for bitstrings.
+  // Parameters passed to action if the match succeeds.
+  repeated int32 action_parameters = 3;  // TODO(babman): turn to hex.
+}
+
 // Overall structure of a p4 program.
 message P4Program {
   // Header definitions, keyed by the header type name (e.g. standard_metadata).
@@ -96,19 +107,6 @@ message TableImplementation {
   p4_symbolic.bmv2.TableMatchType match_type = 1;
   // Table type with respect to action selection.
   p4_symbolic.bmv2.ActionSelectorType action_selector_type = 2;
-  // Concrete table entries.
-  repeated TableEntry entries = 3;
-}
-
-// Table entry parsed from P4RT/simple_switch_CLI.
-message TableEntry {
-  // Name of the target action, matches the format of the key
-  // in P4Program#actions.
-  string action = 1;
-  // Values to match on.
-  repeated int32 match_values = 2;  // TODO(babman): turn to hex for bitstrings.
-  // Parameters passed to action if the match succeeds.
-  repeated int32 action_parameters = 3;  // TODO(babman): turn to hex.
 }
 
 // An abstract p4 statement corresponding to a top level operation within

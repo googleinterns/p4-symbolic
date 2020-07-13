@@ -275,8 +275,7 @@ pdpi::StatusOr<Table> ExtractTable(
 
 // Main Translation function.
 pdpi::StatusOr<P4Program> Bmv2AndP4infoToIr(const bmv2::P4Program &bmv2,
-                                            const pdpi::ir::IrP4Info &pdpi,
-                                            const TableEntries &table_entries) {
+                                            const pdpi::ir::IrP4Info &pdpi) {
   P4Program output;
 
   // Translate headers.
@@ -345,28 +344,6 @@ pdpi::StatusOr<P4Program> Bmv2AndP4infoToIr(const bmv2::P4Program &bmv2,
                         "BMV2 file contains no pipelines!");
   }
   output.set_initial_table(bmv2.pipelines(0).init_table());
-
-  // Parse Table entries and fill them in the IR.
-  for (const TableEntryPair &pair : table_entries) {
-    const TableEntry &entry = pair.entry_data;
-    // Table and action aliases parsed from table entris files
-    // will be replaced with their respective full name.
-    const std::string &table_alias = pair.table_alias;
-    const std::string &action_alias = entry.action();
-
-    // Make sure both table and action referred to by entry exist.
-    RET_CHECK(pdpi.tables_by_name().count(table_alias) == 1);
-    RET_CHECK(pdpi.actions_by_name().count(action_alias) == 1);
-
-    const std::string &table_name =
-        pdpi.tables_by_name().at(table_alias).preamble().name();
-    TableEntry *dst = (*output.mutable_tables())[table_name]
-                          .mutable_table_implementation()
-                          ->add_entries();
-    *dst = entry;
-    dst->set_action(pdpi.actions_by_name().at(action_alias).preamble().name());
-  }
-
   return output;
 }
 

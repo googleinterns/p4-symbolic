@@ -19,28 +19,22 @@
 #define P4_SYMBOLIC_IR_TABLE_ENTRIES_H_
 
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
+#include "p4_pdpi/ir.h"
 #include "p4_pdpi/utils/status_utils.h"
 #include "p4_symbolic/ir/ir.pb.h"
 
 namespace p4_symbolic {
 namespace ir {
 
-struct TableEntryPair {
-  // The alias of the table this entry belongs to.
-  // This is translated to a fully qualified name during the IR transformation.
-  std::string table_alias;
-  // This is injected into the IR structure when the IR is produced.
-  TableEntry entry_data;
-};
-
-using TableEntries = std::vector<TableEntryPair>;
+using TableEntries = std::unordered_map<std::string, std::vector<TableEntry>>;
 
 // Parses entries read from entries_path, and fills them in given ir in place.
 pdpi::StatusOr<TableEntries> ParseAndFillEntries(
-    const std::string &entries_path);
+    const pdpi::ir::IrP4Info& pdpi, const std::string& entries_path);
 
 }  // namespace ir
 }  // namespace p4_symbolic

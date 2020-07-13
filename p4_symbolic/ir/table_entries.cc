@@ -20,6 +20,15 @@
 
 namespace p4_symbolic {
 namespace ir {
+namespace {
+
+struct TableEntryPair {
+  // The alias of the table this entry belongs to.
+  // This is translated to a fully qualified name during the IR transformation.
+  std::string table_alias;
+  // This is injected into the IR structure when the IR is produced.
+  TableEntry entry_data;
+};
 
 pdpi::StatusOr<TableEntryPair> ParseLine(const std::string &line) {
   std::vector<std::string> tokens =
@@ -57,8 +66,10 @@ pdpi::StatusOr<TableEntryPair> ParseLine(const std::string &line) {
   return TableEntryPair{tokens[1], output};
 }
 
+}  // namespace
+
 pdpi::StatusOr<TableEntries> ParseAndFillEntries(
-    const std::string &entries_path) {
+    const pdpi::ir::IrP4Info &pdpi, const std::string &entries_path) {
   ASSIGN_OR_RETURN(std::string file_content, util::ReadFile(entries_path));
 
   // Skip empty lines or ones that only contain whitespace.
@@ -66,9 +77,26 @@ pdpi::StatusOr<TableEntries> ParseAndFillEntries(
       absl::StrSplit(file_content, '\n', absl::SkipWhitespace());
 
   TableEntries output;
+  // Parse table entries one line at a time.
   for (const std::string &line : lines) {
-    ASSIGN_OR_RETURN(TableEntryPair entry, ParseLine(line));
-    output.push_back(entry);
+    ASSIGN_OR_RETURN(TableEntryPair pair, ParseLine(line));
+    // Table and action aliases parsed from table entris files
+    // will be replaced with their respective full name.
+    TableEntry entry = pair.entry_data;
+    const std::string &table_alias = pair.table_alias;
+    const std::string &action_alias = entry.action();
+
+    // Make sure both table and action referred to by entry exist.
+    RET_CHECK(pdpi.tables_by_name().count(table_alias) == 1);
+    RET_CHECK(pdpi.actions_by_name().count(action_alias) == 1);
+
+    const std::string &table_name =
+        pdpi.tables_by_name().at(table_alias).preamble().name();
+    const std::string &action_name =
+        pdpi.actions_by_name().at(action_alias).preamble().name();
+
+    entry.set_action(action_name);
+    output[table_name].push_back(entry);
   }
 
   return output;
