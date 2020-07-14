@@ -23,6 +23,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "google/protobuf/repeated_field.h"
 #include "p4_pdpi/utils/status_utils.h"
 #include "p4_symbolic/ir/ir.pb.h"
 #include "p4_symbolic/symbolic/symbolic.h"
@@ -36,44 +37,47 @@ namespace action {
 // This produces a symbolic expression on the symbolic parameters that is
 // semantically equivalent to the behavior of the action on its concrete
 // parameters.
-pdpi::StatusOr<IntermediateState> EvaluateAction(
-    const ir::Action &action, const std::vector<z3::expr> &symbolic_parameters,
-    const IntermediateState &state);
+pdpi::StatusOr<SymbolicPerPacketState> EvaluateAction(
+    const ir::Action &action, const google::protobuf::RepeatedField<int> &args,
+    const SymbolicPerPacketState &state);
 
 // Internal functions used to Evaluate statements and expressions within an
 // action body. These are internal functions not used beyond this header and its
 // associated source file.
 
 // The scope of this action: maps local variable names to their symbolic values.
-using ActionContext = std::unordered_map<std::string, z3::expr>;
+struct ActionContext {
+  std::string action_name;
+  std::unordered_map<std::string, z3::expr> scope;
+};
 
 // Performs a switch case over support statement types and call the
 // appropriate function.
-pdpi::StatusOr<IntermediateState> EvaluateStatement(
-    const ir::Statement &statement, const IntermediateState &state,
+pdpi::StatusOr<SymbolicPerPacketState> EvaluateStatement(
+    const ir::Statement &statement, const SymbolicPerPacketState &state,
     ActionContext *context);
 
 // Constructs a symbolic expression for the assignment value, and either
 // constrains it in an enclosing assignment expression, or stores it in
 // the action scope.
-pdpi::StatusOr<IntermediateState> EvaluateAssignmentStatement(
-    const ir::AssignmentStatement &assignment, const IntermediateState &state,
-    ActionContext *context);
+pdpi::StatusOr<SymbolicPerPacketState> EvaluateAssignmentStatement(
+    const ir::AssignmentStatement &assignment,
+    const SymbolicPerPacketState &state, ActionContext *context);
 
 // Constructs a symbolic expression corresponding to this value, according
 // to its type.
 pdpi::StatusOr<z3::expr> EvaluateRValue(const ir::RValue &rvalue,
-                                        const IntermediateState &state,
+                                        const SymbolicPerPacketState &state,
                                         ActionContext *context);
 
 // Extract the field symbolic value from the symbolic state.
 pdpi::StatusOr<z3::expr> EvaluateFieldValue(const ir::FieldValue &field_value,
-                                            const IntermediateState &state,
+                                            const SymbolicPerPacketState &state,
                                             ActionContext *context);
 
 // Looks up the symbolic value of the variable in the action scope.
 pdpi::StatusOr<z3::expr> EvaluateVariable(const ir::Variable &variable,
-                                          const IntermediateState &state,
+                                          const SymbolicPerPacketState &state,
                                           ActionContext *context);
 
 }  // namespace action

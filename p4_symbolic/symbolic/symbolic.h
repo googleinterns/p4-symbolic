@@ -25,10 +25,21 @@
 
 #include "p4_pdpi/utils/status_utils.h"
 #include "p4_symbolic/ir/ir.pb.h"
+#include "p4_symbolic/ir/table_entries.h"
 #include "z3++.h"  // TODO(babman): added as a system dependency for now.
 
 namespace p4_symbolic {
 namespace symbolic {
+
+// Global pointer to the z3::context used for creating symbolic expressions
+// during symbolic evaluation.
+// Do not access this from client code. This is completely managed by this file.
+// Z3_context is set when EvaluateP4Pipeline is called, and is used by all
+// functions nested in that call. It is unset and deleted when the corresponding
+// returned SolverState pointer is cleaned.
+// Warning: do not call EvaluatP4Pipeline until the state returned by any
+// previous call is deleted.
+extern z3::context *Z3_CONTEXT;
 
 // Specifies what a packet essentially looks like.
 // A concrete output packet within a concrete context produced by our solver
@@ -170,8 +181,8 @@ struct SymbolicContext {
 // Used as input to our symbolic pipeline.
 struct Dataplane {
   ir::P4Program program;
-  // Maps the name of a table to a list of its entries.
-  std::unordered_map<std::string, std::vector<ir::TableEntry>> entries;
+  // Maps the full name of a table to a list of its entries.
+  ir::TableEntries entries;
 };
 
 // The overall state of our symbolic solver/interpreter.
@@ -185,6 +196,8 @@ struct Dataplane {
 struct SolverState {
   // The IR represnetation of the p4 program being analyzed.
   ir::P4Program program;
+  // Maps the name of a table to a list of its entries.
+  ir::TableEntries entries;
   // The symbolic context of our interpretation/analysis of the program,
   // including symbolic handles on packet headers and its trace.
   SymbolicContext context;
@@ -192,6 +205,14 @@ struct SolverState {
   // deductions it made while solving for one particular assertion, and re-use
   // them during solving with future assertions.
   std::unique_ptr<z3::solver> solver;
+  // Context must remain in scope, otherwise when it gets cleaned, accessing
+  // previously defined variables and constraints will result in segfaults!
+  // This is the same pointer as the global Z3_CONTEXT.
+  // This struct owns that pointer, when this struct is deleted
+  // the pointer is also cleaned. The global pointer is set again
+  // on calls to EvaluatP4Pipeline, which returns an instance of this struct
+  // that owns that new pointer.
+  std::unique_ptr<z3::context> z3_context;
   // clean up Z3 internal memory datastructures, Z3 can still be
   // used after this, as if Z3 has been freshly loaded.
   // Makes sense to use here, when SolverState is destructed, it means
@@ -204,13 +225,9 @@ struct SolverState {
 // internal evaluation functions. An instance of this struct captures
 // the symbolic state of the P4 program being evaluated at the current
 // step in the interpration.
-struct IntermediateState {
-  SymbolicHeader packet;
+struct SymbolicPerPacketState {
+  SymbolicHeader header;
   SymbolicMetadata metadata;
-};
-struct IntermediateStateAndMatch {
-  IntermediateState state;
-  SymbolicTableMatch match;
 };
 
 // An assertion is a user defined function that takes a symbolic context
@@ -224,16 +241,16 @@ using Assertion = std::function<z3::expr(const SymbolicContext &)>;
 // Symbolically evaluates/interprets the given program against the given
 // entries for every table in that program, and the available physical ports
 // on the switch.
-pdpi::StatusOr<SolverState> EvaluateP4Pipeline(
+pdpi::StatusOr<SolverState *> EvaluateP4Pipeline(
     const Dataplane &data_plane, const std::vector<int> &physical_ports);
 
 // Finds a concrete packet and flow in the program that satisfies the given
 // assertion and meets the structure constrained by solver_state.
-pdpi::StatusOr<ConcreteContext> Solve(const SolverState &solver_state,
+pdpi::StatusOr<ConcreteContext> Solve(SolverState *solver_state,
                                       const Assertion &assertion);
 
 // Dumps the underlying SMT program for debugging.
-std::string DebugSMT(const SolverState &solver_state);
+std::string DebugSMT(SolverState *solver_state, const Assertion &assertion);
 
 }  // namespace symbolic
 }  // namespace p4_symbolic
