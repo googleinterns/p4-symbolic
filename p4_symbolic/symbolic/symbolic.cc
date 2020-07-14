@@ -24,6 +24,14 @@ z3::context *Z3_CONTEXT = nullptr;
 
 pdpi::StatusOr<SolverState *> EvaluateP4Pipeline(
     const Dataplane &data_plane, const std::vector<int> &physical_ports) {
+  // Check Z3_CONTEXT is freed properly to avoid any context sharing issues.
+  if (Z3_CONTEXT != nullptr) {
+    return absl::Status(absl::StatusCode::kAlreadyExists,
+                        "Cannot make subsequent call to EvaluateP4Pipeline() "
+                        "when SolverState returned by a previous call has not "
+                        "been destructed!");
+  }
+
   // Context to use for defining z3 variables, etc..
   Z3_CONTEXT = new z3::context();
   z3::solver *z3_solver = new z3::solver(*Z3_CONTEXT);
@@ -73,8 +81,8 @@ pdpi::StatusOr<SolverState *> EvaluateP4Pipeline(
   // Construct solver state for this program.
   SolverState *solver_state =
       new SolverState{data_plane.program, data_plane.entries, symbolic_context,
-                      std::unique_ptr<z3::solver>(z3_solver),
-                      std::unique_ptr<z3::context>(Z3_CONTEXT)};
+                      std::unique_ptr<z3::context>(Z3_CONTEXT),
+                      std::unique_ptr<z3::solver>(z3_solver)};
 
   return solver_state;
 }

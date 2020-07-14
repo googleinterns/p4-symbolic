@@ -201,10 +201,6 @@ struct SolverState {
   // The symbolic context of our interpretation/analysis of the program,
   // including symbolic handles on packet headers and its trace.
   SymbolicContext context;
-  // Having the z3 solver defined here allows Z3 to remember interesting
-  // deductions it made while solving for one particular assertion, and re-use
-  // them during solving with future assertions.
-  std::unique_ptr<z3::solver> solver;
   // Context must remain in scope, otherwise when it gets cleaned, accessing
   // previously defined variables and constraints will result in segfaults!
   // This is the same pointer as the global Z3_CONTEXT.
@@ -213,12 +209,23 @@ struct SolverState {
   // on calls to EvaluatP4Pipeline, which returns an instance of this struct
   // that owns that new pointer.
   std::unique_ptr<z3::context> z3_context;
+  // Having the z3 solver defined here allows Z3 to remember interesting
+  // deductions it made while solving for one particular assertion, and re-use
+  // them during solving with future assertions.
+  std::unique_ptr<z3::solver> solver;
   // clean up Z3 internal memory datastructures, Z3 can still be
   // used after this, as if Z3 has been freshly loaded.
   // Makes sense to use here, when SolverState is destructed, it means
   // no further analysis of the particular program is possible.
   // https://github.com/Z3Prover/z3/issues/157
-  ~SolverState() { Z3_API Z3_reset_memory(); }
+  ~SolverState() {
+    Z3_API Z3_reset_memory();
+    // No need to delete Z3_CONTEXT explicitly.
+    // Destructor of z3_context of type unique_ptr will handle it.
+    // Set it to nullptr to mark it gone!
+    Z3_CONTEXT = nullptr;
+    // After this, solver will be automatically destructed, and then z3_context!
+  }
 };
 
 // Instances of these structs are passed around and returned between our
