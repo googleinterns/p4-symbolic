@@ -27,7 +27,7 @@ namespace util {
 
 // Free (unconstrained) symbolic context consisting of input symbolic variables
 // for headers and empty trace and metadata.
-SymbolicPerPacketState FreeSymbolicPacketState(z3::context *z3_context);
+SymbolicPerPacketState FreeSymbolicPacketState();
 
 // Extract a concrete context by evaluating every component's corresponding
 // expression on the model.
@@ -41,8 +41,7 @@ ConcreteContext ExtractFromModel(SymbolicContext context, z3::model model);
 // Assertion: the changed state should not remove fields.
 SymbolicPerPacketState MergeStatesOnCondition(
     const SymbolicPerPacketState &original,
-    const SymbolicPerPacketState &changed, const z3::expr &condition,
-    z3::context *z3_context);
+    const SymbolicPerPacketState &changed, const z3::expr &condition);
 
 }  // namespace util
 }  // namespace symbolic

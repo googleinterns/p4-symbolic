@@ -68,39 +68,39 @@ z3::expr MergeExpressionWithCondition(const z3::expr &original,
 
 }  // namespace
 
-SymbolicPerPacketState FreeSymbolicPacketState(z3::context *z3_context) {
+SymbolicPerPacketState FreeSymbolicPacketState() {
   // Port variables.
-  z3::expr ingress_port = z3_context->int_const("ingress_port");
+  z3::expr ingress_port = Z3_CONTEXT->int_const("ingress_port");
 
   // Packet header variables.
   SymbolicHeader header = {
-      z3_context->int_const("ingress_eth_src"),
-      z3_context->int_const("ingress_eth_dst"),
-      z3_context->int_const("ingress_eth_type"),
+      Z3_CONTEXT->int_const("ingress_eth_src"),
+      Z3_CONTEXT->int_const("ingress_eth_dst"),
+      Z3_CONTEXT->int_const("ingress_eth_type"),
 
-      z3_context->int_const("ingress_outer_ipv4_src"),
-      z3_context->int_const("ingress_outer_ipv4_dst"),
-      z3_context->int_const("ingress_outer_ipv6_dst_upper"),
-      z3_context->int_const("ingress_outer_ipv6_dst_lower"),
-      z3_context->int_const("ingress_outer_protocol"),
-      z3_context->int_const("ingress_outer_dscp"),
-      z3_context->int_const("ingress_outer_ttl"),
+      Z3_CONTEXT->int_const("ingress_outer_ipv4_src"),
+      Z3_CONTEXT->int_const("ingress_outer_ipv4_dst"),
+      Z3_CONTEXT->int_const("ingress_outer_ipv6_dst_upper"),
+      Z3_CONTEXT->int_const("ingress_outer_ipv6_dst_lower"),
+      Z3_CONTEXT->int_const("ingress_outer_protocol"),
+      Z3_CONTEXT->int_const("ingress_outer_dscp"),
+      Z3_CONTEXT->int_const("ingress_outer_ttl"),
 
-      z3_context->int_const("ingress_inner_ipv4_dst"),
-      z3_context->int_const("ingress_inner_ipv6_dst_upper"),
-      z3_context->int_const("ingress_inner_ipv6_dst_lower"),
-      z3_context->int_const("ingress_inner_protocol"),
-      z3_context->int_const("ingress_inner_dscp"),
-      z3_context->int_const("ingress_inner_ttl"),
+      Z3_CONTEXT->int_const("ingress_inner_ipv4_dst"),
+      Z3_CONTEXT->int_const("ingress_inner_ipv6_dst_upper"),
+      Z3_CONTEXT->int_const("ingress_inner_ipv6_dst_lower"),
+      Z3_CONTEXT->int_const("ingress_inner_protocol"),
+      Z3_CONTEXT->int_const("ingress_inner_dscp"),
+      Z3_CONTEXT->int_const("ingress_inner_ttl"),
 
-      z3_context->int_const("ingress_icmp_type"),
-      z3_context->int_const("ingress_vid"),
+      Z3_CONTEXT->int_const("ingress_icmp_type"),
+      Z3_CONTEXT->int_const("ingress_vid"),
   };
 
   // Default metadata.
   SymbolicMetadata metadata;
   metadata.insert({"standard_metadata.ingress_port", ingress_port});
-  metadata.insert({"standard_metadata.egress_spec", z3_context->int_val(-1)});
+  metadata.insert({"standard_metadata.egress_spec", Z3_CONTEXT->int_val(-1)});
 
   return {header, metadata};
 }
@@ -141,8 +141,7 @@ ConcreteContext ExtractFromModel(SymbolicContext context, z3::model model) {
 
 SymbolicPerPacketState MergeStatesOnCondition(
     const SymbolicPerPacketState &original,
-    const SymbolicPerPacketState &changed, const z3::expr &condition,
-    z3::context *z3_context) {
+    const SymbolicPerPacketState &changed, const z3::expr &condition) {
   // Merge the header.
   SymbolicHeader merged_header = {
       MergeExpressionWithCondition(original.header.eth_src,
@@ -192,7 +191,7 @@ SymbolicPerPacketState MergeStatesOnCondition(
   // Merge metadata.
   SymbolicMetadata merged_metadata;
   for (const auto &[name, expr] : changed.metadata) {
-    z3::expr original_expr = z3_context->int_val(-1);
+    z3::expr original_expr = Z3_CONTEXT->int_val(-1);
     if (original.metadata.count(name) == 1) {
       original_expr = original.metadata.at(name);
     }

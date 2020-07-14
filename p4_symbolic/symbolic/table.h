@@ -41,7 +41,7 @@ struct SymbolicPerPacketStateAndMatch {
 pdpi::StatusOr<SymbolicPerPacketStateAndMatch> EvaluateTable(
     const ir::Table &table, const std::vector<ir::TableEntry> &entries,
     const google::protobuf::Map<std::string, ir::Action> &actions,
-    const SymbolicPerPacketState &state, z3::context *z3_context);
+    const SymbolicPerPacketState &state);
 
 }  // namespace table
 }  // namespace symbolic

@@ -59,7 +59,7 @@ pdpi::StatusOr<z3::expr> AnalyzeSingleMatch(
 // is matched on.
 pdpi::StatusOr<z3::expr> AnalyzeTableEntryCondition(
     const ir::Table &table, const ir::TableEntry &entry,
-    const SymbolicPerPacketState &state, z3::context *z3_context) {
+    const SymbolicPerPacketState &state) {
   // Make sure number of match keys is the same in the table definition and
   // table entry.
   if (table.table_definition().match_fields_by_id_size() !=
@@ -72,7 +72,7 @@ pdpi::StatusOr<z3::expr> AnalyzeTableEntryCondition(
   }
 
   // Construct the match condition expression.
-  z3::expr condition_expression = z3_context->bool_val(true);
+  z3::expr condition_expression = Z3_CONTEXT->bool_val(true);
   for (const auto &[id, match] :
        table.table_definition().match_fields_by_id()) {
     p4::config::v1::MatchField match_definition = match.match_field();
@@ -83,7 +83,7 @@ pdpi::StatusOr<z3::expr> AnalyzeTableEntryCondition(
     // defined in, which is identical to the order they are provided by in
     // the table entries file.
     int value = entry.match_values(id - 1);
-    z3::expr value_expr = z3_context->int_val(value);
+    z3::expr value_expr = Z3_CONTEXT->int_val(value);
 
     // TODO(babman): We should put in the expression of the match from bmv2
     //               json in the IR, and use instead of the name.
@@ -112,7 +112,7 @@ pdpi::StatusOr<z3::expr> AnalyzeTableEntryCondition(
 pdpi::StatusOr<SymbolicPerPacketState> AnalyzeTableEntryAction(
     const ir::Table &table, const ir::TableEntry &entry,
     const google::protobuf::Map<std::string, ir::Action> &actions,
-    const SymbolicPerPacketState &state, z3::context *z3_context) {
+    const SymbolicPerPacketState &state) {
   // Check that the action invoked by entry exists.
   const std::string &table_name = table.table_definition().preamble().name();
   const std::string &action_name = entry.action();
@@ -125,8 +125,7 @@ pdpi::StatusOr<SymbolicPerPacketState> AnalyzeTableEntryAction(
 
   // Instantiate the action's symbolic expression with the entry values.
   const ir::Action &action = actions.at(action_name);
-  return action::EvaluateAction(action, entry.action_parameters(), state,
-                                z3_context);
+  return action::EvaluateAction(action, entry.action_parameters(), state);
 }
 
 }  // namespace
@@ -134,12 +133,12 @@ pdpi::StatusOr<SymbolicPerPacketState> AnalyzeTableEntryAction(
 pdpi::StatusOr<SymbolicPerPacketStateAndMatch> EvaluateTable(
     const ir::Table &table, const std::vector<ir::TableEntry> &entries,
     const google::protobuf::Map<std::string, ir::Action> &actions,
-    const SymbolicPerPacketState &state, z3::context *z3_context) {
+    const SymbolicPerPacketState &state) {
   // The overall structure describing the match on this table.
   SymbolicTableMatch table_match = {
-      z3_context->bool_val(false),  // No match yet!
-      z3_context->int_val(-1),      // No match index.
-      z3_context->int_val(-1)       // Placeholder value.
+      Z3_CONTEXT->bool_val(false),  // No match yet!
+      Z3_CONTEXT->int_val(-1),      // No match index.
+      Z3_CONTEXT->int_val(-1)       // Placeholder value.
   };
   // Accumulator state, initially same as input state.
   SymbolicPerPacketState table_state = state;
@@ -151,20 +150,19 @@ pdpi::StatusOr<SymbolicPerPacketStateAndMatch> EvaluateTable(
   // building the if-elseif-...-else statement inside out.
   for (int row = entries.size() - 1; row >= 0; row--) {
     const ir::TableEntry &entry = entries.at(row);
-    ASSIGN_OR_RETURN(z3::expr row_match, AnalyzeTableEntryCondition(
-                                             table, entry, state, z3_context));
-    ASSIGN_OR_RETURN(
-        SymbolicPerPacketState row_state,
-        AnalyzeTableEntryAction(table, entry, actions, state, z3_context));
+    ASSIGN_OR_RETURN(z3::expr row_match,
+                     AnalyzeTableEntryCondition(table, entry, state));
+    ASSIGN_OR_RETURN(SymbolicPerPacketState row_state,
+                     AnalyzeTableEntryAction(table, entry, actions, state));
 
     // Using this alias makes it simpler to put constraints on packet later.
     table_match.matched = table_match.matched || row_match;
     table_match.entry_index =
-        z3::ite(row_match, z3_context->int_val(row), table_match.entry_index);
+        z3::ite(row_match, Z3_CONTEXT->int_val(row), table_match.entry_index);
 
     // The solver state is changed accordingly if the row was matched.
-    table_state = util::MergeStatesOnCondition(table_state, row_state,
-                                               row_match, z3_context);
+    table_state =
+        util::MergeStatesOnCondition(table_state, row_state, row_match);
   }
 
   return SymbolicPerPacketStateAndMatch{table_state, table_match};

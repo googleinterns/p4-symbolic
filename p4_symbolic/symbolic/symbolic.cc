@@ -20,23 +20,24 @@
 namespace p4_symbolic {
 namespace symbolic {
 
+z3::context *Z3_CONTEXT = nullptr;
+
 pdpi::StatusOr<SolverState *> EvaluateP4Pipeline(
     const Dataplane &data_plane, const std::vector<int> &physical_ports) {
   // Context to use for defining z3 variables, etc..
-  z3::context *z3_context = new z3::context();
-  z3::solver *z3_solver = new z3::solver(*z3_context);
+  Z3_CONTEXT = new z3::context();
+  z3::solver *z3_solver = new z3::solver(*Z3_CONTEXT);
 
   // "Accumulator"-style state used to evaluate tables.
   // Initially free/unconstrained and contains symbolic variables for
   // every input metadata and header field.
-  SymbolicPerPacketState symbolic_state =
-      util::FreeSymbolicPacketState(z3_context);
+  SymbolicPerPacketState symbolic_state = util::FreeSymbolicPacketState();
   z3::expr ingress_port =
       symbolic_state.metadata.at("standard_metadata.ingress_port");
   SymbolicHeader ingress_packet = symbolic_state.header;
 
   // Restrict ports to the available physical ports.
-  z3::expr ingress_port_domain = z3_context->bool_val(false);
+  z3::expr ingress_port_domain = Z3_CONTEXT->bool_val(false);
   for (int port : physical_ports) {
     ingress_port_domain = ingress_port_domain || ingress_port == port;
   }
@@ -44,14 +45,14 @@ pdpi::StatusOr<SolverState *> EvaluateP4Pipeline(
 
   // An (initially) empty trace.
   SymbolicTrace trace = {std::unordered_map<std::string, SymbolicTableMatch>(),
-                         z3_context->bool_val(false)};
+                         Z3_CONTEXT->bool_val(false)};
 
   // Visit tables and find their symbolic matches (and their actions).
   for (const auto &[name, table] : data_plane.program.tables()) {
-    ASSIGN_OR_RETURN(table::SymbolicPerPacketStateAndMatch state_and_match,
-                     table::EvaluateTable(table, data_plane.entries.at(name),
-                                          data_plane.program.actions(),
-                                          symbolic_state, z3_context));
+    ASSIGN_OR_RETURN(
+        table::SymbolicPerPacketStateAndMatch state_and_match,
+        table::EvaluateTable(table, data_plane.entries.at(name),
+                             data_plane.program.actions(), symbolic_state));
 
     // Update accumulator state and matches.
     symbolic_state = state_and_match.state;
@@ -73,7 +74,7 @@ pdpi::StatusOr<SolverState *> EvaluateP4Pipeline(
   SolverState *solver_state =
       new SolverState{data_plane.program, data_plane.entries, symbolic_context,
                       std::unique_ptr<z3::solver>(z3_solver),
-                      std::unique_ptr<z3::context>(z3_context)};
+                      std::unique_ptr<z3::context>(Z3_CONTEXT)};
 
   return solver_state;
 }

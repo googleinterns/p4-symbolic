@@ -145,7 +145,7 @@ pdpi::StatusOr<z3::expr> EvaluateVariable(const ir::Variable &variable,
 // parameters.
 pdpi::StatusOr<SymbolicPerPacketState> EvaluateAction(
     const ir::Action &action, const google::protobuf::RepeatedField<int> &args,
-    const SymbolicPerPacketState &state, z3::context *z3_context) {
+    const SymbolicPerPacketState &state) {
   // Construct this action's context.
   ActionContext context;
   context.action_name = action.action_definition().preamble().name();
@@ -163,7 +163,7 @@ pdpi::StatusOr<SymbolicPerPacketState> EvaluateAction(
     const pdpi::ir::IrActionDefinition::IrActionParamDefinition &parameter =
         parameters.at(i);
     const std::string &parameter_name = parameter.param().name();
-    z3::expr parameter_value = z3_context->int_val(args.at(i - 1));
+    z3::expr parameter_value = Z3_CONTEXT->int_val(args.at(i - 1));
     context.scope.insert({parameter_name, parameter_value});
   }
 

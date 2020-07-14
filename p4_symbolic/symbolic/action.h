@@ -39,7 +39,7 @@ namespace action {
 // parameters.
 pdpi::StatusOr<SymbolicPerPacketState> EvaluateAction(
     const ir::Action &action, const google::protobuf::RepeatedField<int> &args,
-    const SymbolicPerPacketState &state, z3::context *z3_context);
+    const SymbolicPerPacketState &state);
 
 // Internal functions used to Evaluate statements and expressions within an
 // action body. These are internal functions not used beyond this header and its
