@@ -211,7 +211,7 @@ struct SolverState {
 // the symbolic state of the P4 program being evaluated at the current
 // step in the interpration.
 struct SymbolicPerPacketState {
-  SymbolicHeader packet;
+  SymbolicHeader header;
   SymbolicMetadata metadata;
 };
 
@@ -235,7 +235,7 @@ pdpi::StatusOr<ConcreteContext> Solve(SolverState *solver_state,
                                       const Assertion &assertion);
 
 // Dumps the underlying SMT program for debugging.
-std::string DebugSMT(SolverState *solver_state);
+std::string DebugSMT(SolverState *solver_state, const Assertion &assertion);
 
 }  // namespace symbolic
 }  // namespace p4_symbolic

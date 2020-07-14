@@ -22,6 +22,7 @@ namespace symbolic {
 namespace util {
 
 namespace {
+
 bool Z3BooltoBool(Z3_lbool z3_bool) {
   switch (z3_bool) {
     case Z3_L_TRUE:
@@ -56,15 +57,23 @@ ConcreteHeader ExtractConcreteFromSymbolicHeaders(SymbolicHeader header,
           model.eval(header.vid, true).get_numeral_int()};
 }
 
+z3::expr MergeExpressionWithCondition(const z3::expr &original,
+                                      const z3::expr &changed,
+                                      const z3::expr &condition) {
+  if (z3::eq(original, changed)) {
+    return original;
+  }
+  return z3::ite(condition, changed, original);
+}
+
 }  // namespace
 
-SymbolicContext FreeSymbolicContext(z3::context *z3_context) {
+SymbolicPerPacketState FreeSymbolicPacketState(z3::context *z3_context) {
   // Port variables.
   z3::expr ingress_port = z3_context->int_const("ingress_port");
-  z3::expr egress_port = z3_context->int_const("egress_port");
 
   // Packet header variables.
-  SymbolicHeader ingress_packet = {
+  SymbolicHeader header = {
       z3_context->int_const("ingress_eth_src"),
       z3_context->int_const("ingress_eth_dst"),
       z3_context->int_const("ingress_eth_type"),
@@ -88,37 +97,12 @@ SymbolicContext FreeSymbolicContext(z3::context *z3_context) {
       z3_context->int_const("ingress_vid"),
   };
 
-  SymbolicHeader egress_packet = {
-      z3_context->int_const("egress_eth_src"),
-      z3_context->int_const("egress_eth_dst"),
-      z3_context->int_const("egress_eth_type"),
-
-      z3_context->int_const("egress_outer_ipv4_src"),
-      z3_context->int_const("egress_outer_ipv4_dst"),
-      z3_context->int_const("egress_outer_ipv6_dst_upper"),
-      z3_context->int_const("egress_outer_ipv6_dst_lower"),
-      z3_context->int_const("egress_outer_protocol"),
-      z3_context->int_const("egress_outer_dscp"),
-      z3_context->int_const("egress_outer_ttl"),
-
-      z3_context->int_const("egress_inner_ipv4_dst"),
-      z3_context->int_const("egress_inner_ipv6_dst_upper"),
-      z3_context->int_const("egress_inner_ipv6_dst_lower"),
-      z3_context->int_const("egress_inner_protocol"),
-      z3_context->int_const("egress_inner_dscp"),
-      z3_context->int_const("egress_inner_ttl"),
-
-      z3_context->int_const("egress_icmp_type"),
-      z3_context->int_const("egress_vid"),
-  };
-
-  // Empty metadata and symbolic trace.
+  // Default metadata.
   SymbolicMetadata metadata;
-  SymbolicTrace trace = {std::unordered_map<std::string, SymbolicTableMatch>(),
-                         z3_context->bool_val(false)};
+  metadata.insert({"standard_metadata.ingress_port", ingress_port});
+  metadata.insert({"standard_metadata.egress_spec", z3_context->int_val(-1)});
 
-  return {ingress_port,  egress_port, ingress_packet,
-          egress_packet, metadata,    trace};
+  return {header, metadata};
 }
 
 ConcreteContext ExtractFromModel(SymbolicContext context, z3::model model) {
@@ -153,6 +137,70 @@ ConcreteContext ExtractFromModel(SymbolicContext context, z3::model model) {
 
   return {ingress_port,  egress_port, ingress_packet,
           egress_packet, metadata,    trace};
+}
+
+SymbolicPerPacketState MergeStatesOnCondition(
+    const SymbolicPerPacketState &original,
+    const SymbolicPerPacketState &changed, const z3::expr &condition,
+    z3::context *z3_context) {
+  // Merge the header.
+  SymbolicHeader merged_header = {
+      MergeExpressionWithCondition(original.header.eth_src,
+                                   changed.header.eth_src, condition),
+      MergeExpressionWithCondition(original.header.eth_dst,
+                                   changed.header.eth_dst, condition),
+      MergeExpressionWithCondition(original.header.eth_type,
+                                   changed.header.eth_type, condition),
+
+      MergeExpressionWithCondition(original.header.outer_ipv4_src,
+                                   changed.header.outer_ipv4_src, condition),
+      MergeExpressionWithCondition(original.header.outer_ipv4_dst,
+                                   changed.header.outer_ipv4_dst, condition),
+      MergeExpressionWithCondition(original.header.outer_ipv6_dst_upper,
+                                   changed.header.outer_ipv6_dst_upper,
+                                   condition),
+      MergeExpressionWithCondition(original.header.outer_ipv6_dst_lower,
+                                   changed.header.outer_ipv6_dst_lower,
+                                   condition),
+      MergeExpressionWithCondition(original.header.outer_protocol,
+                                   changed.header.outer_protocol, condition),
+      MergeExpressionWithCondition(original.header.outer_dscp,
+                                   changed.header.outer_dscp, condition),
+      MergeExpressionWithCondition(original.header.outer_ttl,
+                                   changed.header.outer_ttl, condition),
+
+      MergeExpressionWithCondition(original.header.inner_ipv4_dst,
+                                   changed.header.inner_ipv4_dst, condition),
+      MergeExpressionWithCondition(original.header.inner_ipv6_dst_upper,
+                                   changed.header.inner_ipv6_dst_upper,
+                                   condition),
+      MergeExpressionWithCondition(original.header.inner_ipv6_dst_lower,
+                                   changed.header.inner_ipv6_dst_lower,
+                                   condition),
+      MergeExpressionWithCondition(original.header.inner_protocol,
+                                   changed.header.inner_protocol, condition),
+      MergeExpressionWithCondition(original.header.inner_dscp,
+                                   changed.header.inner_dscp, condition),
+      MergeExpressionWithCondition(original.header.inner_ttl,
+                                   changed.header.inner_ttl, condition),
+
+      MergeExpressionWithCondition(original.header.icmp_type,
+                                   changed.header.icmp_type, condition),
+      MergeExpressionWithCondition(original.header.vid, changed.header.vid,
+                                   condition)};
+
+  // Merge metadata.
+  SymbolicMetadata merged_metadata;
+  for (const auto &[name, expr] : changed.metadata) {
+    z3::expr original_expr = z3_context->int_val(-1);
+    if (original.metadata.count(name) == 1) {
+      original_expr = original.metadata.at(name);
+    }
+    merged_metadata.insert(
+        {name, MergeExpressionWithCondition(original_expr, expr, condition)});
+  }
+
+  return {merged_header, merged_metadata};
 }
 
 }  // namespace util

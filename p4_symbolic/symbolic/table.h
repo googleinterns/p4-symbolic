@@ -23,6 +23,7 @@
 
 #include <vector>
 
+#include "google/protobuf/map.h"
 #include "p4_pdpi/utils/status_utils.h"
 #include "p4_symbolic/ir/ir.pb.h"
 #include "p4_symbolic/symbolic/symbolic.h"
@@ -39,7 +40,8 @@ struct SymbolicPerPacketStateAndMatch {
 
 pdpi::StatusOr<SymbolicPerPacketStateAndMatch> EvaluateTable(
     const ir::Table &table, const std::vector<ir::TableEntry> &entries,
-    const SymbolicPerPacketState &state);
+    const google::protobuf::Map<std::string, ir::Action> &actions,
+    const SymbolicPerPacketState &state, z3::context *z3_context);
 
 }  // namespace table
 }  // namespace symbolic

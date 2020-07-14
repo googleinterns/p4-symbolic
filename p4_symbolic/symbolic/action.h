@@ -23,6 +23,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "google/protobuf/repeated_field.h"
 #include "p4_pdpi/utils/status_utils.h"
 #include "p4_symbolic/ir/ir.pb.h"
 #include "p4_symbolic/symbolic/symbolic.h"
@@ -37,15 +38,18 @@ namespace action {
 // semantically equivalent to the behavior of the action on its concrete
 // parameters.
 pdpi::StatusOr<SymbolicPerPacketState> EvaluateAction(
-    const ir::Action &action, const std::vector<z3::expr> &symbolic_parameters,
-    const SymbolicPerPacketState &state);
+    const ir::Action &action, const google::protobuf::RepeatedField<int> &args,
+    const SymbolicPerPacketState &state, z3::context *z3_context);
 
 // Internal functions used to Evaluate statements and expressions within an
 // action body. These are internal functions not used beyond this header and its
 // associated source file.
 
 // The scope of this action: maps local variable names to their symbolic values.
-using ActionContext = std::unordered_map<std::string, z3::expr>;
+struct ActionContext {
+  std::string action_name;
+  std::unordered_map<std::string, z3::expr> scope;
+};
 
 // Performs a switch case over support statement types and call the
 // appropriate function.

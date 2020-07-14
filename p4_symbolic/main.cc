@@ -114,20 +114,15 @@ int main(int argc, char *argv[]) {
   p4_symbolic::symbolic::Dataplane dataplane = {program, table_entries};
   pdpi::StatusOr<p4_symbolic::symbolic::SolverState *> solver_status =
       p4_symbolic::symbolic::EvaluateP4Pipeline(dataplane,
-                                                std::vector<int>{1, 2});
+                                                std::vector<int>{0, 1});
   if (!solver_status.ok()) {
     std::cerr << "Could not analyze program symbolically: "
               << solver_status.status() << std::endl;
     return 1;
   }
 
-  // Debugging.
-  p4_symbolic::symbolic::SolverState *solver_state = solver_status.value();
-  if (absl::GetFlag(FLAGS_debug)) {
-    std::cout << p4_symbolic::symbolic::DebugSMT(solver_state) << std::endl;
-  }
-
   // Find a packet matching every entry of every table.
+  p4_symbolic::symbolic::SolverState *solver_state = solver_status.value();
   for (const auto &[name, table] : program.tables()) {
     for (int i = 0; i < table_entries[name].size(); i++) {
       std::cout << "Finding packet for table " << name << " and row " << i
@@ -136,12 +131,18 @@ int main(int argc, char *argv[]) {
       p4_symbolic::symbolic::Assertion table_entry_assertion =
           [name,
            i](const p4_symbolic::symbolic::SymbolicContext &symbolic_context) {
-            // const p4_symbolic::symbolic::SymbolicTableMatch &match =
-            //    symbolic_context.trace.matched_entries.at(name);
-            return (!symbolic_context.trace
-                         .dropped);  // && match.matched
-                                     // && match.entry_index == i);
+            const p4_symbolic::symbolic::SymbolicTableMatch &match =
+                symbolic_context.trace.matched_entries.at(name);
+            return (!symbolic_context.trace.dropped && match.matched &&
+                    match.entry_index == i);
           };
+
+      // Debugging.
+      if (absl::GetFlag(FLAGS_debug)) {
+        std::cout << p4_symbolic::symbolic::DebugSMT(solver_state,
+                                                     table_entry_assertion)
+                  << std::endl;
+      }
 
       pdpi::StatusOr<p4_symbolic::symbolic::ConcreteContext> packet_status =
           p4_symbolic::symbolic::Solve(solver_state, table_entry_assertion);
@@ -150,6 +151,8 @@ int main(int argc, char *argv[]) {
         continue;
       }
       std::cout << packet_status.value().ingress_port << std::endl;
+      std::cout << packet_status.value().egress_port << std::endl;
+      std::cout << std::endl;
     }
   }
 

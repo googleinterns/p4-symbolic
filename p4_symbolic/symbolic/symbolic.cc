@@ -14,6 +14,7 @@
 
 #include "p4_symbolic/symbolic/symbolic.h"
 
+#include "p4_symbolic/symbolic/table.h"
 #include "p4_symbolic/symbolic/util.h"
 
 namespace p4_symbolic {
@@ -23,31 +24,56 @@ pdpi::StatusOr<SolverState *> EvaluateP4Pipeline(
     const Dataplane &data_plane, const std::vector<int> &physical_ports) {
   // Context to use for defining z3 variables, etc..
   z3::context *z3_context = new z3::context();
+  z3::solver *z3_solver = new z3::solver(*z3_context);
 
-  // Construct an unconstrainted (free) SymbolicContext.
-  SymbolicContext symbolic_context = util::FreeSymbolicContext(z3_context);
+  // "Accumulator"-style state used to evaluate tables.
+  // Initially free/unconstrained and contains symbolic variables for
+  // every input metadata and header field.
+  SymbolicPerPacketState symbolic_state =
+      util::FreeSymbolicPacketState(z3_context);
+  z3::expr ingress_port =
+      symbolic_state.metadata.at("standard_metadata.ingress_port");
+  SymbolicHeader ingress_packet = symbolic_state.header;
+
+  // Restrict ports to the available physical ports.
+  z3::expr ingress_port_domain = z3_context->bool_val(false);
+  for (int port : physical_ports) {
+    ingress_port_domain = ingress_port_domain || ingress_port == port;
+  }
+  z3_solver->add(ingress_port_domain);
+
+  // An (initially) empty trace.
+  SymbolicTrace trace = {std::unordered_map<std::string, SymbolicTableMatch>(),
+                         z3_context->bool_val(false)};
+
+  // Visit tables and find their symbolic matches (and their actions).
+  for (const auto &[name, table] : data_plane.program.tables()) {
+    ASSIGN_OR_RETURN(table::SymbolicPerPacketStateAndMatch state_and_match,
+                     table::EvaluateTable(table, data_plane.entries.at(name),
+                                          data_plane.program.actions(),
+                                          symbolic_state, z3_context));
+
+    // Update accumulator state and matches.
+    symbolic_state = state_and_match.state;
+    trace.matched_entries.insert({name, state_and_match.match});
+    trace.dropped = trace.dropped || !state_and_match.match.matched;
+  }
+
+  // Construct a symbolic context, containing state and trace information
+  // from evaluating the tables.
+  z3::expr egress_port =
+      symbolic_state.metadata.at("standard_metadata.egress_spec");
+  SymbolicHeader egress_packet = symbolic_state.header;
+  SymbolicMetadata metadata = symbolic_state.metadata;
+  SymbolicContext symbolic_context = {ingress_port,   egress_port,
+                                      ingress_packet, egress_packet,
+                                      metadata,       trace};
 
   // Construct solver state for this program.
   SolverState *solver_state =
       new SolverState{data_plane.program, data_plane.entries, symbolic_context,
-                      std::unique_ptr<z3::solver>(new z3::solver(*z3_context)),
+                      std::unique_ptr<z3::solver>(z3_solver),
                       std::unique_ptr<z3::context>(z3_context)};
-
-  // Restrict ports to the available physical ports.
-  z3::expr ingress_port_domain = z3_context->bool_val(false);
-  z3::expr egress_port_domain = z3_context->bool_val(false);
-  for (int port : physical_ports) {
-    ingress_port_domain =
-        ingress_port_domain || symbolic_context.ingress_port == port;
-    egress_port_domain =
-        egress_port_domain || symbolic_context.egress_port == port;
-  }
-  solver_state->solver->add(ingress_port_domain);
-  solver_state->solver->add(egress_port_domain);
-
-  // Visit tables and find their symbolic matches (and their actions).
-  for (const auto &[name, table] : data_plane.program.tables()) {
-  }
 
   return solver_state;
 }
@@ -79,8 +105,12 @@ pdpi::StatusOr<ConcreteContext> Solve(SolverState *solver_state,
   }
 }
 
-std::string DebugSMT(SolverState *solver_state) {
-  return solver_state->solver->to_smt2();
+std::string DebugSMT(SolverState *solver_state, const Assertion &assertion) {
+  solver_state->solver->push();
+  solver_state->solver->add(assertion(solver_state->context));
+  std::string smt = solver_state->solver->to_smt2();
+  solver_state->solver->pop();
+  return smt;
 }
 
 }  // namespace symbolic

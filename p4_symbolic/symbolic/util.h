@@ -25,9 +25,24 @@ namespace p4_symbolic {
 namespace symbolic {
 namespace util {
 
-SymbolicContext FreeSymbolicContext(z3::context *z3_context);
+// Free (unconstrained) symbolic context consisting of input symbolic variables
+// for headers and empty trace and metadata.
+SymbolicPerPacketState FreeSymbolicPacketState(z3::context *z3_context);
 
+// Extract a concrete context by evaluating every component's corresponding
+// expression on the model.
 ConcreteContext ExtractFromModel(SymbolicContext context, z3::model model);
+
+// Merges two symbolic states into a single state. A field in the new state
+// has the value of the changed state if the condition is true, and the value
+// of the original one otherwise.
+// If original does not contain that field, a default value (e.g. -1) is used if
+// the condition is false.
+// Assertion: the changed state should not remove fields.
+SymbolicPerPacketState MergeStatesOnCondition(
+    const SymbolicPerPacketState &original,
+    const SymbolicPerPacketState &changed, const z3::expr &condition,
+    z3::context *z3_context);
 
 }  // namespace util
 }  // namespace symbolic
