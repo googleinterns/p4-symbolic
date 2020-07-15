@@ -70,7 +70,6 @@ message HeaderField {
   string name = 1;
   int32 bitwidth = 2;
   bool signed = 3;
-  string header_type = 4;  // The name of the enclosing header type.
 }
 
 // Overall action structure, combining definition with implementation.

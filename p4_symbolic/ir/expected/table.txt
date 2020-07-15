@@ -14,7 +14,6 @@ headers {
       value {
         name: "_padding"
         bitwidth: 3
-        header_type: "standard_metadata"
       }
     }
     fields {
@@ -22,7 +21,6 @@ headers {
       value {
         name: "checksum_error"
         bitwidth: 1
-        header_type: "standard_metadata"
       }
     }
     fields {
@@ -30,7 +28,6 @@ headers {
       value {
         name: "deq_qdepth"
         bitwidth: 19
-        header_type: "standard_metadata"
       }
     }
     fields {
@@ -38,7 +35,6 @@ headers {
       value {
         name: "deq_timedelta"
         bitwidth: 32
-        header_type: "standard_metadata"
       }
     }
     fields {
@@ -46,7 +42,6 @@ headers {
       value {
         name: "egress_global_timestamp"
         bitwidth: 48
-        header_type: "standard_metadata"
       }
     }
     fields {
@@ -54,7 +49,6 @@ headers {
       value {
         name: "egress_port"
         bitwidth: 9
-        header_type: "standard_metadata"
       }
     }
     fields {
@@ -62,7 +56,6 @@ headers {
       value {
         name: "egress_rid"
         bitwidth: 16
-        header_type: "standard_metadata"
       }
     }
     fields {
@@ -70,7 +63,6 @@ headers {
       value {
         name: "egress_spec"
         bitwidth: 9
-        header_type: "standard_metadata"
       }
     }
     fields {
@@ -78,7 +70,6 @@ headers {
       value {
         name: "enq_qdepth"
         bitwidth: 19
-        header_type: "standard_metadata"
       }
     }
     fields {
@@ -86,7 +77,6 @@ headers {
       value {
         name: "enq_timestamp"
         bitwidth: 32
-        header_type: "standard_metadata"
       }
     }
     fields {
@@ -94,7 +84,6 @@ headers {
       value {
         name: "ingress_global_timestamp"
         bitwidth: 48
-        header_type: "standard_metadata"
       }
     }
     fields {
@@ -102,7 +91,6 @@ headers {
       value {
         name: "ingress_port"
         bitwidth: 9
-        header_type: "standard_metadata"
       }
     }
     fields {
@@ -110,7 +98,6 @@ headers {
       value {
         name: "instance_type"
         bitwidth: 32
-        header_type: "standard_metadata"
       }
     }
     fields {
@@ -118,7 +105,6 @@ headers {
       value {
         name: "mcast_grp"
         bitwidth: 16
-        header_type: "standard_metadata"
       }
     }
     fields {
@@ -126,7 +112,6 @@ headers {
       value {
         name: "packet_length"
         bitwidth: 32
-        header_type: "standard_metadata"
       }
     }
     fields {
@@ -134,7 +119,6 @@ headers {
       value {
         name: "parser_error"
         bitwidth: 32
-        header_type: "standard_metadata"
       }
     }
     fields {
@@ -142,7 +126,6 @@ headers {
       value {
         name: "priority"
         bitwidth: 3
-        header_type: "standard_metadata"
       }
     }
   }
@@ -294,4 +277,13 @@ tables {
   }
 }
 initial_table: "MyIngress.ports_exact"
+
+=====MyIngress.ports_exact Entries=====
+action: "MyIngress.set_egress_spec"
+match_values: 0
+action_parameters: 1
+
+action: "MyIngress.set_egress_spec"
+match_values: 1
+action_parameters: 0
 
