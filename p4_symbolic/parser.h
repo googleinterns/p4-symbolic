@@ -12,25 +12,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef P4_SYMBOLIC_UTIL_IO_H_
-#define P4_SYMBOLIC_UTIL_IO_H_
+// This file defines the main API entry point for parsing input files
+// into our IR representation.
+
+#ifndef P4_SYMBOLIC_PARSER_H_
+#define P4_SYMBOLIC_PARSER_H_
 
 #include <string>
 
-#include "absl/status/status.h"
-#include "absl/strings/string_view.h"
 #include "p4_pdpi/utils/status_utils.h"
+#include "p4_symbolic/ir/ir.pb.h"
+#include "p4_symbolic/symbolic/symbolic.h"
 
 namespace p4_symbolic {
-namespace util {
 
-// Reads the entire content of the file and returns it (or an error status).
-pdpi::StatusOr<std::string> ReadFile(const std::string &path);
+pdpi::StatusOr<symbolic::Dataplane> ParseToIr(
+    const std::string &bmv2_path, const std::string &p4info_path,
+    const std::string &table_entries_path);
 
-// Writes the content of the string to the file.
-absl::Status WriteFile(const std::string &content, const std::string &path);
-
-}  // namespace util
 }  // namespace p4_symbolic
 
-#endif  // P4_SYMBOLIC_UTIL_IO_H_
+#endif  // P4_SYMBOLIC_PARSER_H_

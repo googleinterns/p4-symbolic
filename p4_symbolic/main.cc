@@ -12,7 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Stub main file for debugging (for now).
+// Main file for finding P4 test packets symbolically.
+// Expects input bmv2 json, p4info, and table entries files as command
+// line flags.
+// Produces test packets that hit every row in the P4 program tables.
 
 #include <iostream>
 #include <string>
@@ -20,12 +23,14 @@
 #include "absl/flags/flag.h"
 #include "absl/flags/parse.h"
 #include "absl/flags/usage.h"
+#include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
+#include "p4_pdpi/utils/status_utils.h"
 #include "p4_symbolic/bmv2/bmv2.h"
-#include "p4_symbolic/ir/ir.h"
-#include "p4_symbolic/ir/pdpi_driver.h"
-#include "p4_symbolic/ir/table_entries.h"
+#include "p4_symbolic/parser.h"
 #include "p4_symbolic/symbolic/symbolic.h"
+#include "p4_symbolic/util/io.h"
 
 ABSL_FLAG(std::string, p4info, "",
           "The path to the p4info protobuf file (required)");
@@ -34,98 +39,35 @@ ABSL_FLAG(std::string, entries, "",
           "The path to the table entries txt file (optional), leave this empty "
           "if the input p4 program contains no (explicit) tables for which "
           "entries are needed.");
-ABSL_FLAG(bool, debug, false, "Dump the SMT program for debugging");
+ABSL_FLAG(std::string, debug, "", "Dump the SMT program for debugging");
 
-// The main test routine for parsing bmv2 json with protobuf.
-// Parses bmv2 json that is fed in through stdin and dumps
-// the resulting native protobuf and json data to files.
-// Expects the paths of the protobuf output file and json
-// output file to be passed as command line arguments respectively.
-int main(int argc, char *argv[]) {
-  // Verify link and compile versions are the same.
-  GOOGLE_PROTOBUF_VERIFY_VERSION;
-
-  // Command line arugments and help message.
-  absl::SetProgramUsageMessage(
-      absl::StrFormat("usage: %s %s", argv[0],
-                      "--bmv2=path/to/bmv2.json --p4info=path/to/p4info.pb.txt "
-                      "[--entries=path/to/table_entries.txt]"));
-  absl::ParseCommandLine(argc, argv);
-
+namespace {
+// Parse input P4 program, analyze it symbolically
+// and generate test pakcets.
+absl::Status ParseAndEvaluate() {
   const std::string &p4info_path = absl::GetFlag(FLAGS_p4info);
   const std::string &bmv2_path = absl::GetFlag(FLAGS_bmv2);
   const std::string &entries_path = absl::GetFlag(FLAGS_entries);
-  if (p4info_path.empty()) {
-    std::cerr << "Missing argument: --p4info=<file>" << std::endl;
-    return 1;
-  }
-  if (bmv2_path.empty()) {
-    std::cerr << "Missing argument: --bmv2=<file>" << std::endl;
-    return 1;
-  }
+  const std::string &debug_path = absl::GetFlag(FLAGS_debug);
 
-  // Parse pdpi.
-  pdpi::StatusOr<pdpi::ir::IrP4Info> p4info_or_status =
-      p4_symbolic::ir::ParseP4InfoFile(p4info_path);
-
-  if (!p4info_or_status.ok()) {
-    std::cerr << "Could not parse p4info: " << p4info_or_status.status()
-              << std::endl;
-    return 1;
-  }
-
-  // Parse bmv2 json.
-  pdpi::StatusOr<p4_symbolic::bmv2::P4Program> bmv2_or_status =
-      p4_symbolic::bmv2::ParseBmv2JsonFile(bmv2_path);
-
-  if (!bmv2_or_status.ok()) {
-    std::cerr << "Could not parse bmv2 JSON: " << bmv2_or_status.status()
-              << std::endl;
-    return 1;
-  }
-
-  // Parse table entries.
-  p4_symbolic::ir::TableEntries table_entries;
-  if (!entries_path.empty()) {
-    pdpi::StatusOr<p4_symbolic::ir::TableEntries> table_entries_or_status =
-        p4_symbolic::ir::ParseAndFillEntries(p4info_or_status.value(),
-                                             entries_path);
-
-    if (!table_entries_or_status.ok()) {
-      std::cerr << "Could not parse table entries: "
-                << table_entries_or_status.status() << std::endl;
-      return 1;
-    }
-    table_entries = table_entries_or_status.value();
-  }
+  RET_CHECK(!p4info_path.empty());
+  RET_CHECK(!bmv2_path.empty());
 
   // Transform to IR.
-  pdpi::StatusOr<p4_symbolic::ir::P4Program> ir_status =
-      p4_symbolic::ir::Bmv2AndP4infoToIr(bmv2_or_status.value(),
-                                         p4info_or_status.value());
-  if (!ir_status.ok()) {
-    std::cerr << "Could not transform to IR: " << ir_status.status()
-              << std::endl;
-    return 1;
-  }
+  ASSIGN_OR_RETURN(
+      p4_symbolic::symbolic::Dataplane dataplane,
+      p4_symbolic::ParseToIr(bmv2_path, p4info_path, entries_path));
 
-  // Analyze program symbolically.
-  p4_symbolic::ir::P4Program program = ir_status.value();
-  p4_symbolic::symbolic::Dataplane dataplane = {program, table_entries};
-  pdpi::StatusOr<std::unique_ptr<p4_symbolic::symbolic::SolverState>>
-      solver_status = p4_symbolic::symbolic::EvaluateP4Pipeline(
-          dataplane, std::vector<int>{0, 1});
-  if (!solver_status.ok()) {
-    std::cerr << "Could not analyze program symbolically: "
-              << solver_status.status() << std::endl;
-    return 1;
-  }
+  // Evaluate program symbolically.
+  ASSIGN_OR_RETURN(
+      const std::unique_ptr<p4_symbolic::symbolic::SolverState> &solver_state,
+      p4_symbolic::symbolic::EvaluateP4Pipeline(dataplane,
+                                                std::vector<int>{0, 1}));
 
   // Find a packet matching every entry of every table.
-  const std::unique_ptr<p4_symbolic::symbolic::SolverState> &solver_state =
-      solver_status.value();
-  for (const auto &[name, table] : program.tables()) {
-    for (int i = 0; i < table_entries[name].size(); i++) {
+  std::string debug_smt_formula = "";
+  for (const auto &[name, table] : dataplane.program.tables()) {
+    for (int i = 0; i < dataplane.entries[name].size(); i++) {
       std::cout << "Finding packet for table " << name << " and row " << i
                 << std::endl;
 
@@ -138,25 +80,20 @@ int main(int argc, char *argv[]) {
                     match.entry_index == i);
           };
 
-      // Debugging.
-      if (absl::GetFlag(FLAGS_debug)) {
-        std::cout << p4_symbolic::symbolic::DebugSMT(solver_state,
-                                                     table_entry_assertion)
-                  << std::endl;
-      }
+      debug_smt_formula = absl::StrCat(
+          debug_smt_formula,
+          p4_symbolic::symbolic::DebugSMT(solver_state, table_entry_assertion),
+          "\n");
 
-      pdpi::StatusOr<std::optional<p4_symbolic::symbolic::ConcreteContext>>
-          packet_status =
-              p4_symbolic::symbolic::Solve(solver_state, table_entry_assertion);
-      if (!packet_status.ok()) {
-        std::cout << "\t" << packet_status.status() << std::endl << std::endl;
-        continue;
-      }
-      std::optional<p4_symbolic::symbolic::ConcreteContext> packet_option =
-          packet_status.value();
+      ASSIGN_OR_RETURN(
+          std::optional<p4_symbolic::symbolic::ConcreteContext> packet_option,
+          p4_symbolic::symbolic::Solve(solver_state, table_entry_assertion));
+
       if (packet_option) {
-        std::cout << packet_option.value().ingress_port << std::endl;
-        std::cout << packet_option.value().egress_port << std::endl;
+        std::cout << "\tstandard_metadata.ingress_port = "
+                  << packet_option.value().ingress_port << std::endl;
+        std::cout << "\tstandard_metadata.egress_spec = "
+                  << packet_option.value().egress_port << std::endl;
       } else {
         std::cout << "Cannot find solution!" << std::endl;
       }
@@ -164,8 +101,39 @@ int main(int argc, char *argv[]) {
     }
   }
 
+  // Debugging.
+  if (!debug_path.empty()) {
+    RETURN_IF_ERROR(
+        p4_symbolic::util::WriteFile(debug_smt_formula, debug_path));
+  }
+
+  return absl::OkStatus();
+}
+
+}  // namespace
+
+int main(int argc, char *argv[]) {
+  // Verify link and compile versions are the same.
+  GOOGLE_PROTOBUF_VERIFY_VERSION;
+
+  // Command line arugments and help message.
+  absl::SetProgramUsageMessage(
+      absl::StrFormat("usage: %s %s", argv[0],
+                      "--bmv2=path/to/bmv2.json --p4info=path/to/p4info.pb.txt "
+                      "[--entries=path/to/table_entries.txt]"));
+  absl::ParseCommandLine(argc, argv);
+
+  // Run code
+  absl::Status status = ParseAndEvaluate();
+
   // Clean up
   google::protobuf::ShutdownProtobufLibrary();
+
+  // Error handling.
+  if (!status.ok()) {
+    std::cerr << "Error: " << status << std::endl;
+    return 1;
+  }
 
   return 0;
 }
