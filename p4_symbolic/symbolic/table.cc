@@ -72,7 +72,7 @@ pdpi::StatusOr<z3::expr> AnalyzeTableEntryCondition(
   }
 
   // Construct the match condition expression.
-  z3::expr condition_expression = Z3_CONTEXT().bool_val(true);
+  z3::expr condition_expression = Z3Context().bool_val(true);
   for (const auto &[id, match] :
        table.table_definition().match_fields_by_id()) {
     p4::config::v1::MatchField match_definition = match.match_field();
@@ -83,7 +83,7 @@ pdpi::StatusOr<z3::expr> AnalyzeTableEntryCondition(
     // defined in, which is identical to the order they are provided by in
     // the table entries file.
     int value = entry.match_values(id - 1);
-    z3::expr value_expr = Z3_CONTEXT().int_val(value);
+    z3::expr value_expr = Z3Context().int_val(value);
 
     // TODO(babman): We should put in the expression of the match from bmv2
     //               json in the IR, and use instead of the name.
@@ -136,9 +136,9 @@ pdpi::StatusOr<SymbolicPerPacketStateAndMatch> EvaluateTable(
     const SymbolicPerPacketState &state) {
   // The overall structure describing the match on this table.
   SymbolicTableMatch table_match = {
-      Z3_CONTEXT().bool_val(false),  // No match yet!
-      Z3_CONTEXT().int_val(-1),      // No match index.
-      Z3_CONTEXT().int_val(-1)       // Placeholder value.
+      Z3Context().bool_val(false),  // No match yet!
+      Z3Context().int_val(-1),      // No match index.
+      Z3Context().int_val(-1)       // Placeholder value.
   };
   // Accumulator state, initially same as input state.
   SymbolicPerPacketState table_state = state;
@@ -158,7 +158,7 @@ pdpi::StatusOr<SymbolicPerPacketStateAndMatch> EvaluateTable(
     // Using this alias makes it simpler to put constraints on packet later.
     table_match.matched = table_match.matched || row_match;
     table_match.entry_index =
-        z3::ite(row_match, Z3_CONTEXT().int_val(row), table_match.entry_index);
+        z3::ite(row_match, Z3Context().int_val(row), table_match.entry_index);
 
     // The solver state is changed accordingly if the row was matched.
     table_state =

@@ -34,7 +34,7 @@ namespace symbolic {
 
 // Global z3::context used for creating symbolic expressions during symbolic
 // evaluation.
-z3::context &Z3_CONTEXT();
+z3::context &Z3Context();
 
 // Specifies what a packet essentially looks like.
 // A concrete output packet within a concrete context produced by our solver
