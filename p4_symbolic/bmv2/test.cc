@@ -16,30 +16,47 @@
 // It reads an input bmv2 json file (usually the output of p4c) specified
 // as a command line argument.
 // It parses that file using protobuf, and then dumps the parsed protobuf
-// objects using protobuf text format and json.
-// The dumps are written to output files whose paths are provided as command
-// line arguments.
+// objects using protobuf text format and json format to two output files.
+// The output files paths are provided as command line flags.
 
 #include <fstream>
 #include <iostream>
 #include <string>
 
+#include "absl/flags/flag.h"
+#include "absl/flags/parse.h"
+#include "absl/flags/usage.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include "google/protobuf/text_format.h"
 #include "google/protobuf/util/json_util.h"
 #include "gutil/status.h"
 #include "p4_symbolic/bmv2/bmv2.h"
 #include "p4_symbolic/util/io.h"
 
+ABSL_FLAG(std::string, bmv2, "", "The path to the bmv2 json file (required)");
+ABSL_FLAG(std::string, protobuf, "",
+          "The path to the output protobuf file (required)");
+ABSL_FLAG(std::string, json, "", "The path to the output json file (required)");
+
 namespace {
 
-absl::Status Test(char* argv[]) {
+absl::Status Test() {
+  const std::string &bmv2_path = absl::GetFlag(FLAGS_bmv2);
+  const std::string &protobuf_path = absl::GetFlag(FLAGS_protobuf);
+  const std::string &json_path = absl::GetFlag(FLAGS_json);
+
+  RET_CHECK(!bmv2_path.empty());
+  RET_CHECK(!protobuf_path.empty());
+  RET_CHECK(!json_path.empty());
+
   // Parse JSON using bmv2.cc.
   ASSIGN_OR_RETURN(p4_symbolic::bmv2::P4Program bmv2,
-                   p4_symbolic::bmv2::ParseBmv2JsonFile(argv[1]));
+                   p4_symbolic::bmv2::ParseBmv2JsonFile(bmv2_path.c_str()));
 
   // Dumping protobuf.
-  RETURN_IF_ERROR(p4_symbolic::util::WriteFile(bmv2.DebugString(), argv[2]));
+  RETURN_IF_ERROR(
+      p4_symbolic::util::WriteFile(bmv2.DebugString(), protobuf_path.c_str()));
 
   // Dumping JSON.
   google::protobuf::util::JsonPrintOptions dumping_options;
@@ -50,32 +67,28 @@ absl::Status Test(char* argv[]) {
   std::string json_output_str;
   google::protobuf::util::MessageToJsonString(bmv2, &json_output_str,
                                               dumping_options);
-  RETURN_IF_ERROR(p4_symbolic::util::WriteFile(json_output_str, argv[3]));
+  RETURN_IF_ERROR(
+      p4_symbolic::util::WriteFile(json_output_str, json_path.c_str()));
 
   return absl::OkStatus();
 }
 
 }  // namespace
 
-// The main test routine for parsing bmv2 json with protobuf.
-// Parses bmv2 json file and dumps the resulting bmv2 protobuf
-// and json data to files.
-// Expects the paths of the input json file and the protobuf and json output
-// files to be passed as command line arguments in order.
-int main(int argc, char* argv[]) {
+int main(int argc, char *argv[]) {
   // Verify link and compile versions are the same.
   GOOGLE_PROTOBUF_VERIFY_VERSION;
 
-  // Validate command line arguments.
-  if (argc != 4) {
-    std::cout << "Usage: " << argv[0]
-              << " <input JSON file> <protobuf output file> <json output file>."
-              << std::endl;
-    return 0;
-  }
+  // Command line arugments and help message.
+  absl::SetProgramUsageMessage(
+      absl::StrFormat("usage: %s %s", argv[0],
+                      "--bmv2=path/to/bmv2.json "
+                      "--protobuf=path/to/output.pb.txt "
+                      "--json=path/to/output.json"));
+  absl::ParseCommandLine(argc, argv);
 
-  // Test.
-  absl::Status status = Test(argv);
+  // Run test.
+  absl::Status status = Test();
 
   // Clean up.
   google::protobuf::ShutdownProtobufLibrary();

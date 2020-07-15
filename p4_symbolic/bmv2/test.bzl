@@ -203,14 +203,20 @@ def bmv2_protobuf_parsing_test(name, p4_program, golden_file, p4_deps = []):
     # (tmp) output .pb.txt and .json files.
     proto_filename = name + "_tmp.pb.txt"
     json_filename = name + "_tmp.json"
+
     native.genrule(
         name = parse_name,
         srcs = [":" + p4c_name],
         outs = [proto_filename, json_filename],
         tools = ["//p4_symbolic/bmv2:test"],
-        cmd = """
-            $(location //p4_symbolic/bmv2:test) $(SRCS) $(OUTS)
-            """,
+        cmd = (
+            "$(location //p4_symbolic/bmv2:test) --bmv2=$(location %s) " +
+            "--protobuf=$(location %s) --json=$(location %s)"
+        ) % (
+            ":" + p4c_name,
+            proto_filename,
+            json_filename,
+        ),
     )
 
     # Subset diff test between output and input json files
