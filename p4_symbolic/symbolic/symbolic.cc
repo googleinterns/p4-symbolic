@@ -14,27 +14,32 @@
 
 #include "p4_symbolic/symbolic/symbolic.h"
 
+#include <utility>
+
 #include "p4_symbolic/symbolic/table.h"
 #include "p4_symbolic/symbolic/util.h"
 
 namespace p4_symbolic {
 namespace symbolic {
 
-z3::context *Z3_CONTEXT = nullptr;
+z3::context Z3_CONTEXT;
+bool READY = true;
 
-pdpi::StatusOr<SolverState *> EvaluateP4Pipeline(
+pdpi::StatusOr<std::unique_ptr<SolverState>> EvaluateP4Pipeline(
     const Dataplane &data_plane, const std::vector<int> &physical_ports) {
-  // Check Z3_CONTEXT is freed properly to avoid any context sharing issues.
-  if (Z3_CONTEXT != nullptr) {
+  // Check that any previously run evaluation has terminated before a new
+  // one starts.
+  if (!READY) {
     return absl::Status(absl::StatusCode::kAlreadyExists,
                         "Cannot make subsequent call to EvaluateP4Pipeline() "
                         "when SolverState returned by a previous call has not "
                         "been destructed!");
   }
+  READY = false;
 
-  // Context to use for defining z3 variables, etc..
-  Z3_CONTEXT = new z3::context();
-  z3::solver *z3_solver = new z3::solver(*Z3_CONTEXT);
+  // Use global context to define a solver.
+  std::unique_ptr<z3::solver> z3_solver =
+      std::make_unique<z3::solver>(Z3_CONTEXT);
 
   // "Accumulator"-style state used to evaluate tables.
   // Initially free/unconstrained and contains symbolic variables for
@@ -45,7 +50,7 @@ pdpi::StatusOr<SolverState *> EvaluateP4Pipeline(
   SymbolicHeader ingress_packet = symbolic_state.header;
 
   // Restrict ports to the available physical ports.
-  z3::expr ingress_port_domain = Z3_CONTEXT->bool_val(false);
+  z3::expr ingress_port_domain = Z3_CONTEXT.bool_val(false);
   for (int port : physical_ports) {
     ingress_port_domain = ingress_port_domain || ingress_port == port;
   }
@@ -53,7 +58,7 @@ pdpi::StatusOr<SolverState *> EvaluateP4Pipeline(
 
   // An (initially) empty trace.
   SymbolicTrace trace = {std::unordered_map<std::string, SymbolicTableMatch>(),
-                         Z3_CONTEXT->bool_val(false)};
+                         Z3_CONTEXT.bool_val(false)};
 
   // Visit tables and find their symbolic matches (and their actions).
   for (const auto &[name, table] : data_plane.program.tables()) {
@@ -79,16 +84,13 @@ pdpi::StatusOr<SolverState *> EvaluateP4Pipeline(
                                       metadata,       trace};
 
   // Construct solver state for this program.
-  SolverState *solver_state =
-      new SolverState{data_plane.program, data_plane.entries, symbolic_context,
-                      std::unique_ptr<z3::context>(Z3_CONTEXT),
-                      std::unique_ptr<z3::solver>(z3_solver)};
-
-  return solver_state;
+  return std::make_unique<SolverState>(data_plane.program, data_plane.entries,
+                                       symbolic_context, std::move(z3_solver));
 }
 
-pdpi::StatusOr<ConcreteContext> Solve(SolverState *solver_state,
-                                      const Assertion &assertion) {
+pdpi::StatusOr<std::optional<ConcreteContext>> Solve(
+    const std::unique_ptr<SolverState> &solver_state,
+    const Assertion &assertion) {
   z3::expr constraint = assertion(solver_state->context);
 
   solver_state->solver->push();
@@ -96,13 +98,11 @@ pdpi::StatusOr<ConcreteContext> Solve(SolverState *solver_state,
   switch (solver_state->solver->check()) {
     case z3::unsat:
       solver_state->solver->pop();
-      return absl::Status(absl::StatusCode::kInvalidArgument,
-                          "Assertion and program are unsat!");
+      return std::optional<ConcreteContext>();
 
     case z3::unknown:
       solver_state->solver->pop();
-      return absl::Status(absl::StatusCode::kInvalidArgument,
-                          "Z3 cannot find satisifying packet model!");
+      return std::optional<ConcreteContext>();
 
     case z3::sat:
     default:
@@ -110,11 +110,12 @@ pdpi::StatusOr<ConcreteContext> Solve(SolverState *solver_state,
       ConcreteContext result =
           util::ExtractFromModel(solver_state->context, packet_model);
       solver_state->solver->pop();
-      return result;
+      return std::make_optional<ConcreteContext>(result);
   }
 }
 
-std::string DebugSMT(SolverState *solver_state, const Assertion &assertion) {
+std::string DebugSMT(const std::unique_ptr<SolverState> &solver_state,
+                     const Assertion &assertion) {
   solver_state->solver->push();
   solver_state->solver->add(assertion(solver_state->context));
   std::string smt = solver_state->solver->to_smt2();

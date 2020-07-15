@@ -112,9 +112,9 @@ int main(int argc, char *argv[]) {
   // Analyze program symbolically.
   p4_symbolic::ir::P4Program program = ir_status.value();
   p4_symbolic::symbolic::Dataplane dataplane = {program, table_entries};
-  pdpi::StatusOr<p4_symbolic::symbolic::SolverState *> solver_status =
-      p4_symbolic::symbolic::EvaluateP4Pipeline(dataplane,
-                                                std::vector<int>{0, 1});
+  pdpi::StatusOr<std::unique_ptr<p4_symbolic::symbolic::SolverState>>
+      solver_status = p4_symbolic::symbolic::EvaluateP4Pipeline(
+          dataplane, std::vector<int>{0, 1});
   if (!solver_status.ok()) {
     std::cerr << "Could not analyze program symbolically: "
               << solver_status.status() << std::endl;
@@ -122,7 +122,8 @@ int main(int argc, char *argv[]) {
   }
 
   // Find a packet matching every entry of every table.
-  p4_symbolic::symbolic::SolverState *solver_state = solver_status.value();
+  const std::unique_ptr<p4_symbolic::symbolic::SolverState> &solver_state =
+      solver_status.value();
   for (const auto &[name, table] : program.tables()) {
     for (int i = 0; i < table_entries[name].size(); i++) {
       std::cout << "Finding packet for table " << name << " and row " << i
@@ -144,20 +145,26 @@ int main(int argc, char *argv[]) {
                   << std::endl;
       }
 
-      pdpi::StatusOr<p4_symbolic::symbolic::ConcreteContext> packet_status =
-          p4_symbolic::symbolic::Solve(solver_state, table_entry_assertion);
+      pdpi::StatusOr<std::optional<p4_symbolic::symbolic::ConcreteContext>>
+          packet_status =
+              p4_symbolic::symbolic::Solve(solver_state, table_entry_assertion);
       if (!packet_status.ok()) {
         std::cout << "\t" << packet_status.status() << std::endl << std::endl;
         continue;
       }
-      std::cout << packet_status.value().ingress_port << std::endl;
-      std::cout << packet_status.value().egress_port << std::endl;
+      std::optional<p4_symbolic::symbolic::ConcreteContext> packet_option =
+          packet_status.value();
+      if (packet_option) {
+        std::cout << packet_option.value().ingress_port << std::endl;
+        std::cout << packet_option.value().egress_port << std::endl;
+      } else {
+        std::cout << "Cannot find solution!" << std::endl;
+      }
       std::cout << std::endl;
     }
   }
 
   // Clean up
-  delete solver_state;
   google::protobuf::ShutdownProtobufLibrary();
 
   return 0;

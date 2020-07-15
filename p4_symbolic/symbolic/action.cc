@@ -163,7 +163,7 @@ pdpi::StatusOr<SymbolicPerPacketState> EvaluateAction(
     const pdpi::ir::IrActionDefinition::IrActionParamDefinition &parameter =
         parameters.at(i);
     const std::string &parameter_name = parameter.param().name();
-    z3::expr parameter_value = Z3_CONTEXT->int_val(args.at(i - 1));
+    z3::expr parameter_value = Z3_CONTEXT.int_val(args.at(i - 1));
     context.scope.insert({parameter_name, parameter_value});
   }
 
