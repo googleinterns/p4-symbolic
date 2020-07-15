@@ -67,7 +67,7 @@ absl::Status ParseAndEvaluate() {
   // Find a packet matching every entry of every table.
   std::string debug_smt_formula = "";
   for (const auto &[name, table] : dataplane.program.tables()) {
-    for (int i = 0; i < dataplane.entries[name].size(); i++) {
+    for (size_t i = 0; i < dataplane.entries[name].size(); i++) {
       std::cout << "Finding packet for table " << name << " and row " << i
                 << std::endl;
 
@@ -77,7 +77,7 @@ absl::Status ParseAndEvaluate() {
             const p4_symbolic::symbolic::SymbolicTableMatch &match =
                 symbolic_context.trace.matched_entries.at(name);
             return (!symbolic_context.trace.dropped && match.matched &&
-                    match.entry_index == i);
+                    match.entry_index == static_cast<int>(i));
           };
 
       debug_smt_formula = absl::StrCat(

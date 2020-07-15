@@ -152,7 +152,7 @@ gutil::StatusOr<SymbolicPerPacketState> EvaluateAction(
 
   // Add action parameters to scope.
   const auto &parameters = action.action_definition().params_by_id();
-  if (parameters.size() != args.size()) {
+  if (static_cast<int>(parameters.size()) != args.size()) {
     return absl::Status(
         absl::StatusCode::kInvalidArgument,
         absl::StrCat("Action ", action.action_definition().preamble().name(),
