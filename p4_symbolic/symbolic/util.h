@@ -15,8 +15,8 @@
 // Contains the entry point to our symbolic interpretation code, as well
 // as helpers for debugging and finding concrete packets and their context.
 
-#ifndef P4_SYMBOLIC_SYMBOLIC_UTIL_H
-#define P4_SYMBOLIC_SYMBOLIC_UTIL_H
+#ifndef P4_SYMBOLIC_SYMBOLIC_UTIL_H_
+#define P4_SYMBOLIC_SYMBOLIC_UTIL_H_
 
 #include "p4_symbolic/symbolic/symbolic.h"
 #include "z3.h"
@@ -47,4 +47,4 @@ SymbolicPerPacketState MergeStatesOnCondition(
 }  // namespace symbolic
 }  // namespace p4_symbolic
 
-#endif  // P4_SYMBOLIC_SYMBOLIC_SYMBOLIC_H_
+#endif  // P4_SYMBOLIC_SYMBOLIC_UTIL_H_

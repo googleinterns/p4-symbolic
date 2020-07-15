@@ -17,6 +17,9 @@
 
 #include "p4_symbolic/symbolic/util.h"
 
+#include <string>
+#include <unordered_map>
+
 namespace p4_symbolic {
 namespace symbolic {
 namespace util {

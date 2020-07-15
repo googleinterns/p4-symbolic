@@ -21,6 +21,7 @@
 #ifndef P4_SYMBOLIC_SYMBOLIC_TABLE_H_
 #define P4_SYMBOLIC_SYMBOLIC_TABLE_H_
 
+#include <string>
 #include <vector>
 
 #include "google/protobuf/map.h"
