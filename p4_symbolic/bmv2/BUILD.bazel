@@ -45,7 +45,7 @@ cc_library(
     deps = [
         ":bmv2_cc_proto",
         "//p4_symbolic/util",
-        "@p4_pdpi//p4_pdpi/utils:status_utils",
+        "@p4_pdpi//gutil:status",
     ],
 )
 
@@ -57,7 +57,7 @@ cc_binary(
         ":bmv2_cc_proto",
         "//p4_symbolic/util",
         "@com_google_absl//absl/status",
-        "@p4_pdpi//p4_pdpi/utils:status_utils",
+        "@p4_pdpi//gutil:status",
     ],
 )
 

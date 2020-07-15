@@ -22,7 +22,7 @@
 #include "absl/flags/usage.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_format.h"
-#include "p4_pdpi/utils/status_utils.h"
+#include "gutil/status.h"
 #include "p4_symbolic/parser.h"
 
 ABSL_FLAG(std::string, p4info, "",

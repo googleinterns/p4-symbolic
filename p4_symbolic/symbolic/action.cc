@@ -22,7 +22,7 @@ namespace p4_symbolic {
 namespace symbolic {
 namespace action {
 
-pdpi::StatusOr<SymbolicPerPacketState> EvaluateStatement(
+gutil::StatusOr<SymbolicPerPacketState> EvaluateStatement(
     const ir::Statement &statement, const SymbolicPerPacketState &state,
     ActionContext *context) {
   switch (statement.statement_case()) {
@@ -41,7 +41,7 @@ pdpi::StatusOr<SymbolicPerPacketState> EvaluateStatement(
 // Constructs a symbolic expression for the assignment value, and either
 // constrains it in an enclosing assignment expression, or stores it in
 // the action scope.
-pdpi::StatusOr<SymbolicPerPacketState> EvaluateAssignmentStatement(
+gutil::StatusOr<SymbolicPerPacketState> EvaluateAssignmentStatement(
     const ir::AssignmentStatement &assignment,
     const SymbolicPerPacketState &state, ActionContext *context) {
   // Evaluate RValue recursively, evaluate LValue in this function, then
@@ -90,9 +90,9 @@ pdpi::StatusOr<SymbolicPerPacketState> EvaluateAssignmentStatement(
 
 // Constructs a symbolic expression corresponding to this value, according
 // to its type.
-pdpi::StatusOr<z3::expr> EvaluateRValue(const ir::RValue &rvalue,
-                                        const SymbolicPerPacketState &state,
-                                        ActionContext *context) {
+gutil::StatusOr<z3::expr> EvaluateRValue(const ir::RValue &rvalue,
+                                         const SymbolicPerPacketState &state,
+                                         ActionContext *context) {
   switch (rvalue.rvalue_case()) {
     case ir::RValue::kFieldValue:
       return EvaluateFieldValue(rvalue.field_value(), state, context);
@@ -109,9 +109,9 @@ pdpi::StatusOr<z3::expr> EvaluateRValue(const ir::RValue &rvalue,
 }
 
 // Extract the field symbolic value from the symbolic state.
-pdpi::StatusOr<z3::expr> EvaluateFieldValue(const ir::FieldValue &field_value,
-                                            const SymbolicPerPacketState &state,
-                                            ActionContext *context) {
+gutil::StatusOr<z3::expr> EvaluateFieldValue(
+    const ir::FieldValue &field_value, const SymbolicPerPacketState &state,
+    ActionContext *context) {
   std::string field_name = absl::StrFormat("%s.%s", field_value.header_name(),
                                            field_value.field_name());
   if (state.metadata.count(field_name) != 1) {
@@ -125,9 +125,9 @@ pdpi::StatusOr<z3::expr> EvaluateFieldValue(const ir::FieldValue &field_value,
 }
 
 // Looks up the symbolic value of the variable in the action scope.
-pdpi::StatusOr<z3::expr> EvaluateVariable(const ir::Variable &variable,
-                                          const SymbolicPerPacketState &state,
-                                          ActionContext *context) {
+gutil::StatusOr<z3::expr> EvaluateVariable(const ir::Variable &variable,
+                                           const SymbolicPerPacketState &state,
+                                           ActionContext *context) {
   std::string variable_name = variable.name();
   if (context->scope.count(variable_name) != 1) {
     return absl::Status(
@@ -143,7 +143,7 @@ pdpi::StatusOr<z3::expr> EvaluateVariable(const ir::Variable &variable,
 // This produces a symbolic expression on the symbolic parameters that is
 // semantically equivalent to the behavior of the action on its concrete
 // parameters.
-pdpi::StatusOr<SymbolicPerPacketState> EvaluateAction(
+gutil::StatusOr<SymbolicPerPacketState> EvaluateAction(
     const ir::Action &action, const google::protobuf::RepeatedField<int> &args,
     const SymbolicPerPacketState &state) {
   // Construct this action's context.
@@ -160,7 +160,7 @@ pdpi::StatusOr<SymbolicPerPacketState> EvaluateAction(
   }
 
   for (size_t i = 1; i <= parameters.size(); i++) {  // In order of definition.
-    const pdpi::ir::IrActionDefinition::IrActionParamDefinition &parameter =
+    const pdpi::IrActionDefinition::IrActionParamDefinition &parameter =
         parameters.at(i);
     const std::string &parameter_name = parameter.param().name();
     z3::expr parameter_value = Z3Context().int_val(args.at(i - 1));

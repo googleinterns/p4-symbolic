@@ -26,7 +26,7 @@
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
-#include "p4_pdpi/utils/status_utils.h"
+#include "gutil/status.h"
 #include "p4_symbolic/bmv2/bmv2.h"
 #include "p4_symbolic/parser.h"
 #include "p4_symbolic/symbolic/symbolic.h"

@@ -16,15 +16,16 @@
 
 #include <memory>
 
-#include "p4_pdpi/util.h"
+#include "gutil/proto.h"
+#include "p4_pdpi/ir.h"
 
 namespace p4_symbolic {
 namespace ir {
 
-pdpi::StatusOr<pdpi::ir::IrP4Info> ParseP4InfoFile(
+gutil::StatusOr<pdpi::IrP4Info> ParseP4InfoFile(
     const std::string &p4info_path) {
   p4::config::v1::P4Info p4info;
-  RETURN_IF_ERROR(pdpi::ReadProtoFromFile(p4info_path.c_str(), &p4info));
+  RETURN_IF_ERROR(gutil::ReadProtoFromFile(p4info_path.c_str(), &p4info));
 
   ASSIGN_OR_RETURN(std::unique_ptr<pdpi::P4InfoManager> & info_manager,
                    pdpi::P4InfoManager::Create(p4info));

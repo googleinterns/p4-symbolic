@@ -20,11 +20,11 @@
 
 namespace p4_symbolic {
 
-pdpi::StatusOr<symbolic::Dataplane> ParseToIr(
+gutil::StatusOr<symbolic::Dataplane> ParseToIr(
     const std::string &bmv2_path, const std::string &p4info_path,
     const std::string &table_entries_path) {
   // Parse p4info file into pdpi format.
-  ASSIGN_OR_RETURN(pdpi::ir::IrP4Info p4info,
+  ASSIGN_OR_RETURN(pdpi::IrP4Info p4info,
                    p4_symbolic::ir::ParseP4InfoFile(p4info_path));
 
   // Parse bmv2 json file into our initial bmv2 protobuf.

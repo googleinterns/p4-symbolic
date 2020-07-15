@@ -27,7 +27,7 @@
 #include "absl/status/status.h"
 #include "google/protobuf/text_format.h"
 #include "google/protobuf/util/json_util.h"
-#include "p4_pdpi/utils/status_utils.h"
+#include "gutil/status.h"
 #include "p4_symbolic/bmv2/bmv2.h"
 #include "p4_symbolic/util/io.h"
 

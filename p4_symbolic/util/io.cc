@@ -20,7 +20,7 @@
 #include <string>
 
 #include "absl/strings/str_format.h"
-#include "p4_pdpi/utils/status_utils.h"
+#include "gutil/status.h"
 
 namespace p4_symbolic {
 namespace util {
@@ -42,7 +42,7 @@ absl::Status ErrorNoToAbsl(const char *operation, const std::string &path) {
 
 }  // namespace
 
-pdpi::StatusOr<std::string> ReadFile(const std::string &path) {
+gutil::StatusOr<std::string> ReadFile(const std::string &path) {
   std::ifstream f;
   f.open(path.c_str());
   if (f.fail()) {

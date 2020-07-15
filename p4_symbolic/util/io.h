@@ -19,13 +19,13 @@
 
 #include "absl/status/status.h"
 #include "absl/strings/string_view.h"
-#include "p4_pdpi/utils/status_utils.h"
+#include "gutil/status.h"
 
 namespace p4_symbolic {
 namespace util {
 
 // Reads the entire content of the file and returns it (or an error status).
-pdpi::StatusOr<std::string> ReadFile(const std::string &path);
+gutil::StatusOr<std::string> ReadFile(const std::string &path);
 
 // Writes the content of the string to the file.
 absl::Status WriteFile(const std::string &content, const std::string &path);

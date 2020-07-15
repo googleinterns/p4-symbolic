@@ -27,7 +27,7 @@ z3::context &Z3Context() {
   return *z3_context;
 }
 
-pdpi::StatusOr<std::unique_ptr<SolverState>> EvaluateP4Pipeline(
+gutil::StatusOr<std::unique_ptr<SolverState>> EvaluateP4Pipeline(
     const Dataplane &data_plane, const std::vector<int> &physical_ports) {
   // Use global context to define a solver.
   std::unique_ptr<z3::solver> z3_solver =
@@ -80,7 +80,7 @@ pdpi::StatusOr<std::unique_ptr<SolverState>> EvaluateP4Pipeline(
                                        symbolic_context, std::move(z3_solver));
 }
 
-pdpi::StatusOr<std::optional<ConcreteContext>> Solve(
+gutil::StatusOr<std::optional<ConcreteContext>> Solve(
     const std::unique_ptr<SolverState> &solver_state,
     const Assertion &assertion) {
   z3::expr constraint = assertion(solver_state->context);

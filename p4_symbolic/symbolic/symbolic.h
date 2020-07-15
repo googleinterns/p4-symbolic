@@ -25,7 +25,7 @@
 #include <utility>
 #include <vector>
 
-#include "p4_pdpi/utils/status_utils.h"
+#include "gutil/status.h"
 #include "p4_symbolic/ir/ir.pb.h"
 #include "p4_symbolic/ir/table_entries.h"
 #include "z3++.h"  // TODO(babman): added as a system dependency for now.
@@ -231,12 +231,12 @@ using Assertion = std::function<z3::expr(const SymbolicContext &)>;
 // Symbolically evaluates/interprets the given program against the given
 // entries for every table in that program, and the available physical ports
 // on the switch.
-pdpi::StatusOr<std::unique_ptr<SolverState>> EvaluateP4Pipeline(
+gutil::StatusOr<std::unique_ptr<SolverState>> EvaluateP4Pipeline(
     const Dataplane &data_plane, const std::vector<int> &physical_ports);
 
 // Finds a concrete packet and flow in the program that satisfies the given
 // assertion and meets the structure constrained by solver_state.
-pdpi::StatusOr<std::optional<ConcreteContext>> Solve(
+gutil::StatusOr<std::optional<ConcreteContext>> Solve(
     const std::unique_ptr<SolverState> &solver_state,
     const Assertion &assertion);
 

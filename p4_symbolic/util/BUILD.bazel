@@ -29,6 +29,6 @@ cc_library(
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@com_google_protobuf//:protobuf_headers",
-        "@p4_pdpi//p4_pdpi/utils:status_utils",
+        "@p4_pdpi//gutil:status",
     ],
 )

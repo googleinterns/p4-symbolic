@@ -23,8 +23,7 @@
 #include <utility>
 #include <vector>
 
-#include "p4_pdpi/ir.h"
-#include "p4_pdpi/utils/status_utils.h"
+#include "gutil/status.h"
 #include "p4_symbolic/ir/ir.pb.h"
 
 namespace p4_symbolic {
@@ -33,8 +32,8 @@ namespace ir {
 using TableEntries = std::unordered_map<std::string, std::vector<TableEntry>>;
 
 // Parses entries read from entries_path, and fills them in given ir in place.
-pdpi::StatusOr<TableEntries> ParseAndFillEntries(
-    const pdpi::ir::IrP4Info &pdpi, const std::string &entries_path);
+gutil::StatusOr<TableEntries> ParseAndFillEntries(
+    const pdpi::IrP4Info &pdpi, const std::string &entries_path);
 
 }  // namespace ir
 }  // namespace p4_symbolic

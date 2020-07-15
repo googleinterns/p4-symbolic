@@ -33,7 +33,7 @@ cc_binary(
         "@com_google_absl//absl/flags:usage",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
-        "@p4_pdpi//p4_pdpi/utils:status_utils",
+        "@p4_pdpi//gutil:status",
     ],
 )
 
@@ -54,6 +54,6 @@ cc_library(
         "//p4_symbolic/ir:pdpi_driver",
         "//p4_symbolic/ir:table_entries",
         "//p4_symbolic/symbolic",
-        "@p4_pdpi//p4_pdpi/utils:status_utils",
+        "@p4_pdpi//gutil:status",
     ],
 )

@@ -28,7 +28,7 @@ namespace ir {
 namespace {
 
 // Extracting source code information.
-pdpi::StatusOr<bmv2::SourceLocation> ExtractSourceLocation(
+gutil::StatusOr<bmv2::SourceLocation> ExtractSourceLocation(
     google::protobuf::Value unparsed_source_location) {
   if (unparsed_source_location.kind_case() !=
       google::protobuf::Value::kStructValue) {
@@ -80,7 +80,7 @@ absl::Status ValidateHeaderTypeFields(const google::protobuf::ListValue &list) {
   return absl::OkStatus();
 }
 
-pdpi::StatusOr<HeaderType> ExtractHeaderType(const bmv2::HeaderType &header) {
+gutil::StatusOr<HeaderType> ExtractHeaderType(const bmv2::HeaderType &header) {
   HeaderType output;
   output.set_name(header.name());
   output.set_id(header.id());
@@ -98,7 +98,7 @@ pdpi::StatusOr<HeaderType> ExtractHeaderType(const bmv2::HeaderType &header) {
 }
 
 // Functions for translating values.
-pdpi::StatusOr<LValue> ExtractLValue(
+gutil::StatusOr<LValue> ExtractLValue(
     const google::protobuf::Value &bmv2_value,
     const std::vector<std::string> &variables) {
   LValue output;
@@ -135,7 +135,7 @@ pdpi::StatusOr<LValue> ExtractLValue(
   return output;
 }
 
-pdpi::StatusOr<RValue> ExtractRValue(
+gutil::StatusOr<RValue> ExtractRValue(
     const google::protobuf::Value &bmv2_value,
     const std::vector<std::string> &variables) {
   // TODO(babman): Support the remaining cases: literals and simple expressions.
@@ -173,9 +173,9 @@ pdpi::StatusOr<RValue> ExtractRValue(
 }
 
 // Parsing and validating actions.
-pdpi::StatusOr<Action> ExtractAction(
+gutil::StatusOr<Action> ExtractAction(
     const bmv2::Action &bmv2_action,
-    const pdpi::ir::IrActionDefinition &pdpi_action) {
+    const pdpi::IrActionDefinition &pdpi_action) {
   Action output;
   // Definition is copied form pdpi.
   *output.mutable_action_definition() = pdpi_action;
@@ -255,9 +255,8 @@ pdpi::StatusOr<Action> ExtractAction(
 }
 
 // Parsing and validating tables.
-pdpi::StatusOr<Table> ExtractTable(
-    const bmv2::Table &bmv2_table,
-    const pdpi::ir::IrTableDefinition &pdpi_table) {
+gutil::StatusOr<Table> ExtractTable(const bmv2::Table &bmv2_table,
+                                    const pdpi::IrTableDefinition &pdpi_table) {
   Table output;
   // Table definition is copied from pdpi.
   *output.mutable_table_definition() = pdpi_table;
@@ -273,8 +272,8 @@ pdpi::StatusOr<Table> ExtractTable(
 }  // namespace
 
 // Main Translation function.
-pdpi::StatusOr<P4Program> Bmv2AndP4infoToIr(const bmv2::P4Program &bmv2,
-                                            const pdpi::ir::IrP4Info &pdpi) {
+gutil::StatusOr<P4Program> Bmv2AndP4infoToIr(const bmv2::P4Program &bmv2,
+                                             const pdpi::IrP4Info &pdpi) {
   P4Program output;
 
   // Translate headers.
@@ -285,7 +284,7 @@ pdpi::StatusOr<P4Program> Bmv2AndP4infoToIr(const bmv2::P4Program &bmv2,
 
   // In reality, pdpi.actions_by_name is keyed on aliases and
   // not fully qualified names.
-  std::unordered_map<std::string, const pdpi::ir::IrActionDefinition &>
+  std::unordered_map<std::string, const pdpi::IrActionDefinition &>
       actions_by_qualified_name;
   const auto &pdpi_actions = pdpi.actions_by_name();
   for (const auto &[_, action] : pdpi_actions) {
@@ -303,7 +302,7 @@ pdpi::StatusOr<P4Program> Bmv2AndP4infoToIr(const bmv2::P4Program &bmv2,
           absl::StatusCode::kInvalidArgument,
           absl::StrCat("Action ", action_name, "%s is missing from p4info!"));
     }
-    const pdpi::ir::IrActionDefinition &pdpi_action =
+    const pdpi::IrActionDefinition &pdpi_action =
         actions_by_qualified_name.at(action_name);  // Safe, no exception.
 
     ASSIGN_OR_RETURN((*output.mutable_actions())[pdpi_action.preamble().name()],
@@ -311,7 +310,7 @@ pdpi::StatusOr<P4Program> Bmv2AndP4infoToIr(const bmv2::P4Program &bmv2,
   }
 
   // Similarly, pdpi.tables_by_name is keyed on aliases.
-  std::unordered_map<std::string, const pdpi::ir::IrTableDefinition &>
+  std::unordered_map<std::string, const pdpi::IrTableDefinition &>
       tables_by_qualified_name;
   for (const auto &[_, table] : pdpi.tables_by_name()) {
     const std::string &name = table.preamble().name();
@@ -329,7 +328,7 @@ pdpi::StatusOr<P4Program> Bmv2AndP4infoToIr(const bmv2::P4Program &bmv2,
             absl::StatusCode::kInvalidArgument,
             absl::StrCat("Table ", table_name, " is missing from p4info!"));
       }
-      const pdpi::ir::IrTableDefinition &pdpi_table =
+      const pdpi::IrTableDefinition &pdpi_table =
           tables_by_qualified_name.at(table_name);  // Safe, no exception.
 
       ASSIGN_OR_RETURN((*output.mutable_tables())[pdpi_table.preamble().name()],

@@ -74,7 +74,7 @@ message HeaderField {
 
 // Overall action structure, combining definition with implementation.
 message Action {
-  pdpi.ir.IrActionDefinition action_definition = 1;
+  pdpi.IrActionDefinition action_definition = 1;
   ActionImplementation action_implementation = 2;
 }
 
@@ -90,7 +90,7 @@ message ActionImplementation {
 // Overall table structure, combining definition with implementation.
 message Table {
   // This contains the name, id, action list, field matches, and max size.
-  pdpi.ir.IrTableDefinition table_definition = 1;
+  pdpi.IrTableDefinition table_definition = 1;
   // This contains table implementation details.
   TableImplementation table_implementation = 2;
 }

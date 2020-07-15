@@ -30,7 +30,7 @@ struct TableEntryPair {
   TableEntry entry_data;
 };
 
-pdpi::StatusOr<TableEntryPair> ParseLine(const std::string &line) {
+gutil::StatusOr<TableEntryPair> ParseLine(const std::string &line) {
   std::vector<std::string> tokens =
       absl::StrSplit(line, ' ', absl::SkipWhitespace());
   if (tokens.size() < 3) {
@@ -68,8 +68,8 @@ pdpi::StatusOr<TableEntryPair> ParseLine(const std::string &line) {
 
 }  // namespace
 
-pdpi::StatusOr<TableEntries> ParseAndFillEntries(
-    const pdpi::ir::IrP4Info &pdpi, const std::string &entries_path) {
+gutil::StatusOr<TableEntries> ParseAndFillEntries(
+    const pdpi::IrP4Info &pdpi, const std::string &entries_path) {
   ASSIGN_OR_RETURN(std::string file_content, util::ReadFile(entries_path));
 
   // Skip empty lines or ones that only contain whitespace.

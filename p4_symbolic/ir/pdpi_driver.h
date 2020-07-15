@@ -17,8 +17,8 @@
 
 #include <string>
 
-#include "p4_pdpi/ir.h"
-#include "p4_pdpi/utils/status_utils.h"
+#include "gutil/status.h"
+#include "p4_pdpi/ir.pb.h"
 
 namespace p4_symbolic {
 namespace ir {
@@ -27,8 +27,7 @@ namespace ir {
 // instance.
 // Returns the parsed IrP4Info instance, or an appropriate failure status
 // in case of a badly formatted input file, or if the file does not exist.
-pdpi::StatusOr<pdpi::ir::IrP4Info> ParseP4InfoFile(
-    const std::string &p4info_path);
+gutil::StatusOr<pdpi::IrP4Info> ParseP4InfoFile(const std::string &p4info_path);
 
 }  // namespace ir
 }  // namespace p4_symbolic

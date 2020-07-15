@@ -34,7 +34,7 @@ namespace {
 // Analyze a single match that is part of a table entry.
 // Constructs a symbolic expression that semantically corresponds to this
 // match.
-pdpi::StatusOr<z3::expr> AnalyzeSingleMatch(
+gutil::StatusOr<z3::expr> AnalyzeSingleMatch(
     p4::config::v1::MatchField match_definition,
     const z3::expr &field_expression, const z3::expr &match_value) {
   if (match_definition.match_case() != p4::config::v1::MatchField::kMatchType) {
@@ -57,7 +57,7 @@ pdpi::StatusOr<z3::expr> AnalyzeSingleMatch(
 
 // Constructs a symbolic expression that is true if and only if this entry
 // is matched on.
-pdpi::StatusOr<z3::expr> AnalyzeTableEntryCondition(
+gutil::StatusOr<z3::expr> AnalyzeTableEntryCondition(
     const ir::Table &table, const ir::TableEntry &entry,
     const SymbolicPerPacketState &state) {
   // Make sure number of match keys is the same in the table definition and
@@ -109,7 +109,7 @@ pdpi::StatusOr<z3::expr> AnalyzeTableEntryCondition(
 
 // Constructs a symbolic expressions that represents the action invocation
 // corresponding to this entry.
-pdpi::StatusOr<SymbolicPerPacketState> AnalyzeTableEntryAction(
+gutil::StatusOr<SymbolicPerPacketState> AnalyzeTableEntryAction(
     const ir::Table &table, const ir::TableEntry &entry,
     const google::protobuf::Map<std::string, ir::Action> &actions,
     const SymbolicPerPacketState &state) {
@@ -130,7 +130,7 @@ pdpi::StatusOr<SymbolicPerPacketState> AnalyzeTableEntryAction(
 
 }  // namespace
 
-pdpi::StatusOr<SymbolicPerPacketStateAndMatch> EvaluateTable(
+gutil::StatusOr<SymbolicPerPacketStateAndMatch> EvaluateTable(
     const ir::Table &table, const std::vector<ir::TableEntry> &entries,
     const google::protobuf::Map<std::string, ir::Action> &actions,
     const SymbolicPerPacketState &state) {

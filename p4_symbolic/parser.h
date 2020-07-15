@@ -20,13 +20,13 @@
 
 #include <string>
 
-#include "p4_pdpi/utils/status_utils.h"
+#include "gutil/status.h"
 #include "p4_symbolic/ir/ir.pb.h"
 #include "p4_symbolic/symbolic/symbolic.h"
 
 namespace p4_symbolic {
 
-pdpi::StatusOr<symbolic::Dataplane> ParseToIr(
+gutil::StatusOr<symbolic::Dataplane> ParseToIr(
     const std::string &bmv2_path, const std::string &p4info_path,
     const std::string &table_entries_path);
 
