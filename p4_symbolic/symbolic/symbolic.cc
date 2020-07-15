@@ -22,24 +22,16 @@
 namespace p4_symbolic {
 namespace symbolic {
 
-z3::context Z3_CONTEXT;
-bool READY = true;
+z3::context &Z3_CONTEXT() {
+  static z3::context *z3_context = new z3::context();
+  return *z3_context;
+}
 
 pdpi::StatusOr<std::unique_ptr<SolverState>> EvaluateP4Pipeline(
     const Dataplane &data_plane, const std::vector<int> &physical_ports) {
-  // Check that any previously run evaluation has terminated before a new
-  // one starts.
-  if (!READY) {
-    return absl::Status(absl::StatusCode::kAlreadyExists,
-                        "Cannot make subsequent call to EvaluateP4Pipeline() "
-                        "when SolverState returned by a previous call has not "
-                        "been destructed!");
-  }
-  READY = false;
-
   // Use global context to define a solver.
   std::unique_ptr<z3::solver> z3_solver =
-      std::make_unique<z3::solver>(Z3_CONTEXT);
+      std::make_unique<z3::solver>(Z3_CONTEXT());
 
   // "Accumulator"-style state used to evaluate tables.
   // Initially free/unconstrained and contains symbolic variables for
@@ -50,7 +42,7 @@ pdpi::StatusOr<std::unique_ptr<SolverState>> EvaluateP4Pipeline(
   SymbolicHeader ingress_packet = symbolic_state.header;
 
   // Restrict ports to the available physical ports.
-  z3::expr ingress_port_domain = Z3_CONTEXT.bool_val(false);
+  z3::expr ingress_port_domain = Z3_CONTEXT().bool_val(false);
   for (int port : physical_ports) {
     ingress_port_domain = ingress_port_domain || ingress_port == port;
   }
@@ -58,7 +50,7 @@ pdpi::StatusOr<std::unique_ptr<SolverState>> EvaluateP4Pipeline(
 
   // An (initially) empty trace.
   SymbolicTrace trace = {std::unordered_map<std::string, SymbolicTableMatch>(),
-                         Z3_CONTEXT.bool_val(false)};
+                         Z3_CONTEXT().bool_val(false)};
 
   // Visit tables and find their symbolic matches (and their actions).
   for (const auto &[name, table] : data_plane.program.tables()) {

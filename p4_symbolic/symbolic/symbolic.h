@@ -34,12 +34,7 @@ namespace symbolic {
 
 // Global z3::context used for creating symbolic expressions during symbolic
 // evaluation.
-// Do not access this from client code. This is completely managed by this file.
-extern z3::context Z3_CONTEXT;
-// Flags whether the EvaluateP4Pipeline is ready to be called, or whether it is
-// pending the complete consumption of its state (returned by a previous call)
-// by the client code.
-extern bool READY;
+z3::context &Z3_CONTEXT();
 
 // Specifies what a packet essentially looks like.
 // A concrete output packet within a concrete context produced by our solver
@@ -213,15 +208,6 @@ struct SolverState {
         entries(entries),
         context(context),
         solver(std::move(solver)) {}
-  // clean up Z3 internal memory datastructures, Z3 can still be
-  // used after this, as if Z3 has been freshly loaded.
-  // Makes sense to use here, when SolverState is destructed, it means
-  // no further analysis of the particular program is possible.
-  // https://github.com/Z3Prover/z3/issues/157
-  ~SolverState() {
-    READY = true;
-    Z3_API Z3_finalize_memory();
-  }
 };
 
 // Instances of these structs are passed around and returned between our

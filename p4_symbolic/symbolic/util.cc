@@ -70,37 +70,37 @@ z3::expr MergeExpressionWithCondition(const z3::expr &original,
 
 SymbolicPerPacketState FreeSymbolicPacketState() {
   // Port variables.
-  z3::expr ingress_port = Z3_CONTEXT.int_const("ingress_port");
+  z3::expr ingress_port = Z3_CONTEXT().int_const("ingress_port");
 
   // Packet header variables.
   SymbolicHeader header = {
-      Z3_CONTEXT.int_const("ingress_eth_src"),
-      Z3_CONTEXT.int_const("ingress_eth_dst"),
-      Z3_CONTEXT.int_const("ingress_eth_type"),
+      Z3_CONTEXT().int_const("ingress_eth_src"),
+      Z3_CONTEXT().int_const("ingress_eth_dst"),
+      Z3_CONTEXT().int_const("ingress_eth_type"),
 
-      Z3_CONTEXT.int_const("ingress_outer_ipv4_src"),
-      Z3_CONTEXT.int_const("ingress_outer_ipv4_dst"),
-      Z3_CONTEXT.int_const("ingress_outer_ipv6_dst_upper"),
-      Z3_CONTEXT.int_const("ingress_outer_ipv6_dst_lower"),
-      Z3_CONTEXT.int_const("ingress_outer_protocol"),
-      Z3_CONTEXT.int_const("ingress_outer_dscp"),
-      Z3_CONTEXT.int_const("ingress_outer_ttl"),
+      Z3_CONTEXT().int_const("ingress_outer_ipv4_src"),
+      Z3_CONTEXT().int_const("ingress_outer_ipv4_dst"),
+      Z3_CONTEXT().int_const("ingress_outer_ipv6_dst_upper"),
+      Z3_CONTEXT().int_const("ingress_outer_ipv6_dst_lower"),
+      Z3_CONTEXT().int_const("ingress_outer_protocol"),
+      Z3_CONTEXT().int_const("ingress_outer_dscp"),
+      Z3_CONTEXT().int_const("ingress_outer_ttl"),
 
-      Z3_CONTEXT.int_const("ingress_inner_ipv4_dst"),
-      Z3_CONTEXT.int_const("ingress_inner_ipv6_dst_upper"),
-      Z3_CONTEXT.int_const("ingress_inner_ipv6_dst_lower"),
-      Z3_CONTEXT.int_const("ingress_inner_protocol"),
-      Z3_CONTEXT.int_const("ingress_inner_dscp"),
-      Z3_CONTEXT.int_const("ingress_inner_ttl"),
+      Z3_CONTEXT().int_const("ingress_inner_ipv4_dst"),
+      Z3_CONTEXT().int_const("ingress_inner_ipv6_dst_upper"),
+      Z3_CONTEXT().int_const("ingress_inner_ipv6_dst_lower"),
+      Z3_CONTEXT().int_const("ingress_inner_protocol"),
+      Z3_CONTEXT().int_const("ingress_inner_dscp"),
+      Z3_CONTEXT().int_const("ingress_inner_ttl"),
 
-      Z3_CONTEXT.int_const("ingress_icmp_type"),
-      Z3_CONTEXT.int_const("ingress_vid"),
+      Z3_CONTEXT().int_const("ingress_icmp_type"),
+      Z3_CONTEXT().int_const("ingress_vid"),
   };
 
   // Default metadata.
   SymbolicMetadata metadata;
   metadata.insert({"standard_metadata.ingress_port", ingress_port});
-  metadata.insert({"standard_metadata.egress_spec", Z3_CONTEXT.int_val(-1)});
+  metadata.insert({"standard_metadata.egress_spec", Z3_CONTEXT().int_val(-1)});
 
   return {header, metadata};
 }
@@ -191,7 +191,7 @@ SymbolicPerPacketState MergeStatesOnCondition(
   // Merge metadata.
   SymbolicMetadata merged_metadata;
   for (const auto &[name, expr] : changed.metadata) {
-    z3::expr original_expr = Z3_CONTEXT.int_val(-1);
+    z3::expr original_expr = Z3_CONTEXT().int_val(-1);
     if (original.metadata.count(name) == 1) {
       original_expr = original.metadata.at(name);
     }
