@@ -27,6 +27,29 @@ namespace ir {
 
 namespace {
 
+// Translate a string statement op to its respective enum value.
+bmv2::StatementOp StatementOpToEnum(const std::string &op) {
+  static std::unordered_map<std::string, bmv2::StatementOp> op_table = {
+      {"assign", bmv2::StatementOp::assign}};
+
+  if (op_table.count(op) != 1) {
+    return bmv2::StatementOp::unsupported_statement;
+  }
+  return op_table.at(op);
+}
+
+// Translate a string expression type to its respective enum value.
+bmv2::ExpressionType ExpressionTypeToEnum(const std::string &type) {
+  static std::unordered_map<std::string, bmv2::ExpressionType> type_table = {
+      {"field", bmv2::ExpressionType::field},
+      {"runtime_data", bmv2::ExpressionType::runtime_data}};
+
+  if (type_table.count(type) != 1) {
+    return bmv2::ExpressionType::unsupported_expression;
+  }
+  return type_table.at(type);
+}
+
 // Extracting source code information.
 gutil::StatusOr<bmv2::SourceLocation> ExtractSourceLocation(
     google::protobuf::Value unparsed_source_location) {
@@ -114,22 +137,27 @@ gutil::StatusOr<LValue> ExtractLValue(
 
   const google::protobuf::Struct &struct_value = bmv2_value.struct_value();
   const std::string &type = struct_value.fields().at("type").string_value();
-  if (type == "field") {
-    const google::protobuf::ListValue &names =
-        struct_value.fields().at("value").list_value();
+  switch (ExpressionTypeToEnum(type)) {
+    case bmv2::ExpressionType::field: {
+      const google::protobuf::ListValue &names =
+          struct_value.fields().at("value").list_value();
 
-    FieldValue *field_value = output.mutable_field_value();
-    field_value->set_header_name(names.values(0).string_value());
-    field_value->set_field_name(names.values(1).string_value());
-  } else if (type == "runtime_data") {
-    int variable_index = struct_value.fields().at("value").number_value();
+      FieldValue *field_value = output.mutable_field_value();
+      field_value->set_header_name(names.values(0).string_value());
+      field_value->set_field_name(names.values(1).string_value());
+      break;
+    }
+    case bmv2::ExpressionType::runtime_data: {
+      int variable_index = struct_value.fields().at("value").number_value();
 
-    Variable *variable = output.mutable_variable_value();
-    variable->set_name(variables[variable_index]);
-  } else {
-    return absl::Status(
-        absl::StatusCode::kUnimplemented,
-        absl::StrCat("Unsupported lvalue ", bmv2_value.DebugString()));
+      Variable *variable = output.mutable_variable_value();
+      variable->set_name(variables[variable_index]);
+      break;
+    }
+    default:
+      return absl::Status(
+          absl::StatusCode::kUnimplemented,
+          absl::StrCat("Unsupported lvalue ", bmv2_value.DebugString()));
   }
 
   return output;
@@ -151,22 +179,27 @@ gutil::StatusOr<RValue> ExtractRValue(
 
   const google::protobuf::Struct &struct_value = bmv2_value.struct_value();
   const std::string &type = struct_value.fields().at("type").string_value();
-  if (type == "field") {
-    const google::protobuf::ListValue &names =
-        struct_value.fields().at("value").list_value();
+  switch (ExpressionTypeToEnum(type)) {
+    case bmv2::ExpressionType::field: {
+      const google::protobuf::ListValue &names =
+          struct_value.fields().at("value").list_value();
 
-    FieldValue *field_value = output.mutable_field_value();
-    field_value->set_header_name(names.values(0).string_value());
-    field_value->set_field_name(names.values(1).string_value());
-  } else if (type == "runtime_data") {
-    int variable_index = struct_value.fields().at("value").number_value();
+      FieldValue *field_value = output.mutable_field_value();
+      field_value->set_header_name(names.values(0).string_value());
+      field_value->set_field_name(names.values(1).string_value());
+      break;
+    }
+    case bmv2::ExpressionType::runtime_data: {
+      int variable_index = struct_value.fields().at("value").number_value();
 
-    Variable *variable = output.mutable_variable_value();
-    variable->set_name(variables[variable_index]);
-  } else {
-    return absl::Status(
-        absl::StatusCode::kUnimplemented,
-        absl::StrCat("Unsupported rvalue ", bmv2_value.DebugString()));
+      Variable *variable = output.mutable_variable_value();
+      variable->set_name(variables[variable_index]);
+      break;
+    }
+    default:
+      return absl::Status(
+          absl::StatusCode::kUnimplemented,
+          absl::StrCat("Unsupported rvalue ", bmv2_value.DebugString()));
   }
 
   return output;
@@ -205,35 +238,34 @@ gutil::StatusOr<Action> ExtractAction(
                                        primitive.DebugString()));
     }
 
-    const std::string &operation = primitive.fields().at("op").string_value();
-    // TODO(babman): Maybe bring back the enum and use switch-case here? discuss
     Statement *statement = action_impl->add_action_body();
-    if (operation == "assign") {
-      AssignmentStatement *assignment = statement->mutable_assignment();
-      const google::protobuf::Value &params =
-          primitive.fields().at("parameters");
-      if (params.kind_case() != google::protobuf::Value::kListValue ||
-          params.list_value().values_size() != 2) {
-        return absl::Status(absl::StatusCode::kInvalidArgument,
-                            absl::StrCat("Assignment statement in action ",
-                                         pdpi_action.preamble().name(),
-                                         " must contain 2 parameters, found ",
-                                         primitive.DebugString()));
+    switch (StatementOpToEnum(primitive.fields().at("op").string_value())) {
+      case bmv2::StatementOp::assign: {
+        AssignmentStatement *assignment = statement->mutable_assignment();
+        const google::protobuf::Value &params =
+            primitive.fields().at("parameters");
+        if (params.kind_case() != google::protobuf::Value::kListValue ||
+            params.list_value().values_size() != 2) {
+          return absl::Status(absl::StatusCode::kInvalidArgument,
+                              absl::StrCat("Assignment statement in action ",
+                                           pdpi_action.preamble().name(),
+                                           " must contain 2 parameters, found ",
+                                           primitive.DebugString()));
+        }
+
+        ASSIGN_OR_RETURN(
+            *assignment->mutable_left(),
+            ExtractLValue(params.list_value().values(0), variable_map));
+        ASSIGN_OR_RETURN(
+            *assignment->mutable_right(),
+            ExtractRValue(params.list_value().values(1), variable_map));
+        break;
       }
-
-      ASSIGN_OR_RETURN(
-          *assignment->mutable_left(),
-          ExtractLValue(params.list_value().values(0), variable_map));
-      ASSIGN_OR_RETURN(
-          *assignment->mutable_right(),
-          ExtractRValue(params.list_value().values(1), variable_map));
-    } else {
-      return absl::Status(
-          absl::StatusCode::kUnimplemented,
-          absl::StrCat("Unsupported statement in action ",
-                       pdpi_action.preamble().name(), ", found ",
-
-                       primitive.DebugString()));
+      default:
+        return absl::Status(absl::StatusCode::kUnimplemented,
+                            absl::StrCat("Unsupported statement in action ",
+                                         pdpi_action.preamble().name(),
+                                         ", found ", primitive.DebugString()));
     }
 
     // Parse source_info struct into its own protobuf.
@@ -263,8 +295,21 @@ gutil::StatusOr<Table> ExtractTable(const bmv2::Table &bmv2_table,
 
   // Table implementation is extracted from bmv2.
   TableImplementation *table_impl = output.mutable_table_implementation();
-  table_impl->set_match_type(bmv2_table.match_type());
-  table_impl->set_action_selector_type(bmv2_table.type());
+  switch (bmv2_table.type()) {
+    case bmv2::ActionSelectorType::simple:
+      table_impl->set_action_selector_type(TableImplementation::SIMPLE);
+      break;
+    case bmv2::ActionSelectorType::indirect:
+      table_impl->set_action_selector_type(TableImplementation::INDIRECT);
+      break;
+    case bmv2::ActionSelectorType::indirect_ws:
+      table_impl->set_action_selector_type(TableImplementation::INDIRECT_WS);
+      break;
+    default:
+      return absl::Status(absl::StatusCode::kUnimplemented,
+                          absl::StrCat("Unsupported action selector type in ",
+                                       bmv2_table.DebugString()));
+  }
 
   return output;
 }

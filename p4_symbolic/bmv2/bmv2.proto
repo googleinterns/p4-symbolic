@@ -275,3 +275,20 @@ message SourceLocation {
   // into the attached construct (e.g. in the case of a nested expression).
   string source_fragment = 4;
 }
+
+// This enum specifies the exact statements types that are supported by our ir.
+// The names used inside the enum match *exactly* the values of the "op" field
+// in the respective statement JSON objects.
+enum StatementOp {
+  unsupported_statement = 0;  // Something else that is not supported.
+  assign = 1;                 // Assignment (to a variable or header field).
+}
+
+// This specifies the exact expressions that are supported by our ir.
+// The names used inside the enum match *exactly* the values of the "type" field
+// in the respective expression (e.g. type-value) JSON objects.
+enum ExpressionType {
+  unsupported_expression = 0;  // Something else that is not supported.
+  field = 1;                   // Header/metadata field.
+  runtime_data = 2;            // Local variable.
+}

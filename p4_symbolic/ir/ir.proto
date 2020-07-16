@@ -97,15 +97,14 @@ message Table {
 
 // Table implementation details that are not exposed in the definition.
 message TableImplementation {
-  // The overal type of the match(s) of the table.
-  // In case the table have several keys with different match type,
-  // the overall match type of the table would be the most general.
-  // There is always a most general match because of P4 restrications
-  // on match combination (which may be under-documented).
-  // See https://github.com/p4lang/p4-spec/issues/411
-  p4_symbolic.bmv2.TableMatchType match_type = 1;
+  enum ActionSelectorType {
+    SIMPLE = 0;       // A Simple key and action table.
+    INDIRECT = 1;     // Action profiles table.
+    INDIRECT_WS = 2;  // Action profiles with dynamic selector.
+  }
+
   // Table type with respect to action selection.
-  p4_symbolic.bmv2.ActionSelectorType action_selector_type = 2;
+  ActionSelectorType action_selector_type = 1;
 }
 
 // An abstract p4 statement corresponding to a top level operation within
