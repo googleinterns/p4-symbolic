@@ -236,39 +236,53 @@ tables {
         }
       }
       actions {
-        preamble {
+        ref {
           id: 21735938
-          name: "MyIngress.set_egress_spec"
-          alias: "set_egress_spec"
+          annotations: "@proto_id(1)"
         }
-        params_by_id {
-          key: 1
-          value {
-            param {
-              id: 1
-              name: "port"
-              bitwidth: 9
+        action {
+          preamble {
+            id: 21735938
+            name: "MyIngress.set_egress_spec"
+            alias: "set_egress_spec"
+          }
+          params_by_id {
+            key: 1
+            value {
+              param {
+                id: 1
+                name: "port"
+                bitwidth: 9
+              }
+            }
+          }
+          params_by_name {
+            key: "port"
+            value {
+              param {
+                id: 1
+                name: "port"
+                bitwidth: 9
+              }
             }
           }
         }
-        params_by_name {
-          key: "port"
-          value {
-            param {
-              id: 1
-              name: "port"
-              bitwidth: 9
-            }
-          }
-        }
+        proto_id: 1
       }
       actions {
-        preamble {
+        ref {
           id: 21257015
-          name: "NoAction"
-          alias: "NoAction"
-          annotations: "@noWarn(\"unused\")"
+          annotations: "@proto_id(2)"
         }
+        action {
+          preamble {
+            id: 21257015
+            name: "NoAction"
+            alias: "NoAction"
+            annotations: "@noWarn(\"unused\")"
+          }
+        }
+        proto_id: 2
       }
       size: 1024
     }
@@ -279,11 +293,38 @@ tables {
 initial_table: "MyIngress.ports_exact"
 
 =====MyIngress.ports_exact Entries=====
-action: "MyIngress.set_egress_spec"
-match_values: 0
-action_parameters: 1
 
-action: "MyIngress.set_egress_spec"
-match_values: 1
-action_parameters: 0
+table_name: "MyIngress.ports_exact"
+matches {
+  name: "standard_metadata.ingress_port"
+  exact {
+    hex_str: "0x0030"
+  }
+}
+action {
+  name: "MyIngress.set_egress_spec"
+  params {
+    name: "port"
+    value {
+      hex_str: "0x0031"
+    }
+  }
+}
+
+table_name: "MyIngress.ports_exact"
+matches {
+  name: "standard_metadata.ingress_port"
+  exact {
+    hex_str: "0x0031"
+  }
+}
+action {
+  name: "MyIngress.set_egress_spec"
+  params {
+    name: "port"
+    value {
+      hex_str: "0x0030"
+    }
+  }
+}
 

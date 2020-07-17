@@ -16,6 +16,9 @@
 
 #include "absl/strings/str_format.h"
 #include "absl/strings/str_split.h"
+#include "gutil/proto.h"
+#include "p4/v1/p4runtime.pb.h"
+#include "p4_pdpi/ir.h"
 #include "p4_symbolic/util/io.h"
 
 namespace p4_symbolic {
@@ -69,36 +72,36 @@ gutil::StatusOr<TableEntryPair> ParseLine(const std::string &line) {
 }  // namespace
 
 gutil::StatusOr<TableEntries> ParseAndFillEntries(
-    const pdpi::IrP4Info &pdpi, const std::string &entries_path) {
-  ASSIGN_OR_RETURN(std::string file_content, util::ReadFile(entries_path));
+    const pdpi::IrP4Info &p4info, const std::string &entries_path) {
+  // Parse table entries as a plain p4.v1.TableEntry proto.
+  TableEntriesFile entries_file;
+  RETURN_IF_ERROR(
+      gutil::ReadProtoFromFile(entries_path.c_str(), &entries_file));
 
-  // Skip empty lines or ones that only contain whitespace.
-  std::vector<std::string> lines =
-      absl::StrSplit(file_content, '\n', absl::SkipWhitespace());
-
+  // Use pdpi to transform each plain p4.v1.TableEntry to the pd representation
+  // pdpi.ir.IrTableEntry.
   TableEntries output;
-  // Parse table entries one line at a time.
-  for (const std::string &line : lines) {
-    ASSIGN_OR_RETURN(TableEntryPair pair, ParseLine(line));
-    // Table and action aliases parsed from table entris files
-    // will be replaced with their respective full name.
-    TableEntry entry = pair.entry_data;
-    const std::string &table_alias = pair.table_alias;
-    const std::string &action_alias = entry.action();
+  for (const p4::v1::TableEntry &pi_entry : entries_file.table_entries()) {
+    ASSIGN_OR_RETURN(pdpi::IrTableEntry pdpi_entry,
+                     pdpi::PiTableEntryToIr(p4info, pi_entry));
+
+    // Replace table and action aliases with their respective full name.
+    const std::string &table_alias = pdpi_entry.table_name();
+    const std::string &action_alias = pdpi_entry.action().name();
 
     // Make sure both table and action referred to by entry exist.
-    RET_CHECK(pdpi.tables_by_name().count(table_alias) == 1);
-    RET_CHECK(pdpi.actions_by_name().count(action_alias) == 1);
+    RET_CHECK(p4info.tables_by_name().count(table_alias) == 1);
+    RET_CHECK(p4info.actions_by_name().count(action_alias) == 1);
 
     const std::string &table_name =
-        pdpi.tables_by_name().at(table_alias).preamble().name();
+        p4info.tables_by_name().at(table_alias).preamble().name();
     const std::string &action_name =
-        pdpi.actions_by_name().at(action_alias).preamble().name();
+        p4info.actions_by_name().at(action_alias).preamble().name();
 
-    entry.set_action(action_name);
-    output[table_name].push_back(entry);
+    pdpi_entry.mutable_action()->set_name(action_name);
+    pdpi_entry.set_table_name(table_name);
+    output[pdpi_entry.table_name()].push_back(pdpi_entry);
   }
-
   return output;
 }
 

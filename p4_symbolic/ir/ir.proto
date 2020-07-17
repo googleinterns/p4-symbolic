@@ -31,18 +31,13 @@ syntax = "proto3";
 
 package p4_symbolic.ir;
 
+import "p4/v1/p4runtime.proto";
 import "p4_pdpi/ir.proto";
 import "p4_symbolic/bmv2/bmv2.proto";
 
-// Table entry parsed from P4RT/simple_switch_CLI.
-message TableEntry {
-  // Name of the target action, matches the format of the key
-  // in P4Program#actions.
-  string action = 1;
-  // Values to match on.
-  repeated int32 match_values = 2;  // TODO(babman): turn to hex for bitstrings.
-  // Parameters passed to action if the match succeeds.
-  repeated int32 action_parameters = 3;  // TODO(babman): turn to hex.
+// Table entry file consisting of many entries in P4RT format.
+message TableEntriesFile {
+  repeated p4.v1.TableEntry table_entries = 1;
 }
 
 // Overall structure of a p4 program.

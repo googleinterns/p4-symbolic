@@ -52,7 +52,8 @@ absl::Status Test() {
   std::cout << dataplane.program.DebugString() << std::endl;
   for (const auto &[name, entries] : dataplane.entries) {
     std::cout << "=====" << name << " Entries=====" << std::endl;
-    for (const p4_symbolic::ir::TableEntry &entry : entries) {
+    std::cout << std::endl;
+    for (const pdpi::IrTableEntry &entry : entries) {
       std::cout << entry.DebugString() << std::endl;
     }
   }
