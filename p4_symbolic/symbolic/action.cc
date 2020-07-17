@@ -17,6 +17,7 @@
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
+#include "p4_symbolic/symbolic/util.h"
 
 namespace p4_symbolic {
 namespace symbolic {
@@ -144,7 +145,9 @@ gutil::StatusOr<z3::expr> EvaluateVariable(const ir::Variable &variable,
 // semantically equivalent to the behavior of the action on its concrete
 // parameters.
 gutil::StatusOr<SymbolicPerPacketState> EvaluateAction(
-    const ir::Action &action, const google::protobuf::RepeatedField<int> &args,
+    const ir::Action &action,
+    const google::protobuf::RepeatedPtrField<
+        pdpi::IrActionInvocation::IrActionParam> &args,
     const SymbolicPerPacketState &state) {
   // Construct this action's context.
   ActionContext context;
@@ -159,12 +162,31 @@ gutil::StatusOr<SymbolicPerPacketState> EvaluateAction(
                      " called with incompatible number of parameters"));
   }
 
-  for (size_t i = 1; i <= parameters.size(); i++) {  // In order of definition.
+  // Find each parameter value in argument by parameter's name.
+  for (size_t i = 1; i <= parameters.size(); i++) {
     const pdpi::IrActionDefinition::IrActionParamDefinition &parameter =
         parameters.at(i);
     const std::string &parameter_name = parameter.param().name();
-    z3::expr parameter_value = Z3Context().int_val(args.at(i - 1));
-    context.scope.insert({parameter_name, parameter_value});
+
+    // Search for value by name.
+    bool found_parameter = false;
+    for (const pdpi::IrActionInvocation::IrActionParam &arg : args) {
+      if (arg.name() == parameter_name) {
+        found_parameter = true;
+        ASSIGN_OR_RETURN(z3::expr parameter_value,
+                         util::IrValueToZ3Expr(arg.value()));
+        context.scope.insert({parameter_name, parameter_value});
+        break;
+      }
+    }
+
+    // Error if parameter name is not found in entries.
+    if (!found_parameter) {
+      return absl::Status(
+          absl::StatusCode::kInvalidArgument,
+          absl::StrCat("Action ", action.action_definition().preamble().name(),
+                       " called without passing parameter ", parameter_name));
+    }
   }
 
   // Iterate over the body in order, and evaluate each statement.

@@ -37,6 +37,8 @@ cc_library(
         "@com_google_absl//absl/strings",
         "@com_google_protobuf//:protobuf_headers",
         "@p4_pdpi//gutil:status",
+        "@p4_pdpi//p4_pdpi:ir_cc_proto",
+        "@p4_pdpi//p4_pdpi/utils:ir",
     ],
 )
 
@@ -47,5 +49,5 @@ end_to_end_test(
     output_golden_file = "expected/table.txt",
     p4_program = "//p4-samples:port-table/table.p4",
     smt_golden_file = "expected/table.smt2",
-    table_entries = "//p4-samples:port-table/entries.txt",
+    table_entries = "//p4-samples:port-table/entries.pb.txt",
 )

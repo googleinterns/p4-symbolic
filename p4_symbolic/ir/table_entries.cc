@@ -23,53 +23,6 @@
 
 namespace p4_symbolic {
 namespace ir {
-namespace {
-
-struct TableEntryPair {
-  // The alias of the table this entry belongs to.
-  // This is translated to a fully qualified name during the IR transformation.
-  std::string table_alias;
-  // This is injected into the IR structure when the IR is produced.
-  TableEntry entry_data;
-};
-
-gutil::StatusOr<TableEntryPair> ParseLine(const std::string &line) {
-  std::vector<std::string> tokens =
-      absl::StrSplit(line, ' ', absl::SkipWhitespace());
-  if (tokens.size() < 3) {
-    return absl::Status(
-        absl::StatusCode::kInvalidArgument,
-        absl::StrFormat("Malformed table entry, found %s", line));
-  }
-  if (tokens[0] != "table_add") {
-    return absl::Status(
-        absl::StatusCode::kInvalidArgument,
-        absl::StrFormat("Malformed table entry command %s, found %s", tokens[0],
-                        line));
-  }
-
-  // Parse table entries.
-  TableEntry output;
-  output.set_action(tokens[2]);
-  bool found_delimiter = false;  // true when "=>" is found.
-  for (size_t i = 3; i < tokens.size(); i++) {
-    if (tokens[i] == "=>") {
-      found_delimiter = true;
-      continue;
-    }
-
-    int val = std::atoi(tokens[i].c_str());
-    if (found_delimiter) {
-      output.add_action_parameters(val);
-    } else {
-      output.add_match_values(val);
-    }
-  }
-
-  return TableEntryPair{tokens[1], output};
-}
-
-}  // namespace
 
 gutil::StatusOr<TableEntries> ParseAndFillEntries(
     const pdpi::IrP4Info &p4info, const std::string &entries_path) {

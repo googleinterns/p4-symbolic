@@ -298,7 +298,7 @@ table_name: "MyIngress.ports_exact"
 matches {
   name: "standard_metadata.ingress_port"
   exact {
-    hex_str: "0x0030"
+    hex_str: "0x0000"
   }
 }
 action {
@@ -306,7 +306,7 @@ action {
   params {
     name: "port"
     value {
-      hex_str: "0x0031"
+      hex_str: "0x0001"
     }
   }
 }
@@ -315,7 +315,7 @@ table_name: "MyIngress.ports_exact"
 matches {
   name: "standard_metadata.ingress_port"
   exact {
-    hex_str: "0x0031"
+    hex_str: "0x0001"
   }
 }
 action {
@@ -323,7 +323,7 @@ action {
   params {
     name: "port"
     value {
-      hex_str: "0x0030"
+      hex_str: "0x0000"
     }
   }
 }

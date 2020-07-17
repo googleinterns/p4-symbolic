@@ -3,7 +3,7 @@ table_entries {
   match {
     field_id: 1,
     exact {
-      value: "0"
+      value: "\00"
     }    
   }
   action {
@@ -11,7 +11,7 @@ table_entries {
       action_id: 21735938
       params {
         param_id: 1
-        value: "1"
+        value: "\01"
       }
     }
   }
@@ -21,7 +21,7 @@ table_entries {
   match {
     field_id: 1,
     exact {
-      value: "1"
+      value: "\01"
     }    
   }
   action {
@@ -29,7 +29,7 @@ table_entries {
       action_id: 21735938
       params {
         param_id: 1
-        value: "0"
+        value: "\00"
       }
     }
   }
