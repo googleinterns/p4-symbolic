@@ -17,6 +17,7 @@ workspace(name = "p4_symbolic")
 # Buildtools (and dependencies). This Include buildifier, bazel's auto
 # formatting/linting.
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 
 http_archive(
     name = "io_bazel_rules_go",
@@ -80,6 +81,18 @@ load("@rules_cc//cc:repositories.bzl", "rules_cc_dependencies")
 
 rules_cc_dependencies()
 
+# protobuf headers and utils
+http_archive(
+    name = "com_google_protobuf",
+    sha256 = "1a83f0525e5c8096b7b812181865da3c8637de88f9777056cefbf51a1eb0b83f",
+    strip_prefix = "protobuf-3.12.3",
+    url = "https://github.com/protocolbuffers/protobuf/releases/download/v3.12.3/protobuf-all-3.12.3.tar.gz",
+)
+
+load("@com_google_protobuf//:protobuf_deps.bzl", "protobuf_deps")
+
+protobuf_deps()
+
 load("@rules_proto//proto:repositories.bzl", "rules_proto_dependencies", "rules_proto_toolchains")
 
 rules_proto_dependencies()
@@ -92,28 +105,24 @@ local_repository(
     path = "third_party/p4-pdpi",
 )
 
-load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
-
-git_repository(
-    name = "com_google_googletest",
-    remote = "https://github.com/google/googletest.git",
-    tag = "release-1.10.0",
-)
-
 git_repository(
     name = "com_google_absl",
     remote = "https://github.com/abseil/abseil-cpp.git",
     tag = "20200225.1",
 )
 
+# p4 Runtime and its dependencies
 local_repository(
     name = "com_github_p4lang_p4runtime",
-    path = "third_party/p4-pdpi/third_party/p4runtime",
+    path = "third_party/p4-pdpi/third_party/p4runtime/proto",
 )
 
-load("@com_github_p4lang_p4runtime//bazel:deps.bzl", "p4runtime_deps")
-
-p4runtime_deps()
+git_repository(
+    name = "com_google_googleapis",
+    commit = "dd244bb3a5023a4a9290b21dae6b99020c026123",
+    remote = "https://github.com/googleapis/googleapis",
+    shallow_since = "1591402163 -0700",
+)
 
 load("@com_google_googleapis//:repository_rules.bzl", "switched_rules_by_language")
 
@@ -121,38 +130,38 @@ switched_rules_by_language(
     name = "com_google_googleapis_imports",
     cc = True,
     grpc = True,
+    python = True,
 )
 
-load("@build_stack_rules_proto//cpp:deps.bzl", "cpp_grpc_library")
+http_archive(
+    name = "com_github_grpc_grpc",
+    sha256 = "0343e6dbde66e9a31c691f2f61e98d79f3584e03a11511fad3f10e3667832a45",
+    strip_prefix = "grpc-1.29.1",
+    url = "https://github.com/grpc/grpc/archive/v1.29.1.tar.gz",
+)
 
-cpp_grpc_library()
 
 load("@com_github_grpc_grpc//bazel:grpc_deps.bzl", "grpc_deps")
 
 grpc_deps()
 
-load("@build_stack_rules_proto//python:deps.bzl", "python_grpc_library")
+load("@com_github_grpc_grpc//bazel:grpc_extra_deps.bzl", "grpc_extra_deps")
 
-python_grpc_library()
+grpc_extra_deps()
 
-load("@io_bazel_rules_python//python:pip.bzl", "pip_import", "pip_repositories")
+load("@com_github_grpc_grpc//bazel:grpc_python_deps.bzl", "grpc_python_deps")
+
+grpc_python_deps()
+
+load("@rules_python//python:pip.bzl", "pip_import", "pip_repositories")
 
 pip_repositories()
 
 pip_import(
-    name = "protobuf_py_deps",
-    requirements = "@build_stack_rules_proto//python/requirements:protobuf.txt",
+    name = "grpc_python_dependencies",
+    requirements = "@com_github_grpc_grpc//:requirements.bazel.txt",
 )
 
-load("@protobuf_py_deps//:requirements.bzl", protobuf_pip_install = "pip_install")
+load("@grpc_python_dependencies//:requirements.bzl", "pip_install")
 
-protobuf_pip_install()
-
-pip_import(
-    name = "grpc_py_deps",
-    requirements = "@build_stack_rules_proto//python:requirements.txt",
-)
-
-load("@grpc_py_deps//:requirements.bzl", grpc_pip_install = "pip_install")
-
-grpc_pip_install()
+pip_install()

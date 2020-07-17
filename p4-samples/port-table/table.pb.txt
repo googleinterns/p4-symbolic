@@ -15,9 +15,11 @@ tables {
   }
   action_refs {
     id: 21735938
+    annotations: "@proto_id(1)"
   }
   action_refs {
     id: 21257015
+    annotations: "@proto_id(2)"
   }
   size: 1024
 }

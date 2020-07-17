@@ -1,0 +1,36 @@
+table_entries {
+  table_id: 42954855
+  match {
+    field_id: 1,
+    exact {
+      value: "0"
+    }    
+  }
+  action {
+    action {
+      action_id: 21735938
+      params {
+        param_id: 1
+        value: "1"
+      }
+    }
+  }
+}
+table_entries {
+  table_id: 42954855
+  match {
+    field_id: 1,
+    exact {
+      value: "1"
+    }    
+  }
+  action {
+    action {
+      action_id: 21735938
+      params {
+        param_id: 1
+        value: "0"
+      }
+    }
+  }
+}

@@ -63,8 +63,8 @@ control MyIngress(inout headers hdr,
             standard_metadata.ingress_port: exact;
         }
         actions = {
-            set_egress_spec;
-            NoAction;
+            @proto_id(1) set_egress_spec;
+            @proto_id(2) NoAction;
         }
         size = 1024;
         default_action = NoAction;
