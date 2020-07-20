@@ -84,6 +84,7 @@ cc_library(
         ":ir_cc_proto",
         ":table_entries",
         "//p4_symbolic/bmv2:bmv2_cc_proto",
+        "@com_github_p4lang_p4runtime//:p4runtime_cc_proto",
         "@com_google_absl//absl/strings",
         "@com_google_protobuf//:protobuf_headers",
         "@p4_pdpi//gutil:status",

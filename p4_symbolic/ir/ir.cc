@@ -19,8 +19,11 @@
 #include <utility>
 #include <vector>
 
+#include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/strip.h"
 #include "google/protobuf/struct.pb.h"
+#include "p4/config/v1/p4info.pb.h"
 
 namespace p4_symbolic {
 namespace ir {
@@ -42,7 +45,8 @@ bmv2::StatementOp StatementOpToEnum(const std::string &op) {
 bmv2::ExpressionType ExpressionTypeToEnum(const std::string &type) {
   static std::unordered_map<std::string, bmv2::ExpressionType> type_table = {
       {"field", bmv2::ExpressionType::field},
-      {"runtime_data", bmv2::ExpressionType::runtime_data}};
+      {"runtime_data", bmv2::ExpressionType::runtime_data},
+      {"hexstr", bmv2::ExpressionType::hexstr_}};
 
   if (type_table.count(type) != 1) {
     return bmv2::ExpressionType::unsupported_expression;
@@ -196,6 +200,18 @@ gutil::StatusOr<RValue> ExtractRValue(
       variable->set_name(variables[variable_index]);
       break;
     }
+    case bmv2::ExpressionType::hexstr_: {
+      HexstrValue *hexstr_value = output.mutable_hexstr_value();
+      std::string hexstr = struct_value.fields().at("value").string_value();
+      if (absl::StartsWith(hexstr, "-")) {
+        hexstr_value->set_value(std::string(absl::StripPrefix(hexstr, "-")));
+        hexstr_value->set_negative(true);
+      } else {
+        hexstr_value->set_value(hexstr);
+        hexstr_value->set_negative(false);
+      }
+      break;
+    }
     default:
       return absl::Status(
           absl::StatusCode::kUnimplemented,
@@ -341,14 +357,34 @@ gutil::StatusOr<P4Program> Bmv2AndP4infoToIr(const bmv2::P4Program &bmv2,
   for (const bmv2::Action &bmv2_action : bmv2.actions()) {
     const std::string &action_name = bmv2_action.name();
 
-    // Matching action must exist in p4info and thus pdpi.
+    // Matching action should exist in p4info, unless if this is some implicit
+    // action. For example, an action that is automatically generated to
+    // correspond to an if statement branch.
+    pdpi::IrActionDefinition pdpi_action;
     if (actions_by_qualified_name.count(action_name) != 1) {
-      return absl::Status(
-          absl::StatusCode::kInvalidArgument,
-          absl::StrCat("Action ", action_name, "%s is missing from p4info!"));
+      // Fill in the fully qualified action name.
+      pdpi_action.mutable_preamble()->set_name(action_name);
+
+      // Fill in the action parameters.
+      auto *params_by_id = pdpi_action.mutable_params_by_id();
+      auto *params_by_name = pdpi_action.mutable_params_by_name();
+      for (int i = 0; i < bmv2_action.runtime_data_size(); i++) {
+        const bmv2::VariableDefinition &bmv2_parameter =
+            bmv2_action.runtime_data(i);
+
+        p4::config::v1::Action::Param *pdpi_parameter =
+            (*params_by_id)[i + 1].mutable_param();
+        pdpi_parameter->set_id(i + 1);
+        pdpi_parameter->set_name(bmv2_parameter.name());
+        pdpi_parameter->set_bitwidth(bmv2_parameter.bitwidth());
+
+        *(*params_by_name)[bmv2_parameter.name()].mutable_param() =
+            *pdpi_parameter;
+      }
+    } else {
+      // Safe, no exception.
+      pdpi_action = actions_by_qualified_name.at(action_name);
     }
-    const pdpi::IrActionDefinition &pdpi_action =
-        actions_by_qualified_name.at(action_name);  // Safe, no exception.
 
     ASSIGN_OR_RETURN((*output.mutable_actions())[pdpi_action.preamble().name()],
                      ExtractAction(bmv2_action, pdpi_action));
@@ -367,14 +403,43 @@ gutil::StatusOr<P4Program> Bmv2AndP4infoToIr(const bmv2::P4Program &bmv2,
     for (const bmv2::Table &bmv2_table : pipeline.tables()) {
       const std::string &table_name = bmv2_table.name();
 
-      // Matching action must exist in p4info and thus pdpi.
+      // Matching table should exist in p4info, unless if this is some implicit
+      // table. For example, a table that is automatically generated to
+      // correspond to a conditional.
+      pdpi::IrTableDefinition pdpi_table;
       if (tables_by_qualified_name.count(table_name) != 1) {
-        return absl::Status(
-            absl::StatusCode::kInvalidArgument,
-            absl::StrCat("Table ", table_name, " is missing from p4info!"));
+        // Set table fully qualified name.
+        pdpi_table.mutable_preamble()->set_name(table_name);
+
+        // Fill in match field maps.
+        auto *match_fields_by_id = pdpi_table.mutable_match_fields_by_id();
+        auto *match_fields_by_name = pdpi_table.mutable_match_fields_by_name();
+        for (int i = 0; i < bmv2_table.key_size(); i++) {
+          const bmv2::TableKey &key = bmv2_table.key(i);
+
+          p4::config::v1::MatchField *match_field =
+              (*match_fields_by_id)[i + 1].mutable_match_field();
+          match_field->set_id(i + 1);
+          match_field->set_name(key.name());
+          switch (key.match_type()) {
+            case bmv2::TableMatchType::exact: {
+              match_field->set_match_type(p4::config::v1::MatchField::EXACT);
+              break;
+            }
+            default:
+              return absl::Status(
+                  absl::StatusCode::kUnimplemented,
+                  absl::StrCat("Unsupported match type ", key.DebugString(),
+                               " in table", table_name));
+          }
+
+          *(*match_fields_by_name)[key.name()].mutable_match_field() =
+              *match_field;
+        }
+      } else {
+        // Safe, no exception.
+        pdpi_table = tables_by_qualified_name.at(table_name);
       }
-      const pdpi::IrTableDefinition &pdpi_table =
-          tables_by_qualified_name.at(table_name);  // Safe, no exception.
 
       ASSIGN_OR_RETURN((*output.mutable_tables())[pdpi_table.preamble().name()],
                        ExtractTable(bmv2_table, pdpi_table));

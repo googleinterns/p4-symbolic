@@ -291,4 +291,5 @@ enum ExpressionType {
   unsupported_expression = 0;  // Something else that is not supported.
   field = 1;                   // Header/metadata field.
   runtime_data = 2;            // Local variable.
+  hexstr_ = 3;                 // Hexstring literal.
 }
