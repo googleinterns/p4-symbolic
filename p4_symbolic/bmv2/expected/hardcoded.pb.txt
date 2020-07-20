@@ -416,6 +416,8 @@ pipelines {
     max_size: 1024
     action_ids: 0
     actions: "hardcoded55"
+    default_entry {
+    }
   }
   tables {
     name: "tbl_hardcoded57"
@@ -429,6 +431,9 @@ pipelines {
     max_size: 1024
     action_ids: 1
     actions: "hardcoded57"
+    default_entry {
+      action_id: 1
+    }
   }
 }
 pipelines {

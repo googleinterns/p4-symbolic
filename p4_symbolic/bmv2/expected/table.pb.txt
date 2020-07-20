@@ -342,6 +342,8 @@ pipelines {
     action_ids: 0
     actions: "MyIngress.set_egress_spec"
     actions: "NoAction"
+    default_entry {
+    }
   }
 }
 pipelines {

@@ -980,6 +980,9 @@ pipelines {
     actions: "MyIngress.ipv4_forward"
     actions: "MyIngress.drop"
     actions: "NoAction"
+    default_entry {
+      action_id: 1
+    }
   }
 }
 pipelines {

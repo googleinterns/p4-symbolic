@@ -207,6 +207,8 @@ message Table {
   // that contain the name and the id of each action.
   repeated int32 action_ids = 8;
   repeated string actions = 9;
+  // Default table entry, which gets matched on if no other entry was matched.
+  DefaultTableEntry default_entry = 10;
 }
 
 // A table key represents an input-matching column
@@ -227,6 +229,15 @@ message TableKey {
   repeated string target = 4;
 }
 
+// A default table entry is the entry that gets matched on if no other actual
+// entry for that table was matched.
+message DefaultTableEntry {
+  // Target action id.
+  int32 action_id = 1;
+  // Arguments passed to the action (all hexstrings).
+  repeated string action_data = 2;
+}
+
 // An action that can be taken when a table is matched on.
 message Action {
   // The name assigned by programmer.
@@ -235,8 +246,7 @@ message Action {
   // This is auto-generated and unique among all actions. It is not the same
   // id used in P4info and P4RT.
   int32 id = 2;
-  // An array containing all variables defined within this action,
-  // including its formal parameters.
+  // An array containing all parameters defined by this action.
   repeated VariableDefinition runtime_data = 3;
   // An array of statements within the action body.
   // A statement that uses a variable/parameter in the p4 program

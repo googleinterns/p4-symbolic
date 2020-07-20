@@ -232,17 +232,18 @@ gutil::StatusOr<Action> ExtractAction(
   // Implementation is extracted from bmv2.
   ActionImplementation *action_impl = output.mutable_action_implementation();
 
-  // BMV2 format uses ints as ids for variables.
-  // We will replace the ids with the actual variable name.
-  std::vector<std::string> variable_map(bmv2_action.runtime_data_size());
+  // BMV2 format uses ints as ids for parameters.
+  // We will replace the ids with the actual parameter name.
+  std::vector<std::string> parameter_map(bmv2_action.runtime_data_size());
   for (int i = 0; i < bmv2_action.runtime_data_size(); i++) {
-    const bmv2::VariableDefinition variable = bmv2_action.runtime_data(i);
-    (*action_impl->mutable_variables())[variable.name()] = variable.bitwidth();
-    variable_map[i] = variable.name();
+    const bmv2::VariableDefinition parameter = bmv2_action.runtime_data(i);
+    (*action_impl->mutable_parameters())[parameter.name()] =
+        parameter.bitwidth();
+    parameter_map[i] = parameter.name();
   }
 
   // Parse every statement in body.
-  // When encoutering a variable, look it up in the variable map.
+  // When encoutering a parameter, look it up in the parameter map.
   for (const google::protobuf::Struct &primitive : bmv2_action.primitives()) {
     if (primitive.fields().count("op") != 1 ||
         primitive.fields().count("parameters") != 1) {
@@ -271,10 +272,10 @@ gutil::StatusOr<Action> ExtractAction(
 
         ASSIGN_OR_RETURN(
             *assignment->mutable_left(),
-            ExtractLValue(params.list_value().values(0), variable_map));
+            ExtractLValue(params.list_value().values(0), parameter_map));
         ASSIGN_OR_RETURN(
             *assignment->mutable_right(),
-            ExtractRValue(params.list_value().values(1), variable_map));
+            ExtractRValue(params.list_value().values(1), parameter_map));
         break;
       }
       default:
@@ -303,8 +304,9 @@ gutil::StatusOr<Action> ExtractAction(
 }
 
 // Parsing and validating tables.
-gutil::StatusOr<Table> ExtractTable(const bmv2::Table &bmv2_table,
-                                    const pdpi::IrTableDefinition &pdpi_table) {
+gutil::StatusOr<Table> ExtractTable(
+    const bmv2::Table &bmv2_table, const pdpi::IrTableDefinition &pdpi_table,
+    const std::unordered_map<int, const Action &> &actions) {
   Table output;
   // Table definition is copied from pdpi.
   *output.mutable_table_definition() = pdpi_table;
@@ -326,6 +328,33 @@ gutil::StatusOr<Table> ExtractTable(const bmv2::Table &bmv2_table,
                           absl::StrCat("Unsupported action selector type in ",
                                        bmv2_table.DebugString()));
   }
+
+  // Look up the default action by its bmv2 json id.
+  int default_action_id = bmv2_table.default_entry().action_id();
+  if (actions.count(default_action_id) != 1) {
+    return absl::Status(absl::StatusCode::kInvalidArgument,
+                        absl::StrCat("Table ", pdpi_table.preamble().name(),
+                                     " has unknown default action id ",
+                                     bmv2_table.default_entry().action_id()));
+  }
+  Action default_action = actions.at(default_action_id);
+
+  // Make sure default action arguments are consistent with its defined
+  // parameters count.
+  if (default_action.action_implementation().parameters_size() !=
+      bmv2_table.default_entry().action_data_size()) {
+    return absl::Status(
+        absl::StatusCode::kInvalidArgument,
+        absl::StrCat(
+            "Table ", pdpi_table.preamble().name(),
+            " passes the wrong number of arguments to its default action"));
+  }
+
+  // Extract default entry from bmv2 json.
+  table_impl->set_default_action(
+      default_action.action_definition().preamble().name());
+  table_impl->mutable_default_action_parameters()->CopyFrom(
+      bmv2_table.default_entry().action_data());
 
   return output;
 }
@@ -353,6 +382,12 @@ gutil::StatusOr<P4Program> Bmv2AndP4infoToIr(const bmv2::P4Program &bmv2,
     actions_by_qualified_name.insert({name, action});
   }
 
+  // Keep a mapping between an action bmv2 json id and their parsed structure.
+  // Bmv2 action id is different than that from p4info/pdpi, it is only used
+  // during this parsing stage, to link the action to related fields in the bmv2
+  // json that refer to it by that id.
+  std::unordered_map<int, const Action &> actions_by_bmv2_id;
+
   // Translate actions.
   for (const bmv2::Action &bmv2_action : bmv2.actions()) {
     const std::string &action_name = bmv2_action.name();
@@ -364,6 +399,7 @@ gutil::StatusOr<P4Program> Bmv2AndP4infoToIr(const bmv2::P4Program &bmv2,
     if (actions_by_qualified_name.count(action_name) != 1) {
       // Fill in the fully qualified action name.
       pdpi_action.mutable_preamble()->set_name(action_name);
+      pdpi_action.mutable_preamble()->set_id(bmv2_action.id());
 
       // Fill in the action parameters.
       auto *params_by_id = pdpi_action.mutable_params_by_id();
@@ -386,8 +422,11 @@ gutil::StatusOr<P4Program> Bmv2AndP4infoToIr(const bmv2::P4Program &bmv2,
       pdpi_action = actions_by_qualified_name.at(action_name);
     }
 
-    ASSIGN_OR_RETURN((*output.mutable_actions())[pdpi_action.preamble().name()],
-                     ExtractAction(bmv2_action, pdpi_action));
+    Action &parsed_action =
+        (*output.mutable_actions())[pdpi_action.preamble().name()];
+
+    ASSIGN_OR_RETURN(parsed_action, ExtractAction(bmv2_action, pdpi_action));
+    actions_by_bmv2_id.insert({bmv2_action.id(), parsed_action});
   }
 
   // Similarly, pdpi.tables_by_name is keyed on aliases.
@@ -441,8 +480,9 @@ gutil::StatusOr<P4Program> Bmv2AndP4infoToIr(const bmv2::P4Program &bmv2,
         pdpi_table = tables_by_qualified_name.at(table_name);
       }
 
-      ASSIGN_OR_RETURN((*output.mutable_tables())[pdpi_table.preamble().name()],
-                       ExtractTable(bmv2_table, pdpi_table));
+      ASSIGN_OR_RETURN(
+          (*output.mutable_tables())[pdpi_table.preamble().name()],
+          ExtractTable(bmv2_table, pdpi_table, actions_by_bmv2_id));
     }
   }
 

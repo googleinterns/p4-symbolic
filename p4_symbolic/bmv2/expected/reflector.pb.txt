@@ -334,6 +334,8 @@ pipelines {
     max_size: 1024
     action_ids: 0
     actions: "reflector54"
+    default_entry {
+    }
   }
 }
 pipelines {

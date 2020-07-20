@@ -75,11 +75,11 @@ message Action {
 
 // Action implementation details.
 message ActionImplementation {
-  // Type of all variables used in action_body.
-  // Maps a variable name to its bitwidth.
-  map<string, int32> variables = 1;
+  // Type of all action parameters.
+  // Maps a parameter name to its bitwidth.
+  map<string, int32> parameters = 2;
   // List of statements in action body in sequence.
-  repeated Statement action_body = 2;
+  repeated Statement action_body = 3;
 }
 
 // Overall table structure, combining definition with implementation.
@@ -100,6 +100,12 @@ message TableImplementation {
 
   // Table type with respect to action selection.
   ActionSelectorType action_selector_type = 1;
+
+  // Default action name (e.g. when no other entry is matched).
+  string default_action = 2;
+
+  // Hexstring values passed to default action as parameters.
+  repeated string default_action_parameters = 3;
 }
 
 // An abstract p4 statement corresponding to a top level operation within

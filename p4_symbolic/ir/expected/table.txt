@@ -161,7 +161,7 @@ actions {
       }
     }
     action_implementation {
-      variables {
+      parameters {
         key: "port"
         value: 9
       }
@@ -287,6 +287,7 @@ tables {
       size: 1024
     }
     table_implementation {
+      default_action: "NoAction"
     }
   }
 }
