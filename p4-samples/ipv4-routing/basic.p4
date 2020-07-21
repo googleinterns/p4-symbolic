@@ -113,12 +113,12 @@ control MyIngress(inout headers hdr,
     
     table ipv4_lpm {
         key = {
-            hdr.ipv4.dstAddr: lpm;
+            hdr.ipv4.dstAddr: lpm @format(IPV4_ADDRESS);
         }
         actions = {
-            ipv4_forward;
-            drop;
-            NoAction;
+            @proto_id(1) ipv4_forward;
+            @proto_id(2) drop;
+            @proto_id(3) NoAction;
         }
         size = 1024;
         default_action = drop();
