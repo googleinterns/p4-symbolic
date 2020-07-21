@@ -559,6 +559,13 @@ gutil::StatusOr<Table> ExtractTable(
   table_impl->mutable_default_action_parameters()->CopyFrom(
       bmv2_table.default_entry().action_data());
 
+  // Set which flows are next for each possible action match in this table.
+  for (const auto &[action_name, next_flow] : bmv2_table.next_tables()) {
+    if (!next_flow.empty()) {
+      table_impl->mutable_next_flows()->insert({action_name, next_flow});
+    }
+  }
+
   return output;
 }
 

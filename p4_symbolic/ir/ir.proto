@@ -115,6 +115,11 @@ message TableImplementation {
 
   // Hexstring values passed to default action as parameters.
   repeated string default_action_parameters = 3;
+
+  // Maps every action used by this table (by name) to the next control block
+  // to be taken (also by name) if that action was matched.
+  // if an action is not in this map, then that action is the end of the flow.
+  map<string, string> next_flows = 4;
 }
 
 // A conditional statement.
@@ -123,7 +128,7 @@ message TableImplementation {
 // entry point in a workflow, or it may be called from other places using its
 // name.
 // Note that bmv2 accepts using a conditional name in fields that typically
-// expect a table name, such as the initial_table, or next_table attributes.
+// expect a table name, such as the initial_flow, or next_flow attributes.
 message Conditional {
   // The name is unique among conditionals AND tables.
   string name = 1;

@@ -211,6 +211,9 @@ message Table {
   repeated string actions = 9;
   // Default table entry, which gets matched on if no other entry was matched.
   DefaultTableEntry default_entry = 10;
+  // Map between action name and the next flow (e.g. table, conditional etc)
+  // to be taken if an entry with that action was matched.
+  map<string, string> next_tables = 11;
 }
 
 // A table key represents an input-matching column
