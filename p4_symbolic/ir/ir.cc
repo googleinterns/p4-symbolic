@@ -406,10 +406,30 @@ gutil::StatusOr<RValue> ExtractRValue(
       break;
     }
     case bmv2::ExpressionType::expression: {
+      const google::protobuf::Struct *expression =
+          &(struct_value.fields().at("value").struct_value());
+
+      // This loop is only needed because bmv2 format has this annoying thing
+      // where an expression may have its value be a single other expression
+      // which value may also be another single expression, etc, until
+      // finally the actual value of the expression is reached.
+      // This is the bmv2 format analogous case to having an expression wrapped
+      // in many useless paranthesis.
+      // An example of this can be found at //p4-samples/ipv4-routing/basic.json
+      // after `make build` is run in that directory.
+      while (expression->fields().count("op") != 1) {
+        if (expression->fields().count("type") != 1 || expression->fields().at("type").string_value() != "expression" || expression->fields().count("value") != 1) {
+          return absl::Status(
+              absl::StatusCode::kInvalidArgument,
+              absl::StrCat("Expression must contain 'op' at some level, found ",
+                           expression->DebugString()));
+        }
+        expression = &(expression->fields().at("value").struct_value());
+      }
+
       ASSIGN_OR_RETURN(
           *(output.mutable_expression_value()),
-          ExtractRExpression(struct_value.fields().at("value").struct_value(),
-                             variables));
+          ExtractRExpression(*expression, variables));
       break;
     }
     default:
