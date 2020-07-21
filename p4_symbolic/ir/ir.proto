@@ -234,8 +234,8 @@ message BinaryExpression {
   }
 
   Operation operation = 1;
-  RExpression left = 2;
-  RExpression right = 3;
+  RValue left = 2;
+  RValue right = 3;
 }
 
 // Arithmetic and boolean unary operations.
@@ -247,12 +247,12 @@ message UnaryExpression {
   }
 
   Operation operation = 1;
-  RExpression operand = 2;
+  RValue operand = 2;
 }
 
 // Ternary condition on the form <condition> ? <left> : <right>.
 message TernaryExpression {
-  RExpression condition = 1;
-  RExpression left = 2;
-  RExpression right = 3;
+  RValue condition = 1;
+  RValue left = 2;
+  RValue right = 3;
 }

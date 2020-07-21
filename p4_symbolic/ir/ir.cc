@@ -30,6 +30,11 @@ namespace ir {
 
 namespace {
 
+// Signature of ExtractRValue defined below.
+gutil::StatusOr<RValue> ExtractRValue(
+    const google::protobuf::Value &bmv2_value,
+    const std::vector<std::string> &variables);
+
 // Translate a string statement op to its respective enum value.
 gutil::StatusOr<bmv2::StatementOp> StatementOpToEnum(const std::string &op) {
   static std::unordered_map<std::string, bmv2::StatementOp> op_table = {
@@ -170,6 +175,90 @@ gutil::StatusOr<HeaderType> ExtractHeaderType(const bmv2::HeaderType &header) {
 }
 
 // Functions for translating RExpressions (arithmetic, relational, etc).
+gutil::StatusOr<UnaryExpression> ExtractUnaryExpression(
+    const google::protobuf::Struct &bmv2_expression,
+    const std::vector<std::string> &variables) {
+  static std::unordered_map<std::string, UnaryExpression::Operation>
+      unary_op_table = {{"~", UnaryExpression::BIT_NEGATION},
+                        {"not", UnaryExpression::NOT}};
+
+  const google::protobuf::Value &right = bmv2_expression.fields().at("right");
+  const std::string &operation =
+      bmv2_expression.fields().at("op").string_value();
+
+  UnaryExpression output;
+  // No need for error checking, operation must be legal since we got here.
+  output.set_operation(unary_op_table.at(operation));
+  ASSIGN_OR_RETURN(*output.mutable_operand(), ExtractRValue(right, variables));
+  return output;
+}
+
+gutil::StatusOr<BinaryExpression> ExtractBinaryExpression(
+    const google::protobuf::Struct &bmv2_expression,
+    const std::vector<std::string> &variables) {
+  static std::unordered_map<std::string, BinaryExpression::Operation>
+      binary_op_table = {{"+", BinaryExpression::PLUS},
+                         {"-", BinaryExpression::MINUS},
+                         {"*", BinaryExpression::TIMES},
+                         {"<<", BinaryExpression::LEFT_SHIT},
+                         {">>", BinaryExpression::RIGHT_SHIFT},
+                         {"==", BinaryExpression::EQUALS},
+                         {"!=", BinaryExpression::NOT_EQUALS},
+                         {">", BinaryExpression::GREATER},
+                         {">=", BinaryExpression::GREATER_EQUALS},
+                         {"<", BinaryExpression::LESS},
+                         {"<=", BinaryExpression::LESS_EQUALS},
+                         {"and", BinaryExpression::AND},
+                         {"or", BinaryExpression::OR},
+                         {"&", BinaryExpression::BIT_AND},
+                         {"|", BinaryExpression::BIT_OR},
+                         {"^", BinaryExpression::BIT_XOR}};
+
+  if (bmv2_expression.fields().count("left") != 1) {
+    return absl::Status(
+        absl::StatusCode::kInvalidArgument,
+        absl::StrCat("BinaryExpression must contain 'left', found ",
+                     bmv2_expression.DebugString()));
+  }
+
+  const google::protobuf::Value &left = bmv2_expression.fields().at("left");
+  const google::protobuf::Value &right = bmv2_expression.fields().at("right");
+  const std::string &operation =
+      bmv2_expression.fields().at("op").string_value();
+
+  BinaryExpression output;
+  // No need for error checking, operation must be legal since we got here.
+  output.set_operation(binary_op_table.at(operation));
+  ASSIGN_OR_RETURN(*output.mutable_left(), ExtractRValue(left, variables));
+  ASSIGN_OR_RETURN(*output.mutable_right(), ExtractRValue(right, variables));
+  return output;
+}
+
+gutil::StatusOr<TernaryExpression> ExtractTernaryExpression(
+    const google::protobuf::Struct &bmv2_expression,
+    const std::vector<std::string> &variables) {
+  if (bmv2_expression.fields().count("left") != 1 ||
+      bmv2_expression.fields().count("condition") != 1) {
+    return absl::Status(
+        absl::StatusCode::kInvalidArgument,
+        absl::StrCat(
+            "TernaryExpression must contain 'left' and 'condition', found ",
+            bmv2_expression.DebugString()));
+  }
+
+  const google::protobuf::Value &condition =
+      bmv2_expression.fields().at("condition");
+  const google::protobuf::Value &left = bmv2_expression.fields().at("left");
+  const google::protobuf::Value &right = bmv2_expression.fields().at("right");
+
+  TernaryExpression output;
+  ASSIGN_OR_RETURN(*output.mutable_condition(),
+                   ExtractRValue(condition, variables));
+  ASSIGN_OR_RETURN(*output.mutable_left(), ExtractRValue(left, variables));
+  ASSIGN_OR_RETURN(*output.mutable_right(), ExtractRValue(right, variables));
+  return output;
+}
+
 gutil::StatusOr<RExpression> ExtractRExpression(
     const google::protobuf::Struct &bmv2_expression,
     const std::vector<std::string> &variables) {
@@ -183,7 +272,6 @@ gutil::StatusOr<RExpression> ExtractRExpression(
                      bmv2_expression.DebugString()));
   }
 
-  const google::protobuf::Value &right = bmv2_expression.fields().at("right");
   const std::string &operation =
       bmv2_expression.fields().at("op").string_value();
   ASSIGN_OR_RETURN(RExpression::ExpressionCase expression_case,
@@ -192,12 +280,18 @@ gutil::StatusOr<RExpression> ExtractRExpression(
   // Parse expression by case.
   switch (expression_case) {
     case RExpression::ExpressionCase::kUnaryExpression: {
+      ASSIGN_OR_RETURN(*output.mutable_unary_expression(),
+                       ExtractUnaryExpression(bmv2_expression, variables));
       break;
     }
     case RExpression::ExpressionCase::kBinaryExpression: {
+      ASSIGN_OR_RETURN(*output.mutable_binary_expression(),
+                       ExtractBinaryExpression(bmv2_expression, variables));
       break;
     }
     case RExpression::ExpressionCase::kTernaryExpression: {
+      ASSIGN_OR_RETURN(*output.mutable_ternary_expression(),
+                       ExtractTernaryExpression(bmv2_expression, variables));
       break;
     }
     default:
