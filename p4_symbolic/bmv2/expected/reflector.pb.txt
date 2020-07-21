@@ -336,6 +336,10 @@ pipelines {
     actions: "reflector54"
     default_entry {
     }
+    next_tables {
+      key: "reflector54"
+      value: ""
+    }
   }
 }
 pipelines {
