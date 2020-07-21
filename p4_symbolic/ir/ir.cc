@@ -31,27 +31,72 @@ namespace ir {
 namespace {
 
 // Translate a string statement op to its respective enum value.
-bmv2::StatementOp StatementOpToEnum(const std::string &op) {
+gutil::StatusOr<bmv2::StatementOp> StatementOpToEnum(const std::string &op) {
   static std::unordered_map<std::string, bmv2::StatementOp> op_table = {
       {"assign", bmv2::StatementOp::assign}};
 
   if (op_table.count(op) != 1) {
-    return bmv2::StatementOp::unsupported_statement;
+    return absl::Status(absl::StatusCode::kUnimplemented,
+                        absl::StrCat("Unsupported statement op ", op));
   }
   return op_table.at(op);
 }
 
 // Translate a string expression type to its respective enum value.
-bmv2::ExpressionType ExpressionTypeToEnum(const std::string &type) {
+gutil::StatusOr<bmv2::ExpressionType> ExpressionTypeToEnum(
+    const std::string &type) {
   static std::unordered_map<std::string, bmv2::ExpressionType> type_table = {
       {"field", bmv2::ExpressionType::field},
       {"runtime_data", bmv2::ExpressionType::runtime_data},
-      {"hexstr", bmv2::ExpressionType::hexstr_}};
+      {"hexstr", bmv2::ExpressionType::hexstr_},
+      {"bool", bmv2::ExpressionType::bool_},
+      {"string", bmv2::ExpressionType::string_},
+      {"expression", bmv2::ExpressionType::expression}};
 
   if (type_table.count(type) != 1) {
-    return bmv2::ExpressionType::unsupported_expression;
+    return absl::Status(absl::StatusCode::kUnimplemented,
+                        absl::StrCat("Unsupported expression type ", type));
   }
   return type_table.at(type);
+}
+
+// Translate a string expression operation ("op") to its respective enum value.
+gutil::StatusOr<RExpression::ExpressionCase> ExpressionOpToCase(
+    const std::string &op) {
+  static std::unordered_map<std::string, RExpression::ExpressionCase> table = {
+      // Binary expressions.
+      {"+", RExpression::ExpressionCase::kBinaryExpression},
+      {"-", RExpression::ExpressionCase::kBinaryExpression},
+      {"*", RExpression::ExpressionCase::kBinaryExpression},
+      {"<<", RExpression::ExpressionCase::kBinaryExpression},
+      {">>", RExpression::ExpressionCase::kBinaryExpression},
+      {"==", RExpression::ExpressionCase::kBinaryExpression},
+      {"!=", RExpression::ExpressionCase::kBinaryExpression},
+      {">", RExpression::ExpressionCase::kBinaryExpression},
+      {">=", RExpression::ExpressionCase::kBinaryExpression},
+      {"<", RExpression::ExpressionCase::kBinaryExpression},
+      {"<=", RExpression::ExpressionCase::kBinaryExpression},
+      {"and", RExpression::ExpressionCase::kBinaryExpression},
+      {"or", RExpression::ExpressionCase::kBinaryExpression},
+      {"&", RExpression::ExpressionCase::kBinaryExpression},
+      {"|", RExpression::ExpressionCase::kBinaryExpression},
+      {"^", RExpression::ExpressionCase::kBinaryExpression},
+      // Unary
+      {"~", RExpression::ExpressionCase::kUnaryExpression},
+      {"not", RExpression::ExpressionCase::kUnaryExpression},
+      // Ternary
+      {"?", RExpression::ExpressionCase::kTernaryExpression}
+      // TODO(babman): add other special expressions:
+      // "b2d", "d2b", "clone_ingress_pkt_to_egress", and
+      // "modify_field_with_hash_based_offset"
+  };
+
+  if (table.count(op) != 1) {
+    return absl::Status(absl::StatusCode::kUnimplemented,
+                        absl::StrCat("Unsupported expression op ", op));
+  }
+
+  return table.at(op);
 }
 
 // Extracting source code information.
@@ -124,6 +169,46 @@ gutil::StatusOr<HeaderType> ExtractHeaderType(const bmv2::HeaderType &header) {
   return output;
 }
 
+// Functions for translating RExpressions (arithmetic, relational, etc).
+gutil::StatusOr<RExpression> ExtractRExpression(
+    const google::protobuf::Struct &bmv2_expression,
+    const std::vector<std::string> &variables) {
+  RExpression output;
+  // Integrity check.
+  if (bmv2_expression.fields().count("op") != 1 ||
+      bmv2_expression.fields().count("right") != 1) {
+    return absl::Status(
+        absl::StatusCode::kInvalidArgument,
+        absl::StrCat("RExpression must contain 'op' and 'right', found ",
+                     bmv2_expression.DebugString()));
+  }
+
+  const google::protobuf::Value &right = bmv2_expression.fields().at("right");
+  const std::string &operation =
+      bmv2_expression.fields().at("op").string_value();
+  ASSIGN_OR_RETURN(RExpression::ExpressionCase expression_case,
+                   ExpressionOpToCase(operation));
+
+  // Parse expression by case.
+  switch (expression_case) {
+    case RExpression::ExpressionCase::kUnaryExpression: {
+      break;
+    }
+    case RExpression::ExpressionCase::kBinaryExpression: {
+      break;
+    }
+    case RExpression::ExpressionCase::kTernaryExpression: {
+      break;
+    }
+    default:
+      return absl::Status(absl::StatusCode::kUnimplemented,
+                          absl::StrCat("Unsupported expression op ",
+                                       bmv2_expression.DebugString()));
+  }
+
+  return output;
+}
+
 // Functions for translating values.
 gutil::StatusOr<LValue> ExtractLValue(
     const google::protobuf::Value &bmv2_value,
@@ -141,7 +226,9 @@ gutil::StatusOr<LValue> ExtractLValue(
 
   const google::protobuf::Struct &struct_value = bmv2_value.struct_value();
   const std::string &type = struct_value.fields().at("type").string_value();
-  switch (ExpressionTypeToEnum(type)) {
+
+  ASSIGN_OR_RETURN(bmv2::ExpressionType type_case, ExpressionTypeToEnum(type));
+  switch (type_case) {
     case bmv2::ExpressionType::field: {
       const google::protobuf::ListValue &names =
           struct_value.fields().at("value").list_value();
@@ -183,7 +270,9 @@ gutil::StatusOr<RValue> ExtractRValue(
 
   const google::protobuf::Struct &struct_value = bmv2_value.struct_value();
   const std::string &type = struct_value.fields().at("type").string_value();
-  switch (ExpressionTypeToEnum(type)) {
+
+  ASSIGN_OR_RETURN(bmv2::ExpressionType type_case, ExpressionTypeToEnum(type));
+  switch (type_case) {
     case bmv2::ExpressionType::field: {
       const google::protobuf::ListValue &names =
           struct_value.fields().at("value").list_value();
@@ -210,6 +299,23 @@ gutil::StatusOr<RValue> ExtractRValue(
         hexstr_value->set_value(hexstr);
         hexstr_value->set_negative(false);
       }
+      break;
+    }
+    case bmv2::ExpressionType::bool_: {
+      output.mutable_bool_value()->set_value(
+          struct_value.fields().at("value").bool_value());
+      break;
+    }
+    case bmv2::ExpressionType::string_: {
+      output.mutable_string_value()->set_value(
+          struct_value.fields().at("value").string_value());
+      break;
+    }
+    case bmv2::ExpressionType::expression: {
+      ASSIGN_OR_RETURN(
+          *(output.mutable_expression_value()),
+          ExtractRExpression(struct_value.fields().at("value").struct_value(),
+                             variables));
       break;
     }
     default:
@@ -256,7 +362,10 @@ gutil::StatusOr<Action> ExtractAction(
     }
 
     Statement *statement = action_impl->add_action_body();
-    switch (StatementOpToEnum(primitive.fields().at("op").string_value())) {
+    ASSIGN_OR_RETURN(
+        bmv2::StatementOp op_case,
+        StatementOpToEnum(primitive.fields().at("op").string_value()));
+    switch (op_case) {
       case bmv2::StatementOp::assign: {
         AssignmentStatement *assignment = statement->mutable_assignment();
         const google::protobuf::Value &params =
@@ -484,6 +593,23 @@ gutil::StatusOr<P4Program> Bmv2AndP4infoToIr(const bmv2::P4Program &bmv2,
           (*output.mutable_tables())[pdpi_table.preamble().name()],
           ExtractTable(bmv2_table, pdpi_table, actions_by_bmv2_id));
     }
+
+    // Translate conditionals.
+    for (const auto &bmv2_conditional : pipeline.conditionals()) {
+      Conditional conditional;
+      conditional.set_name(bmv2_conditional.name());
+      conditional.set_if_branch(bmv2_conditional.true_next());
+      conditional.set_else_branch(bmv2_conditional.false_next());
+
+      // Parse condition expression.
+      google::protobuf::Value expression_wrapper;
+      *(expression_wrapper.mutable_struct_value()) =
+          bmv2_conditional.expression();
+      ASSIGN_OR_RETURN(*(conditional.mutable_condition()),
+                       ExtractRValue(expression_wrapper, {}));
+
+      (*output.mutable_conditionals())[conditional.name()] = conditional;
+    }
   }
 
   // Find init_table.
@@ -491,7 +617,7 @@ gutil::StatusOr<P4Program> Bmv2AndP4infoToIr(const bmv2::P4Program &bmv2,
     return absl::Status(absl::StatusCode::kInvalidArgument,
                         "BMV2 file contains no pipelines!");
   }
-  output.set_initial_table(bmv2.pipelines(0).init_table());
+  output.set_initial_flow(bmv2.pipelines(0).init_table());
   return output;
 }
 

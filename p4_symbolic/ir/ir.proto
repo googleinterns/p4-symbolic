@@ -48,8 +48,17 @@ message P4Program {
   map<string, Action> actions = 2;
   // Table definitions and implementations, keyed by qualified table name.
   map<string, Table> tables = 3;
-  // The name of the initial table.
-  string initial_table = 6;
+  // Conditionals, keyed by their name.
+  map<string, Conditional> conditionals = 4;
+
+  // TODO(babman): If needed in the future, action calls can be added here, for
+  // action calls that are not wrapped in other control constructs.
+  // https://github.com/p4lang/behavioral-model/blob/master/docs/JSON_format.md#pipelines
+
+  // The name of the initial control flow construct, typically
+  // this is a table, but it might be a conditional (or an action call if
+  // action_calls mentioned above get supported).
+  string initial_flow = 6;
 }
 
 // A header type definition.
@@ -106,6 +115,22 @@ message TableImplementation {
 
   // Hexstring values passed to default action as parameters.
   repeated string default_action_parameters = 3;
+}
+
+// A conditional statement.
+// In p4 and BMV2 JSON format, a condition is not part of an action body.
+// It is a part of the top level control block. A conditional may be the first
+// entry point in a workflow, or it may be called from other places using its
+// name.
+// Note that bmv2 accepts using a conditional name in fields that typically
+// expect a table name, such as the initial_table, or next_table attributes.
+message Conditional {
+  // The name is unique among conditionals AND tables.
+  string name = 1;
+  RValue condition = 2;
+  // If a branch does not exist or is empty, this will be the empty string.
+  string if_branch = 3;
+  string else_branch = 4;
 }
 
 // An abstract p4 statement corresponding to a top level operation within
@@ -180,8 +205,8 @@ message Variable {
 // An abstract RExpression.
 message RExpression {
   oneof expression {
-    BinaryExpression simple_binary_expression = 1;
-    UnaryExpression simple_unary_expression = 2;
+    BinaryExpression binary_expression = 1;
+    UnaryExpression unary_expression = 2;
     TernaryExpression ternary_expression = 3;
   }
 }

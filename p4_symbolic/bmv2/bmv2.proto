@@ -177,6 +177,8 @@ message Pipeline {
   string init_table = 4;
   // All the tables and their actions that are part of this pipeline.
   repeated Table tables = 5;
+  // All the conditional statements in this pipeline.
+  repeated Conditional conditionals = 6;
 }
 
 // A control plane table definition including its keys and actions.
@@ -238,6 +240,22 @@ message DefaultTableEntry {
   repeated string action_data = 2;
 }
 
+// A conditional is the BMV2 representation of an if statement condition.
+// The body of the if and else branches are implicitly translated by p4c
+// into a table or action as is appropriate, and refered to here.
+message Conditional {
+  // Unique among all conditionals in the program.
+  int32 id = 1;
+  // Unique among conditionals and tables.
+  string name = 2;
+  // Condition expression.
+  google.protobuf.Struct expression = 3;
+  // Name of the next control flow construct (table or conditional)
+  // invoked by each branch.
+  string true_next = 4;
+  string false_next = 5;
+}
+
 // An action that can be taken when a table is matched on.
 message Action {
   // The name assigned by programmer.
@@ -290,16 +308,17 @@ message SourceLocation {
 // The names used inside the enum match *exactly* the values of the "op" field
 // in the respective statement JSON objects.
 enum StatementOp {
-  unsupported_statement = 0;  // Something else that is not supported.
-  assign = 1;                 // Assignment (to a variable or header field).
+  assign = 0;  // Assignment (to a variable or header field).
 }
 
 // This specifies the exact expressions that are supported by our ir.
 // The names used inside the enum match *exactly* the values of the "type" field
 // in the respective expression (e.g. type-value) JSON objects.
 enum ExpressionType {
-  unsupported_expression = 0;  // Something else that is not supported.
-  field = 1;                   // Header/metadata field.
-  runtime_data = 2;            // Local variable.
-  hexstr_ = 3;                 // Hexstring literal.
+  field = 0;         // Header/metadata field.
+  runtime_data = 1;  // Local variable.
+  hexstr_ = 2;       // Hexstring literal.
+  bool_ = 3;         // A boolean literal.
+  string_ = 4;       // A string literal.
+  expression = 5;    // An expression.
 }
