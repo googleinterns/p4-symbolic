@@ -311,17 +311,25 @@ message SourceLocation {
 // The names used inside the enum match *exactly* the values of the "op" field
 // in the respective statement JSON objects.
 enum StatementOp {
-  assign = 0;  // Assignment (to a variable or header field).
+  // Assignment (to a variable or header field).
+  assign = 0;
+  // Mark packet to be dropped.
+  mark_to_drop = 1;
+  // Modify a field via a hash calculation.
+  modify_field_with_hash_based_offset = 2;
+  // Cloning a packet.
+  clone_ingress_pkt_to_egress = 3;
 }
 
 // This specifies the exact expressions that are supported by our ir.
 // The names used inside the enum match *exactly* the values of the "type" field
 // in the respective expression (e.g. type-value) JSON objects.
 enum ExpressionType {
-  field = 0;         // Header/metadata field.
-  runtime_data = 1;  // Local variable.
-  hexstr_ = 2;       // Hexstring literal.
-  bool_ = 3;         // A boolean literal.
-  string_ = 4;       // A string literal.
-  expression = 5;    // An expression.
+  header = 0;        // A whole header accessed by name.
+  field = 1;         // Header/metadata field.
+  runtime_data = 2;  // Local variable.
+  hexstr_ = 3;       // Hexstring literal.
+  bool_ = 4;         // A boolean literal.
+  string_ = 5;       // A string literal.
+  expression = 6;    // An expression.
 }

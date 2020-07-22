@@ -26,7 +26,7 @@ table_entries {
   match {
     field_id: 1,    
     lpm {
-      value: "\020\020\000\000",
+      value: "\024\024\000\000",
       prefix_len: 16
     }    
   }
@@ -35,7 +35,7 @@ table_entries {
       action_id: 28792405
       params {
         param_id: 1
-        value: "\022\000\000\000\000\022"
+        value: "\026\000\000\000\000\026"
       }
       params {
         param_id: 2

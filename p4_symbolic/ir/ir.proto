@@ -145,6 +145,9 @@ message Statement {
   // Various statement concrete types.
   oneof statement {
     AssignmentStatement assignment = 2;
+    DropStatement drop = 3;
+    CloneStatement clone = 4;
+    HashStatement hash = 5;
   }
 }
 
@@ -155,9 +158,35 @@ message AssignmentStatement {
   RValue right = 2;
 }
 
+// A statement marking the packet (by its header or metadata)
+// to be dropped.
+message DropStatement {
+  HeaderValue header = 1;
+}
+
+// A statement cloning the packet, corresponds to `clone3`.
+message CloneStatement {
+  // We do not care about the arguments to clone3:
+  // 1. We only support one version of cloning: ingree to egress
+  // 2. The session id is not know at parsing time.
+  // 3. We do not support clone calls preserving custom fields.
+}
+
+// Hashing statement to modify a selected field based on a hash calculation.
+// Corresponds to calls to `hash`.
+message HashStatement {
+  // The field where the hash is stored.
+  FieldValue field = 1;
+  // We do not care about the remaining arguments (Hash algorithm,
+  // range size, base value, and input fields).
+  // These should perhaps be added in the future if the hash symbolic modeling
+  // becomes more sophisticated.
+}
+
 // The structure of an abstract RValue.
 message RValue {
   oneof rvalue {
+    HeaderValue header_value = 1;
     FieldValue field_value = 2;
     HexstrValue hexstr_value = 3;
     BoolValue bool_value = 4;
@@ -173,6 +202,13 @@ message LValue {
     FieldValue field_value = 1;
     Variable variable_value = 2;
   }
+}
+
+// A header accessed by name.
+// This is used in operations and statements that refer to the whole packet.
+// For example, in mark_to_drop(<header>).
+message HeaderValue {
+  string header_name = 1;
 }
 
 // A header field accessed statically.
@@ -213,6 +249,7 @@ message RExpression {
     BinaryExpression binary_expression = 1;
     UnaryExpression unary_expression = 2;
     TernaryExpression ternary_expression = 3;
+    BuiltinExpression builtin_expression = 4;
   }
 }
 
@@ -260,4 +297,15 @@ message TernaryExpression {
   RValue condition = 1;
   RValue left = 2;
   RValue right = 3;
+}
+
+// Calls tp built in functions (e.g. b2d).
+message BuiltinExpression {
+  // Supported built in functions.
+  enum Function {
+    BOOL_TO_DATA = 0;
+    DATA_TO_BOOL = 1;
+  }
+  Function function = 1;
+  repeated RValue arguments = 2;
 }

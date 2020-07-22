@@ -128,11 +128,9 @@ ir_parsing_test(
     p4_program = "//p4-samples:reflector/reflector.p4",
 )
 
-"""
 ir_parsing_test(
     name = "ipv4_routing_test",
     golden_file = "expected/basic.txt",
     p4_program = "//p4-samples:ipv4-routing/basic.p4",
     table_entries = "//p4-samples:ipv4-routing/entries.pb.txt",
 )
-"""
