@@ -291,7 +291,7 @@ tables {
     }
   }
 }
-initial_flow: "MyIngress.ports_exact"
+initial_control: "MyIngress.ports_exact"
 
 =====MyIngress.ports_exact Entries=====
 

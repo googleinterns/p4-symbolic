@@ -607,7 +607,7 @@ conditionals {
     if_branch: "MyIngress.ipv4_lpm"
   }
 }
-initial_flow: "node_2"
+initial_control: "node_2"
 
 =====MyIngress.ipv4_lpm Entries=====
 

@@ -211,8 +211,8 @@ message Table {
   repeated string actions = 9;
   // Default table entry, which gets matched on if no other entry was matched.
   DefaultTableEntry default_entry = 10;
-  // Map between action name and the next flow (e.g. table, conditional etc)
-  // to be taken if an entry with that action was matched.
+  // Map between action name and the next control construct name (e.g. table,
+  // conditional etc) to be taken if an entry with that action was matched.
   map<string, string> next_tables = 11;
 }
 
@@ -253,7 +253,7 @@ message Conditional {
   string name = 2;
   // Condition expression.
   google.protobuf.Struct expression = 3;
-  // Name of the next control flow construct (table or conditional)
+  // Name of the next control construct (table or conditional)
   // invoked by each branch.
   string true_next = 4;
   string false_next = 5;

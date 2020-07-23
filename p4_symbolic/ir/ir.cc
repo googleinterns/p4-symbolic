@@ -644,11 +644,11 @@ gutil::StatusOr<Table> ExtractTable(
   table_impl->mutable_default_action_parameters()->CopyFrom(
       bmv2_table.default_entry().action_data());
 
-  // Set which flows are next for each possible action match in this table.
-  for (const auto &[action_name, next_flow] : bmv2_table.next_tables()) {
-    if (!next_flow.empty()) {
-      table_impl->mutable_action_to_next_flow()->insert(
-          {action_name, next_flow});
+  // Set which controls are next for each possible action match in this table.
+  for (const auto &[action_name, next_control] : bmv2_table.next_tables()) {
+    if (!next_control.empty()) {
+      table_impl->mutable_action_to_next_control()->insert(
+          {action_name, next_control});
     }
   }
 
@@ -806,7 +806,7 @@ gutil::StatusOr<P4Program> Bmv2AndP4infoToIr(const bmv2::P4Program &bmv2,
   if (bmv2.pipelines_size() < 1) {
     return absl::InvalidArgumentError("BMV2 file contains no pipelines!");
   }
-  output.set_initial_flow(bmv2.pipelines(0).init_table());
+  output.set_initial_control(bmv2.pipelines(0).init_table());
   return output;
 }
 

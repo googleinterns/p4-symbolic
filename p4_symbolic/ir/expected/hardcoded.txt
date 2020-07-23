@@ -249,5 +249,5 @@ conditionals {
     else_branch: "tbl_hardcoded57"
   }
 }
-initial_flow: "node_2"
+initial_control: "node_2"
 

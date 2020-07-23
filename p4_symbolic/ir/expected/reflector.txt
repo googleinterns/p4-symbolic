@@ -177,5 +177,5 @@ tables {
     }
   }
 }
-initial_flow: "tbl_reflector54"
+initial_control: "tbl_reflector54"
 

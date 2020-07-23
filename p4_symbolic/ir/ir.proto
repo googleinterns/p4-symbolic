@@ -55,10 +55,10 @@ message P4Program {
   // action calls that are not wrapped in other control constructs.
   // https://github.com/p4lang/behavioral-model/blob/master/docs/JSON_format.md#pipelines
 
-  // The name of the initial control flow construct, typically
+  // The name of the initial control construct, typically
   // this is a table, but it might be a conditional (or an action call if
   // action_calls mentioned above get supported).
-  string initial_flow = 6;
+  string initial_control = 6;
 }
 
 // A header type definition.
@@ -117,11 +117,11 @@ message TableImplementation {
   // Hexstring values passed to default action as parameters.
   repeated string default_action_parameters = 3;
 
-  // Maps every action used by this table (by name) to the next control flow
+  // Maps every action used by this table (by name) to the next control
   // construct to be taken (also by name) if that action was matched.
   // if an action is not in this map, or is mapped to the empty string, then
   // that action is at the end of the flow.
-  map<string, string> action_to_next_flow = 4;
+  map<string, string> action_to_next_control = 4;
 }
 
 // A conditional statement.
@@ -130,7 +130,8 @@ message TableImplementation {
 // entry point in a workflow, or it may be called from other places using its
 // name.
 // Note that bmv2 accepts using a conditional name in fields that typically
-// expect a table name, such as the initial_flow, or next_flow attributes.
+// expect a table name, such as the initial_control, or next_controls
+// attributes.
 message Conditional {
   // The name is unique among conditionals AND tables.
   string name = 1;
