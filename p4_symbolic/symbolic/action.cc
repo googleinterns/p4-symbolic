@@ -32,10 +32,9 @@ gutil::StatusOr<SymbolicPerPacketState> EvaluateStatement(
                                          context);
 
     default:
-      return absl::Status(absl::StatusCode::kUnimplemented,
-                          absl::StrCat("Action ", context->action_name,
-                                       " contains unsupported statement ",
-                                       statement.DebugString()));
+      return absl::UnimplementedError(absl::StrCat(
+          "Action ", context->action_name, " contains unsupported statement ",
+          statement.DebugString()));
   }
 }
 
@@ -65,10 +64,9 @@ gutil::StatusOr<SymbolicPerPacketState> EvaluateAssignmentStatement(
       std::string field_name = absl::StrFormat(
           "%s.%s", field_value.header_name(), field_value.field_name());
       if (modified_state.metadata.count(field_name) != 1) {
-        return absl::Status(absl::StatusCode::kUnimplemented,
-                            absl::StrCat("Action ", context->action_name,
-                                         " refers to unknown header field ",
-                                         field_value.DebugString()));
+        return absl::UnimplementedError(absl::StrCat(
+            "Action ", context->action_name, " refers to unknown header field ",
+            field_value.DebugString()));
       }
 
       modified_state.metadata.at(field_name) = right;
@@ -82,10 +80,9 @@ gutil::StatusOr<SymbolicPerPacketState> EvaluateAssignmentStatement(
     }
 
     default:
-      return absl::Status(absl::StatusCode::kUnimplemented,
-                          absl::StrCat("Action ", context->action_name,
-                                       " contains unsupported LValue ",
-                                       assignment.left().DebugString()));
+      return absl::UnimplementedError(absl::StrCat(
+          "Action ", context->action_name, " contains unsupported LValue ",
+          assignment.left().DebugString()));
   }
 }
 
@@ -102,8 +99,7 @@ gutil::StatusOr<z3::expr> EvaluateRValue(const ir::RValue &rvalue,
       return EvaluateVariable(rvalue.variable_value(), state, context);
 
     default:
-      return absl::Status(
-          absl::StatusCode::kUnimplemented,
+      return absl::UnimplementedError(
           absl::StrCat("Action ", context->action_name,
                        " contains unsupported RValue ", rvalue.DebugString()));
   }
@@ -116,10 +112,9 @@ gutil::StatusOr<z3::expr> EvaluateFieldValue(
   std::string field_name = absl::StrFormat("%s.%s", field_value.header_name(),
                                            field_value.field_name());
   if (state.metadata.count(field_name) != 1) {
-    return absl::Status(absl::StatusCode::kUnimplemented,
-                        absl::StrCat("Action ", context->action_name,
-                                     " refers to unknown header field ",
-                                     field_value.DebugString()));
+    return absl::UnimplementedError(absl::StrCat(
+        "Action ", context->action_name, " refers to unknown header field ",
+        field_value.DebugString()));
   }
 
   return state.metadata.at(field_name);
@@ -131,8 +126,7 @@ gutil::StatusOr<z3::expr> EvaluateVariable(const ir::Variable &variable,
                                            ActionContext *context) {
   std::string variable_name = variable.name();
   if (context->scope.count(variable_name) != 1) {
-    return absl::Status(
-        absl::StatusCode::kInvalidArgument,
+    return absl::InvalidArgumentError(
         absl::StrCat("Action ", context->action_name,
                      " refers to undefined variable ", variable_name));
   }
@@ -156,8 +150,7 @@ gutil::StatusOr<SymbolicPerPacketState> EvaluateAction(
   // Add action parameters to scope.
   const auto &parameters = action.action_definition().params_by_id();
   if (static_cast<int>(parameters.size()) != args.size()) {
-    return absl::Status(
-        absl::StatusCode::kInvalidArgument,
+    return absl::InvalidArgumentError(
         absl::StrCat("Action ", action.action_definition().preamble().name(),
                      " called with incompatible number of parameters"));
   }
@@ -182,8 +175,7 @@ gutil::StatusOr<SymbolicPerPacketState> EvaluateAction(
 
     // Error if parameter name is not found in entries.
     if (!found_parameter) {
-      return absl::Status(
-          absl::StatusCode::kInvalidArgument,
+      return absl::InvalidArgumentError(
           absl::StrCat("Action ", action.action_definition().preamble().name(),
                        " called without passing parameter ", parameter_name));
     }

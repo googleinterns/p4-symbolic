@@ -161,7 +161,7 @@ actions {
       }
     }
     action_implementation {
-      parameters {
+      parameter_to_bitwidth {
         key: "port"
         value: 9
       }

@@ -39,28 +39,26 @@ gutil::StatusOr<z3::expr> AnalyzeSingleMatch(
     const z3::expr &field_expression, const pdpi::IrMatch &match) {
   if (match_definition.match_case() != p4::config::v1::MatchField::kMatchType) {
     // Arch-specific match type.
-    return absl::Status(absl::StatusCode::kInvalidArgument,
-                        absl::StrCat("Found match with non-standard type"));
+    return absl::InvalidArgumentError(
+        absl::StrCat("Found match with non-standard type"));
   }
 
   // TODO(babman): Support the other match types.
   switch (match_definition.match_type()) {
     case p4::config::v1::MatchField::EXACT: {
       if (match.match_value_case() != pdpi::IrMatch::kExact) {
-        return absl::Status(absl::StatusCode::kInvalidArgument,
-                            absl::StrCat("Match definition in table has type "
-                                         "\"Exact\" but its invocation in "
-                                         "TableEntry has a different type ",
-                                         match_definition.DebugString()));
+        return absl::InvalidArgumentError(
+            absl::StrCat("Match definition in table has type \"Exact\" but its "
+                         "invocation in TableEntry has a different type ",
+                         match_definition.DebugString()));
       }
       ASSIGN_OR_RETURN(z3::expr value_expression,
                        util::IrValueToZ3Expr(match.exact()));
       return field_expression == value_expression;
     }
     default:
-      return absl::Status(absl::StatusCode::kUnimplemented,
-                          absl::StrCat("Found unsupported match type ",
-                                       match_definition.DebugString()));
+      return absl::UnimplementedError(absl::StrCat(
+          "Found unsupported match type ", match_definition.DebugString()));
   }
 }
 
@@ -73,8 +71,7 @@ gutil::StatusOr<z3::expr> AnalyzeTableEntryCondition(
   // table entry.
   if (table.table_definition().match_fields_by_id_size() !=
       entry.matches_size()) {
-    return absl::Status(
-        absl::StatusCode::kInvalidArgument,
+    return absl::InvalidArgumentError(
         absl::StrCat("Found a match entry ", entry.DebugString(), " in table",
                      table.table_definition().preamble().name(),
                      " with wrong match fields count"));
@@ -98,11 +95,9 @@ gutil::StatusOr<z3::expr> AnalyzeTableEntryCondition(
     //               @konne mentioned this before in a meeting.
     const std::string &match_string_expression = match_definition.name();
     if (state.metadata.count(match_string_expression) != 1) {
-      return absl::Status(
-          absl::StatusCode::kInvalidArgument,
-          absl::StrCat("Unknown table match expression ",
-                       match_string_expression, " in table ",
-                       table.table_definition().preamble().name()));
+      return absl::InvalidArgumentError(absl::StrCat(
+          "Unknown table match expression ", match_string_expression,
+          " in table ", table.table_definition().preamble().name()));
     }
     ASSIGN_OR_RETURN(
         z3::expr match_expression,
@@ -124,8 +119,7 @@ gutil::StatusOr<SymbolicPerPacketState> AnalyzeTableEntryAction(
   const std::string &table_name = table.table_definition().preamble().name();
   const std::string &action_name = entry.action().name();
   if (actions.count(action_name) != 1) {
-    return absl::Status(
-        absl::StatusCode::kInvalidArgument,
+    return absl::InvalidArgumentError(
         absl::StrCat("Found a match entry ", entry.DebugString(), " in table",
                      table_name, " referring to unknown action ", action_name));
   }

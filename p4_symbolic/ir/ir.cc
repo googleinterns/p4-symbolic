@@ -30,14 +30,15 @@ namespace ir {
 
 namespace {
 
-// Signature of ExtractRValue defined below.
+// Forward declaration to enable mutual recursion with (sub) expression parsing
+// functions, e.g. ExtractBinaryExpression, ExtractUnaryExpression, etc.
 gutil::StatusOr<RValue> ExtractRValue(
     const google::protobuf::Value &bmv2_value,
     const std::vector<std::string> &variables);
 
 // Translate a string statement op to its respective enum value.
 gutil::StatusOr<bmv2::StatementOp> StatementOpToEnum(const std::string &op) {
-  static std::unordered_map<std::string, bmv2::StatementOp> op_table = {
+  static const std::unordered_map<std::string, bmv2::StatementOp> op_table = {
       {"assign", bmv2::StatementOp::assign},
       {"mark_to_drop", bmv2::StatementOp::mark_to_drop},
       {"clone_ingress_pkt_to_egress",  // clone3(...)
@@ -46,8 +47,8 @@ gutil::StatusOr<bmv2::StatementOp> StatementOpToEnum(const std::string &op) {
        bmv2::StatementOp::modify_field_with_hash_based_offset}};
 
   if (op_table.count(op) != 1) {
-    return absl::Status(absl::StatusCode::kUnimplemented,
-                        absl::StrCat("Unsupported statement op ", op));
+    return absl::UnimplementedError(
+        absl::StrCat("Unsupported statement op ", op));
   }
   return op_table.at(op);
 }
@@ -55,18 +56,18 @@ gutil::StatusOr<bmv2::StatementOp> StatementOpToEnum(const std::string &op) {
 // Translate a string expression type to its respective enum value.
 gutil::StatusOr<bmv2::ExpressionType> ExpressionTypeToEnum(
     const std::string &type) {
-  static std::unordered_map<std::string, bmv2::ExpressionType> type_table = {
-      {"header", bmv2::ExpressionType::header},
-      {"field", bmv2::ExpressionType::field},
-      {"runtime_data", bmv2::ExpressionType::runtime_data},
-      {"hexstr", bmv2::ExpressionType::hexstr_},
-      {"bool", bmv2::ExpressionType::bool_},
-      {"string", bmv2::ExpressionType::string_},
-      {"expression", bmv2::ExpressionType::expression}};
+  static const std::unordered_map<std::string, bmv2::ExpressionType>
+      type_table = {{"header", bmv2::ExpressionType::header},
+                    {"field", bmv2::ExpressionType::field},
+                    {"runtime_data", bmv2::ExpressionType::runtime_data},
+                    {"hexstr", bmv2::ExpressionType::hexstr_},
+                    {"bool", bmv2::ExpressionType::bool_},
+                    {"string", bmv2::ExpressionType::string_},
+                    {"expression", bmv2::ExpressionType::expression}};
 
   if (type_table.count(type) != 1) {
-    return absl::Status(absl::StatusCode::kUnimplemented,
-                        absl::StrCat("Unsupported expression type ", type));
+    return absl::UnimplementedError(
+        absl::StrCat("Unsupported expression type ", type));
   }
   return type_table.at(type);
 }
@@ -74,36 +75,36 @@ gutil::StatusOr<bmv2::ExpressionType> ExpressionTypeToEnum(
 // Translate a string expression operation ("op") to its respective enum value.
 gutil::StatusOr<RExpression::ExpressionCase> ExpressionOpToCase(
     const std::string &op) {
-  static std::unordered_map<std::string, RExpression::ExpressionCase> table = {
-      // Binary expressions.
-      {"+", RExpression::ExpressionCase::kBinaryExpression},
-      {"-", RExpression::ExpressionCase::kBinaryExpression},
-      {"*", RExpression::ExpressionCase::kBinaryExpression},
-      {"<<", RExpression::ExpressionCase::kBinaryExpression},
-      {">>", RExpression::ExpressionCase::kBinaryExpression},
-      {"==", RExpression::ExpressionCase::kBinaryExpression},
-      {"!=", RExpression::ExpressionCase::kBinaryExpression},
-      {">", RExpression::ExpressionCase::kBinaryExpression},
-      {">=", RExpression::ExpressionCase::kBinaryExpression},
-      {"<", RExpression::ExpressionCase::kBinaryExpression},
-      {"<=", RExpression::ExpressionCase::kBinaryExpression},
-      {"and", RExpression::ExpressionCase::kBinaryExpression},
-      {"or", RExpression::ExpressionCase::kBinaryExpression},
-      {"&", RExpression::ExpressionCase::kBinaryExpression},
-      {"|", RExpression::ExpressionCase::kBinaryExpression},
-      {"^", RExpression::ExpressionCase::kBinaryExpression},
-      // Unary.
-      {"~", RExpression::ExpressionCase::kUnaryExpression},
-      {"not", RExpression::ExpressionCase::kUnaryExpression},
-      // Ternary.
-      {"?", RExpression::ExpressionCase::kTernaryExpression},
-      // Builtin functions.
-      {"b2d", RExpression::ExpressionCase::kBuiltinExpression},
-      {"d2b", RExpression::ExpressionCase::kBuiltinExpression}};
+  static const std::unordered_map<std::string, RExpression::ExpressionCase>
+      table = {// Binary expressions.
+               {"+", RExpression::ExpressionCase::kBinaryExpression},
+               {"-", RExpression::ExpressionCase::kBinaryExpression},
+               {"*", RExpression::ExpressionCase::kBinaryExpression},
+               {"<<", RExpression::ExpressionCase::kBinaryExpression},
+               {">>", RExpression::ExpressionCase::kBinaryExpression},
+               {"==", RExpression::ExpressionCase::kBinaryExpression},
+               {"!=", RExpression::ExpressionCase::kBinaryExpression},
+               {">", RExpression::ExpressionCase::kBinaryExpression},
+               {">=", RExpression::ExpressionCase::kBinaryExpression},
+               {"<", RExpression::ExpressionCase::kBinaryExpression},
+               {"<=", RExpression::ExpressionCase::kBinaryExpression},
+               {"and", RExpression::ExpressionCase::kBinaryExpression},
+               {"or", RExpression::ExpressionCase::kBinaryExpression},
+               {"&", RExpression::ExpressionCase::kBinaryExpression},
+               {"|", RExpression::ExpressionCase::kBinaryExpression},
+               {"^", RExpression::ExpressionCase::kBinaryExpression},
+               // Unary.
+               {"~", RExpression::ExpressionCase::kUnaryExpression},
+               {"not", RExpression::ExpressionCase::kUnaryExpression},
+               // Ternary.
+               {"?", RExpression::ExpressionCase::kTernaryExpression},
+               // Builtin functions.
+               {"b2d", RExpression::ExpressionCase::kBuiltinExpression},
+               {"d2b", RExpression::ExpressionCase::kBuiltinExpression}};
 
   if (table.count(op) != 1) {
-    return absl::Status(absl::StatusCode::kUnimplemented,
-                        absl::StrCat("Unsupported expression op ", op));
+    return absl::UnimplementedError(
+        absl::StrCat("Unsupported expression op ", op));
   }
 
   return table.at(op);
@@ -114,8 +115,7 @@ gutil::StatusOr<bmv2::SourceLocation> ExtractSourceLocation(
     google::protobuf::Value unparsed_source_location) {
   if (unparsed_source_location.kind_case() !=
       google::protobuf::Value::kStructValue) {
-    return absl::Status(
-        absl::StatusCode::kInvalidArgument,
+    return absl::InvalidArgumentError(
         absl::StrCat("Source Location is expected to be a struct, found ",
                      unparsed_source_location.DebugString()));
   }
@@ -123,8 +123,7 @@ gutil::StatusOr<bmv2::SourceLocation> ExtractSourceLocation(
   const auto &fields = unparsed_source_location.struct_value().fields();
   if (fields.count("filename") != 1 || fields.count("line") != 1 ||
       fields.count("column") != 1 || fields.count("source_fragment") != 1) {
-    return absl::Status(
-        absl::StatusCode::kInvalidArgument,
+    return absl::InvalidArgumentError(
         absl::StrCat("Source Location is expected to contain 'filename', "
                      "'line', 'colmn', and 'source_fragment, found ",
                      unparsed_source_location.DebugString()));
@@ -143,18 +142,15 @@ absl::Status ValidateHeaderTypeFields(const google::protobuf::ListValue &list) {
   // Size must be 3.
   int size = list.values_size();
   if (size != 3) {
-    return absl::Status(
-        absl::StatusCode::kInvalidArgument,
-        absl::StrCat("Header field should contain 3 elements, found ",
-                     list.DebugString()));
+    return absl::InvalidArgumentError(absl::StrCat(
+        "Header field should contain 3 elements, found ", list.DebugString()));
   }
 
   // Array must contain [string, int, bool] in that order.
   if (list.values(0).kind_case() != google::protobuf::Value::kStringValue ||
       list.values(1).kind_case() != google::protobuf::Value::kNumberValue ||
       list.values(2).kind_case() != google::protobuf::Value::kBoolValue) {
-    return absl::Status(
-        absl::StatusCode::kInvalidArgument,
+    return absl::InvalidArgumentError(
         absl::StrCat("Header field should be [string, int, bool], found ",
                      list.DebugString()));
   }
@@ -183,7 +179,7 @@ gutil::StatusOr<HeaderType> ExtractHeaderType(const bmv2::HeaderType &header) {
 gutil::StatusOr<UnaryExpression> ExtractUnaryExpression(
     const google::protobuf::Struct &bmv2_expression,
     const std::vector<std::string> &variables) {
-  static std::unordered_map<std::string, UnaryExpression::Operation>
+  static const std::unordered_map<std::string, UnaryExpression::Operation>
       unary_op_table = {{"~", UnaryExpression::BIT_NEGATION},
                         {"not", UnaryExpression::NOT}};
 
@@ -201,7 +197,7 @@ gutil::StatusOr<UnaryExpression> ExtractUnaryExpression(
 gutil::StatusOr<BinaryExpression> ExtractBinaryExpression(
     const google::protobuf::Struct &bmv2_expression,
     const std::vector<std::string> &variables) {
-  static std::unordered_map<std::string, BinaryExpression::Operation>
+  static const std::unordered_map<std::string, BinaryExpression::Operation>
       binary_op_table = {{"+", BinaryExpression::PLUS},
                          {"-", BinaryExpression::MINUS},
                          {"*", BinaryExpression::TIMES},
@@ -220,8 +216,7 @@ gutil::StatusOr<BinaryExpression> ExtractBinaryExpression(
                          {"^", BinaryExpression::BIT_XOR}};
 
   if (bmv2_expression.fields().count("left") != 1) {
-    return absl::Status(
-        absl::StatusCode::kInvalidArgument,
+    return absl::InvalidArgumentError(
         absl::StrCat("BinaryExpression must contain 'left', found ",
                      bmv2_expression.DebugString()));
   }
@@ -244,11 +239,9 @@ gutil::StatusOr<TernaryExpression> ExtractTernaryExpression(
     const std::vector<std::string> &variables) {
   if (bmv2_expression.fields().count("left") != 1 ||
       bmv2_expression.fields().count("condition") != 1) {
-    return absl::Status(
-        absl::StatusCode::kInvalidArgument,
-        absl::StrCat(
-            "TernaryExpression must contain 'left' and 'condition', found ",
-            bmv2_expression.DebugString()));
+    return absl::InvalidArgumentError(
+        absl::StrCat("TernaryExpression must contain 'left', and 'condition' ",
+                     bmv2_expression.DebugString()));
   }
 
   const google::protobuf::Value &condition =
@@ -267,7 +260,7 @@ gutil::StatusOr<TernaryExpression> ExtractTernaryExpression(
 gutil::StatusOr<BuiltinExpression> ExtractBuiltinExpression(
     const google::protobuf::Struct &bmv2_expression,
     const std::vector<std::string> &variables) {
-  static std::unordered_map<std::string, BuiltinExpression::Function>
+  static const std::unordered_map<std::string, BuiltinExpression::Function>
       builtin_table = {{"b2d", BuiltinExpression::BOOL_TO_DATA},
                        {"d2b", BuiltinExpression::DATA_TO_BOOL}};
 
@@ -296,8 +289,7 @@ gutil::StatusOr<RExpression> ExtractRExpression(
   // Integrity check.
   if (bmv2_expression.fields().count("op") != 1 ||
       bmv2_expression.fields().count("right") != 1) {
-    return absl::Status(
-        absl::StatusCode::kInvalidArgument,
+    return absl::InvalidArgumentError(
         absl::StrCat("RExpression must contain 'op' and 'right', found ",
                      bmv2_expression.DebugString()));
   }
@@ -312,30 +304,27 @@ gutil::StatusOr<RExpression> ExtractRExpression(
     case RExpression::ExpressionCase::kUnaryExpression: {
       ASSIGN_OR_RETURN(*output.mutable_unary_expression(),
                        ExtractUnaryExpression(bmv2_expression, variables));
-      break;
+      return output;
     }
     case RExpression::ExpressionCase::kBinaryExpression: {
       ASSIGN_OR_RETURN(*output.mutable_binary_expression(),
                        ExtractBinaryExpression(bmv2_expression, variables));
-      break;
+      return output;
     }
     case RExpression::ExpressionCase::kTernaryExpression: {
       ASSIGN_OR_RETURN(*output.mutable_ternary_expression(),
                        ExtractTernaryExpression(bmv2_expression, variables));
-      break;
+      return output;
     }
     case RExpression::ExpressionCase::kBuiltinExpression: {
       ASSIGN_OR_RETURN(*output.mutable_builtin_expression(),
                        ExtractBuiltinExpression(bmv2_expression, variables));
-      break;
+      return output;
     }
     default:
-      return absl::Status(absl::StatusCode::kUnimplemented,
-                          absl::StrCat("Unsupported expression op ",
-                                       bmv2_expression.DebugString()));
+      return absl::UnimplementedError(absl::StrCat(
+          "Unsupported expression op ", bmv2_expression.DebugString()));
   }
-
-  return output;
 }
 
 // Functions for translating values.
@@ -347,8 +336,7 @@ gutil::StatusOr<LValue> ExtractLValue(
   if (bmv2_value.kind_case() != google::protobuf::Value::kStructValue ||
       bmv2_value.struct_value().fields().count("type") != 1 ||
       bmv2_value.struct_value().fields().count("value") != 1) {
-    return absl::Status(
-        absl::StatusCode::kInvalidArgument,
+    return absl::InvalidArgumentError(
         absl::StrCat("Lvalue must contain 'type' and 'value', found ",
                      bmv2_value.DebugString()));
   }
@@ -365,22 +353,19 @@ gutil::StatusOr<LValue> ExtractLValue(
       FieldValue *field_value = output.mutable_field_value();
       field_value->set_header_name(names.values(0).string_value());
       field_value->set_field_name(names.values(1).string_value());
-      break;
+      return output;
     }
     case bmv2::ExpressionType::runtime_data: {
       int variable_index = struct_value.fields().at("value").number_value();
 
       Variable *variable = output.mutable_variable_value();
       variable->set_name(variables[variable_index]);
-      break;
+      return output;
     }
     default:
-      return absl::Status(
-          absl::StatusCode::kUnimplemented,
+      return absl::UnimplementedError(
           absl::StrCat("Unsupported lvalue ", bmv2_value.DebugString()));
   }
-
-  return output;
 }
 
 gutil::StatusOr<RValue> ExtractRValue(
@@ -390,8 +375,7 @@ gutil::StatusOr<RValue> ExtractRValue(
   if (bmv2_value.kind_case() != google::protobuf::Value::kStructValue ||
       bmv2_value.struct_value().fields().count("type") != 1 ||
       bmv2_value.struct_value().fields().count("value") != 1) {
-    return absl::Status(
-        absl::StatusCode::kInvalidArgument,
+    return absl::InvalidArgumentError(
         absl::StrCat("Rvalue must contain 'type' and 'value', found ",
                      bmv2_value.DebugString()));
   }
@@ -407,7 +391,7 @@ gutil::StatusOr<RValue> ExtractRValue(
 
       HeaderValue *header_value = output.mutable_header_value();
       header_value->set_header_name(header_name);
-      break;
+      return output;
     }
     case bmv2::ExpressionType::field: {
       const google::protobuf::ListValue &names =
@@ -416,14 +400,14 @@ gutil::StatusOr<RValue> ExtractRValue(
       FieldValue *field_value = output.mutable_field_value();
       field_value->set_header_name(names.values(0).string_value());
       field_value->set_field_name(names.values(1).string_value());
-      break;
+      return output;
     }
     case bmv2::ExpressionType::runtime_data: {
       int variable_index = struct_value.fields().at("value").number_value();
 
       Variable *variable = output.mutable_variable_value();
       variable->set_name(variables[variable_index]);
-      break;
+      return output;
     }
     case bmv2::ExpressionType::hexstr_: {
       HexstrValue *hexstr_value = output.mutable_hexstr_value();
@@ -435,17 +419,17 @@ gutil::StatusOr<RValue> ExtractRValue(
         hexstr_value->set_value(hexstr);
         hexstr_value->set_negative(false);
       }
-      break;
+      return output;
     }
     case bmv2::ExpressionType::bool_: {
       output.mutable_bool_value()->set_value(
           struct_value.fields().at("value").bool_value());
-      break;
+      return output;
     }
     case bmv2::ExpressionType::string_: {
       output.mutable_string_value()->set_value(
           struct_value.fields().at("value").string_value());
-      break;
+      return output;
     }
     case bmv2::ExpressionType::expression: {
       const google::protobuf::Struct *expression =
@@ -463,8 +447,7 @@ gutil::StatusOr<RValue> ExtractRValue(
         if (expression->fields().count("type") != 1 ||
             expression->fields().at("type").string_value() != "expression" ||
             expression->fields().count("value") != 1) {
-          return absl::Status(
-              absl::StatusCode::kInvalidArgument,
+          return absl::InvalidArgumentError(
               absl::StrCat("Expression must contain 'op' at some level, found ",
                            expression->DebugString()));
         }
@@ -473,15 +456,12 @@ gutil::StatusOr<RValue> ExtractRValue(
 
       ASSIGN_OR_RETURN(*(output.mutable_expression_value()),
                        ExtractRExpression(*expression, variables));
-      break;
+      return output;
     }
     default:
-      return absl::Status(
-          absl::StatusCode::kUnimplemented,
+      return absl::UnimplementedError(
           absl::StrCat("Unsupported rvalue ", bmv2_value.DebugString()));
   }
-
-  return output;
 }
 
 // Parsing and validating actions.
@@ -500,7 +480,7 @@ gutil::StatusOr<Action> ExtractAction(
   std::vector<std::string> parameter_map(bmv2_action.runtime_data_size());
   for (int i = 0; i < bmv2_action.runtime_data_size(); i++) {
     const bmv2::VariableDefinition parameter = bmv2_action.runtime_data(i);
-    (*action_impl->mutable_parameters())[parameter.name()] =
+    (*action_impl->mutable_parameter_to_bitwidth())[parameter.name()] =
         parameter.bitwidth();
     parameter_map[i] = parameter.name();
   }
@@ -510,12 +490,10 @@ gutil::StatusOr<Action> ExtractAction(
   for (const google::protobuf::Struct &primitive : bmv2_action.primitives()) {
     if (primitive.fields().count("op") != 1 ||
         primitive.fields().count("parameters") != 1) {
-      return absl::Status(absl::StatusCode::kInvalidArgument,
-                          absl::StrCat("Primitive statement in action ",
-                                       pdpi_action.preamble().name(),
-                                       " should contain 'op'"
-                                       ", 'parameters', found ",
-                                       primitive.DebugString()));
+      return absl::InvalidArgumentError(absl::StrCat(
+          "Primitive statement in action ", pdpi_action.preamble().name(),
+          " should contain 'op', 'parameters', found ",
+          primitive.DebugString()));
     }
 
     Statement *statement = action_impl->add_action_body();
@@ -529,11 +507,9 @@ gutil::StatusOr<Action> ExtractAction(
             primitive.fields().at("parameters");
         if (params.kind_case() != google::protobuf::Value::kListValue ||
             params.list_value().values_size() != 2) {
-          return absl::Status(absl::StatusCode::kInvalidArgument,
-                              absl::StrCat("Assignment statement in action ",
-                                           pdpi_action.preamble().name(),
-                                           " must contain 2 parameters, found ",
-                                           primitive.DebugString()));
+          return absl::InvalidArgumentError(absl::StrCat(
+              "Assignment statement in action ", pdpi_action.preamble().name(),
+              " must contain 2 parameters, found ", primitive.DebugString()));
         }
 
         ASSIGN_OR_RETURN(
@@ -550,22 +526,20 @@ gutil::StatusOr<Action> ExtractAction(
             primitive.fields().at("parameters");
         if (params.kind_case() != google::protobuf::Value::kListValue ||
             params.list_value().values_size() != 1) {
-          return absl::Status(absl::StatusCode::kInvalidArgument,
-                              absl::StrCat("Mark to drop statement in action ",
-                                           pdpi_action.preamble().name(),
-                                           " must contain 1 parameter, found ",
-                                           primitive.DebugString()));
+          return absl::InvalidArgumentError(absl::StrCat(
+              "Mark to drop statement in action ",
+              pdpi_action.preamble().name(),
+              " must contain 1 parameter, found ", primitive.DebugString()));
         }
 
         ASSIGN_OR_RETURN(
             RValue drop_rvalue,
             ExtractRValue(params.list_value().values(0), parameter_map));
         if (drop_rvalue.rvalue_case() != RValue::kHeaderValue) {
-          return absl::Status(absl::StatusCode::kInvalidArgument,
-                              absl::StrCat("Mark to drop statement in action ",
-                                           pdpi_action.preamble().name(),
-                                           " must be passed a header, found ",
-                                           primitive.DebugString()));
+          return absl::InvalidArgumentError(absl::StrCat(
+              "Mark to drop statement in action ",
+              pdpi_action.preamble().name(), " must be passed a header, found ",
+              primitive.DebugString()));
         }
         drop->set_allocated_header(drop_rvalue.release_header_value());
         break;
@@ -577,23 +551,19 @@ gutil::StatusOr<Action> ExtractAction(
             primitive.fields().at("parameters");
         if (params.kind_case() != google::protobuf::Value::kListValue ||
             params.list_value().values_size() < 1) {
-          return absl::Status(
-              absl::StatusCode::kInvalidArgument,
-              absl::StrCat("hash statement in action ",
-                           pdpi_action.preamble().name(),
-                           " must at least specifiy target field, found ",
-                           primitive.DebugString()));
+          return absl::InvalidArgumentError(absl::StrCat(
+              "hash statement in action ", pdpi_action.preamble().name(),
+              " must at least specifiy target field, found ",
+              primitive.DebugString()));
         }
 
         ASSIGN_OR_RETURN(
             LValue hash_lvalue,
             ExtractLValue(params.list_value().values(0), parameter_map));
         if (hash_lvalue.lvalue_case() != LValue::kFieldValue) {
-          return absl::Status(absl::StatusCode::kInvalidArgument,
-                              absl::StrCat("Hash statement in action ",
-                                           pdpi_action.preamble().name(),
-                                           " must target a field, found ",
-                                           primitive.DebugString()));
+          return absl::InvalidArgumentError(absl::StrCat(
+              "Hash statement in action ", pdpi_action.preamble().name(),
+              " must target a field, found ", primitive.DebugString()));
         }
         hash->set_allocated_field(hash_lvalue.release_field_value());
         break;
@@ -603,20 +573,17 @@ gutil::StatusOr<Action> ExtractAction(
         break;
       }
       default:
-        return absl::Status(absl::StatusCode::kUnimplemented,
-                            absl::StrCat("Unsupported statement in action ",
-                                         pdpi_action.preamble().name(),
-                                         ", found ", primitive.DebugString()));
+        return absl::UnimplementedError(absl::StrCat(
+            "Unsupported statement in action ", pdpi_action.preamble().name(),
+            ", found ", primitive.DebugString()));
     }
 
     // Parse source_info struct into its own protobuf.
     // Applies to all types of statements.
     if (primitive.fields().count("source_info") != 1) {
-      return absl::Status(
-          absl::StatusCode::kInvalidArgument,
-          absl::StrCat("Statement in action ", pdpi_action.preamble().name(),
-                       " does not have source_info, found ",
-                       primitive.DebugString()));
+      return absl::InvalidArgumentError(absl::StrCat(
+          "Statement in action ", pdpi_action.preamble().name(),
+          " does not have source_info, found ", primitive.DebugString()));
     }
 
     ASSIGN_OR_RETURN(
@@ -648,30 +615,27 @@ gutil::StatusOr<Table> ExtractTable(
       table_impl->set_action_selector_type(TableImplementation::INDIRECT_WS);
       break;
     default:
-      return absl::Status(absl::StatusCode::kUnimplemented,
-                          absl::StrCat("Unsupported action selector type in ",
-                                       bmv2_table.DebugString()));
+      return absl::UnimplementedError(absl::StrCat(
+          "Unsupported action selector type in ", bmv2_table.DebugString()));
   }
 
   // Look up the default action by its bmv2 json id.
   int default_action_id = bmv2_table.default_entry().action_id();
   if (actions.count(default_action_id) != 1) {
-    return absl::Status(absl::StatusCode::kInvalidArgument,
-                        absl::StrCat("Table ", pdpi_table.preamble().name(),
-                                     " has unknown default action id ",
-                                     bmv2_table.default_entry().action_id()));
+    return absl::InvalidArgumentError(
+        absl::StrCat("Table ", pdpi_table.preamble().name(),
+                     " has unknown default action id ",
+                     bmv2_table.default_entry().action_id()));
   }
-  Action default_action = actions.at(default_action_id);
+  const Action &default_action = actions.at(default_action_id);
 
   // Make sure default action arguments are consistent with its defined
   // parameters count.
-  if (default_action.action_implementation().parameters_size() !=
+  if (default_action.action_implementation().parameter_to_bitwidth_size() !=
       bmv2_table.default_entry().action_data_size()) {
-    return absl::Status(
-        absl::StatusCode::kInvalidArgument,
-        absl::StrCat(
-            "Table ", pdpi_table.preamble().name(),
-            " passes the wrong number of arguments to its default action"));
+    return absl::InvalidArgumentError(absl::StrCat(
+        "Table ", pdpi_table.preamble().name(),
+        " passes the wrong number of arguments to its default action"));
   }
 
   // Extract default entry from bmv2 json.
@@ -683,7 +647,8 @@ gutil::StatusOr<Table> ExtractTable(
   // Set which flows are next for each possible action match in this table.
   for (const auto &[action_name, next_flow] : bmv2_table.next_tables()) {
     if (!next_flow.empty()) {
-      table_impl->mutable_next_flows()->insert({action_name, next_flow});
+      table_impl->mutable_action_to_next_flow()->insert(
+          {action_name, next_flow});
     }
   }
 
@@ -739,6 +704,8 @@ gutil::StatusOr<P4Program> Bmv2AndP4infoToIr(const bmv2::P4Program &bmv2,
         const bmv2::VariableDefinition &bmv2_parameter =
             bmv2_action.runtime_data(i);
 
+        // Bmv2 parameters ids start from 1 and are incremented in order
+        // of definition.
         p4::config::v1::Action::Param *pdpi_parameter =
             (*params_by_id)[i + 1].mutable_param();
         pdpi_parameter->set_id(i + 1);
@@ -787,6 +754,8 @@ gutil::StatusOr<P4Program> Bmv2AndP4infoToIr(const bmv2::P4Program &bmv2,
         for (int i = 0; i < bmv2_table.key_size(); i++) {
           const bmv2::TableKey &key = bmv2_table.key(i);
 
+          // Match field ids start at 1 and are incremented by 1 in order
+          // of definition.
           p4::config::v1::MatchField *match_field =
               (*match_fields_by_id)[i + 1].mutable_match_field();
           match_field->set_id(i + 1);
@@ -797,8 +766,7 @@ gutil::StatusOr<P4Program> Bmv2AndP4infoToIr(const bmv2::P4Program &bmv2,
               break;
             }
             default:
-              return absl::Status(
-                  absl::StatusCode::kUnimplemented,
+              return absl::UnimplementedError(
                   absl::StrCat("Unsupported match type ", key.DebugString(),
                                " in table", table_name));
           }
@@ -836,8 +804,7 @@ gutil::StatusOr<P4Program> Bmv2AndP4infoToIr(const bmv2::P4Program &bmv2,
 
   // Find init_table.
   if (bmv2.pipelines_size() < 1) {
-    return absl::Status(absl::StatusCode::kInvalidArgument,
-                        "BMV2 file contains no pipelines!");
+    return absl::InvalidArgumentError("BMV2 file contains no pipelines!");
   }
   output.set_initial_flow(bmv2.pipelines(0).init_table());
   return output;
