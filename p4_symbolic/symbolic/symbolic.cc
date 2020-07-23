@@ -44,7 +44,8 @@ gutil::StatusOr<std::unique_ptr<SolverState>> EvaluateP4Pipeline(
   // Restrict ports to the available physical ports.
   z3::expr ingress_port_domain = Z3Context().bool_val(false);
   for (int port : physical_ports) {
-    ingress_port_domain = ingress_port_domain || ingress_port == port;
+    ingress_port_domain =
+        ingress_port_domain || ingress_port == Z3Context().bv_val(port, 9);
   }
   z3_solver->add(ingress_port_domain);
 

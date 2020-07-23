@@ -12,8 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Contains the entry point to our symbolic interpretation code, as well
-// as helpers for debugging and finding concrete packets and their context.
+// Helpful utilities for managing symbolic and concrete states.
 
 #include "p4_symbolic/symbolic/util.h"
 
@@ -21,6 +20,8 @@
 #include <unordered_map>
 
 #include "p4_pdpi/utils/ir.h"
+#include "p4_symbolic/symbolic/bits.h"
+#include "p4_symbolic/symbolic/headers.h"
 
 namespace p4_symbolic {
 namespace symbolic {
@@ -37,95 +38,41 @@ bool Z3BooltoBool(Z3_lbool z3_bool) {
   }
 }
 
-ConcreteHeader ExtractConcreteFromSymbolicHeaders(SymbolicHeader header,
-                                                  z3::model model) {
-  return {model.eval(header.eth_src, true).get_numeral_int(),
-          model.eval(header.eth_dst, true).get_numeral_int(),
-          model.eval(header.eth_type, true).get_numeral_int(),
-
-          model.eval(header.outer_ipv4_src, true).get_numeral_int(),
-          model.eval(header.outer_ipv4_dst, true).get_numeral_int(),
-          model.eval(header.outer_ipv6_dst_upper, true).get_numeral_int(),
-          model.eval(header.outer_ipv6_dst_lower, true).get_numeral_int(),
-          model.eval(header.outer_protocol, true).get_numeral_int(),
-          model.eval(header.outer_dscp, true).get_numeral_int(),
-          model.eval(header.outer_ttl, true).get_numeral_int(),
-
-          model.eval(header.inner_ipv4_dst, true).get_numeral_int(),
-          model.eval(header.inner_ipv6_dst_upper, true).get_numeral_int(),
-          model.eval(header.inner_ipv6_dst_lower, true).get_numeral_int(),
-          model.eval(header.inner_protocol, true).get_numeral_int(),
-          model.eval(header.inner_dscp, true).get_numeral_int(),
-          model.eval(header.inner_ttl, true).get_numeral_int(),
-
-          model.eval(header.icmp_type, true).get_numeral_int(),
-          model.eval(header.vid, true).get_numeral_int()};
-}
-
-z3::expr MergeExpressionWithCondition(const z3::expr &original,
-                                      const z3::expr &changed,
-                                      const z3::expr &condition) {
-  if (z3::eq(original, changed)) {
-    return original;
-  }
-  return z3::ite(condition, changed, original);
-}
-
 }  // namespace
 
 SymbolicPerPacketState FreeSymbolicPacketState() {
   // Port variables.
-  z3::expr ingress_port = Z3Context().int_const("ingress_port");
+  z3::expr ingress_port = Z3Context().bv_const("ingress_port", 9);
 
   // Packet header variables.
-  SymbolicHeader header = {
-      Z3Context().int_const("ingress_eth_src"),
-      Z3Context().int_const("ingress_eth_dst"),
-      Z3Context().int_const("ingress_eth_type"),
-
-      Z3Context().int_const("ingress_outer_ipv4_src"),
-      Z3Context().int_const("ingress_outer_ipv4_dst"),
-      Z3Context().int_const("ingress_outer_ipv6_dst_upper"),
-      Z3Context().int_const("ingress_outer_ipv6_dst_lower"),
-      Z3Context().int_const("ingress_outer_protocol"),
-      Z3Context().int_const("ingress_outer_dscp"),
-      Z3Context().int_const("ingress_outer_ttl"),
-
-      Z3Context().int_const("ingress_inner_ipv4_dst"),
-      Z3Context().int_const("ingress_inner_ipv6_dst_upper"),
-      Z3Context().int_const("ingress_inner_ipv6_dst_lower"),
-      Z3Context().int_const("ingress_inner_protocol"),
-      Z3Context().int_const("ingress_inner_dscp"),
-      Z3Context().int_const("ingress_inner_ttl"),
-
-      Z3Context().int_const("ingress_icmp_type"),
-      Z3Context().int_const("ingress_vid"),
-  };
+  SymbolicHeader header = headers::FreeSymbolicHeader();
 
   // Default metadata.
   SymbolicMetadata metadata;
   metadata.insert({"standard_metadata.ingress_port", ingress_port});
-  metadata.insert({"standard_metadata.egress_spec", Z3Context().int_val(-1)});
+  metadata.insert({"standard_metadata.egress_spec", Z3Context().bv_val(-1, 9)});
 
   return {header, metadata};
 }
 
 ConcreteContext ExtractFromModel(SymbolicContext context, z3::model model) {
   // Extract ports.
-  int ingress_port = model.eval(context.ingress_port, true).get_numeral_int();
-  int egress_port = model.eval(context.egress_port, true).get_numeral_int();
+  std::string ingress_port =
+      model.eval(context.ingress_port, true).get_decimal_string(9);
+  std::string egress_port =
+      model.eval(context.egress_port, true).get_decimal_string(9);
 
   // Extract an input packet and its predicted output.
   ConcreteHeader ingress_packet =
-      ExtractConcreteFromSymbolicHeaders(context.ingress_packet, model);
+      headers::ExtractConcreteHeaders(context.ingress_packet, model);
   ConcreteHeader egress_packet =
-      ExtractConcreteFromSymbolicHeaders(context.egress_packet, model);
+      headers::ExtractConcreteHeaders(context.egress_packet, model);
 
   // Extract the last predicited value assigned to every metadata field when the
   // program is run on the input packet.
   ConcreteMetadata metadata;
   for (const auto &[name, expr] : context.metadata) {
-    metadata[name] = model.eval(expr, true).get_numeral_int();
+    metadata[name] = model.eval(expr, true).get_decimal_string(9);
   }
 
   // Extract the trace (matches on every table).
@@ -144,54 +91,21 @@ ConcreteContext ExtractFromModel(SymbolicContext context, z3::model model) {
           egress_packet, metadata,    trace};
 }
 
+z3::expr MergeExpressionsWithCondition(const z3::expr &original,
+                                       const z3::expr &changed,
+                                       const z3::expr &condition) {
+  if (z3::eq(original, changed)) {
+    return original;
+  }
+  return z3::ite(condition, changed, original);
+}
+
 SymbolicPerPacketState MergeStatesOnCondition(
     const SymbolicPerPacketState &original,
     const SymbolicPerPacketState &changed, const z3::expr &condition) {
   // Merge the header.
-  SymbolicHeader merged_header = {
-      MergeExpressionWithCondition(original.header.eth_src,
-                                   changed.header.eth_src, condition),
-      MergeExpressionWithCondition(original.header.eth_dst,
-                                   changed.header.eth_dst, condition),
-      MergeExpressionWithCondition(original.header.eth_type,
-                                   changed.header.eth_type, condition),
-
-      MergeExpressionWithCondition(original.header.outer_ipv4_src,
-                                   changed.header.outer_ipv4_src, condition),
-      MergeExpressionWithCondition(original.header.outer_ipv4_dst,
-                                   changed.header.outer_ipv4_dst, condition),
-      MergeExpressionWithCondition(original.header.outer_ipv6_dst_upper,
-                                   changed.header.outer_ipv6_dst_upper,
-                                   condition),
-      MergeExpressionWithCondition(original.header.outer_ipv6_dst_lower,
-                                   changed.header.outer_ipv6_dst_lower,
-                                   condition),
-      MergeExpressionWithCondition(original.header.outer_protocol,
-                                   changed.header.outer_protocol, condition),
-      MergeExpressionWithCondition(original.header.outer_dscp,
-                                   changed.header.outer_dscp, condition),
-      MergeExpressionWithCondition(original.header.outer_ttl,
-                                   changed.header.outer_ttl, condition),
-
-      MergeExpressionWithCondition(original.header.inner_ipv4_dst,
-                                   changed.header.inner_ipv4_dst, condition),
-      MergeExpressionWithCondition(original.header.inner_ipv6_dst_upper,
-                                   changed.header.inner_ipv6_dst_upper,
-                                   condition),
-      MergeExpressionWithCondition(original.header.inner_ipv6_dst_lower,
-                                   changed.header.inner_ipv6_dst_lower,
-                                   condition),
-      MergeExpressionWithCondition(original.header.inner_protocol,
-                                   changed.header.inner_protocol, condition),
-      MergeExpressionWithCondition(original.header.inner_dscp,
-                                   changed.header.inner_dscp, condition),
-      MergeExpressionWithCondition(original.header.inner_ttl,
-                                   changed.header.inner_ttl, condition),
-
-      MergeExpressionWithCondition(original.header.icmp_type,
-                                   changed.header.icmp_type, condition),
-      MergeExpressionWithCondition(original.header.vid, changed.header.vid,
-                                   condition)};
+  SymbolicHeader merged_header = headers::MergeHeadersOnCondition(
+      original.header, changed.header, condition);
 
   // Merge metadata.
   SymbolicMetadata merged_metadata;
@@ -201,7 +115,7 @@ SymbolicPerPacketState MergeStatesOnCondition(
       original_expr = original.metadata.at(name);
     }
     merged_metadata.insert(
-        {name, MergeExpressionWithCondition(original_expr, expr, condition)});
+        {name, MergeExpressionsWithCondition(original_expr, expr, condition)});
   }
 
   return {merged_header, merged_metadata};
@@ -210,16 +124,18 @@ SymbolicPerPacketState MergeStatesOnCondition(
 gutil::StatusOr<z3::expr> IrValueToZ3Expr(const pdpi::IrValue &value) {
   switch (value.format_case()) {
     case pdpi::IrValue::kHexStr: {
-      ASSIGN_OR_RETURN(std::string bytes, pdpi::IrValueToByteString(value));
-      // TODO(babman): Values should become Z3 bitstrings.
-      return Z3Context().int_val(static_cast<int>(bytes.at(1)));
+      ASSIGN_OR_RETURN(std::string bits, pdpi::IrValueToByteString(value));
+      std::string encoded_bits;
+      for (char b : bits) {
+        encoded_bits +=
+            static_cast<char>(static_cast<int>(b) + static_cast<int>('0'));
+      }
+      return Z3Context().bv_val(encoded_bits.c_str(), 9);
     }
     default:
       return absl::UnimplementedError(
           absl::StrCat("Found unsupported value type ", value.DebugString()));
   }
-
-  return Z3Context().int_val(0);
 }
 
 }  // namespace util

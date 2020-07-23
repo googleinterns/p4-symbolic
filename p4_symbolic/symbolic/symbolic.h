@@ -42,27 +42,27 @@ z3::context &Z3Context();
 // will be of this type.
 struct ConcreteHeader {
   // TODO(babman): Switch to bit string.
-  int eth_src;
-  int eth_dst;
-  int eth_type;
+  std::string eth_src;
+  std::string eth_dst;
+  std::string eth_type;
 
-  int outer_ipv4_src;
-  int outer_ipv4_dst;
-  int outer_ipv6_dst_upper;
-  int outer_ipv6_dst_lower;
-  int outer_protocol;
-  int outer_dscp;
-  int outer_ttl;
+  std::string outer_ipv4_src;
+  std::string outer_ipv4_dst;
+  std::string outer_ipv6_dst_upper;
+  std::string outer_ipv6_dst_lower;
+  std::string outer_protocol;
+  std::string outer_dscp;
+  std::string outer_ttl;
 
-  int inner_ipv4_dst;
-  int inner_ipv6_dst_upper;
-  int inner_ipv6_dst_lower;
-  int inner_protocol;
-  int inner_dscp;
-  int inner_ttl;
+  std::string inner_ipv4_dst;
+  std::string inner_ipv6_dst_upper;
+  std::string inner_ipv6_dst_lower;
+  std::string inner_protocol;
+  std::string inner_dscp;
+  std::string inner_ttl;
 
-  int icmp_type;
-  int vid;
+  std::string icmp_type;
+  std::string vid;
 };
 
 // Maps the name of a metadata field to its concrete value.
@@ -72,7 +72,7 @@ struct ConcreteHeader {
 // metadata fields, like we do with concrete header. I am using the most
 // flexible option for now, and will be able to better understand this after
 // implementing and experimenting with this a bit.
-using ConcreteMetadata = std::unordered_map<std::string, int>;
+using ConcreteMetadata = std::unordered_map<std::string, std::string>;
 
 // Provides symbolic handles for the fields of the symbolic packet used by
 // our solver. These handles can be used to contstrain the conrete output
@@ -149,8 +149,8 @@ struct SymbolicTrace {
 // This contains an input test packet with its predicted flow in the program,
 // and the predicted output.
 struct ConcreteContext {
-  int ingress_port;
-  int egress_port;
+  std::string ingress_port;
+  std::string egress_port;
   ConcreteHeader ingress_packet;  // Input packet into the program/switch.
   ConcreteHeader egress_packet;   // Expected output packet.
   // Expected metadata field values at the end of execution.

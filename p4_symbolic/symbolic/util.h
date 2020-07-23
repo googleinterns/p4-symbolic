@@ -12,8 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Contains the entry point to our symbolic interpretation code, as well
-// as helpers for debugging and finding concrete packets and their context.
+// Helpful utilities for managing symbolic and concrete states.
 
 #ifndef P4_SYMBOLIC_SYMBOLIC_UTIL_H_
 #define P4_SYMBOLIC_SYMBOLIC_UTIL_H_
@@ -21,7 +20,7 @@
 #include "gutil/status.h"
 #include "p4_pdpi/ir.pb.h"
 #include "p4_symbolic/symbolic/symbolic.h"
-#include "z3.h"
+#include "z3++.h"
 
 namespace p4_symbolic {
 namespace symbolic {
@@ -32,8 +31,13 @@ namespace util {
 SymbolicPerPacketState FreeSymbolicPacketState();
 
 // Extract a concrete context by evaluating every component's corresponding
-// expression on the model.
+// expression in the model.
 ConcreteContext ExtractFromModel(SymbolicContext context, z3::model model);
+
+// Essentially a symbolic ternary choice/condition.
+z3::expr MergeExpressionsWithCondition(const z3::expr &original,
+                                       const z3::expr &changed,
+                                       const z3::expr &condition);
 
 // Merges two symbolic states into a single state. A field in the new state
 // has the value of the changed state if the condition is true, and the value

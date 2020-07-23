@@ -19,12 +19,16 @@ cc_library(
     name = "symbolic",
     srcs = [
         "action.cc",
+        "bits.cc",
+        "headers.cc",
         "symbolic.cc",
         "table.cc",
         "util.cc",
     ],
     hdrs = [
         "action.h",
+        "bits.h",
+        "headers.h",
         "symbolic.h",
         "table.h",
         "util.h",
