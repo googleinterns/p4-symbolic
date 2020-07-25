@@ -20,7 +20,6 @@
 #include <unordered_map>
 
 #include "p4_pdpi/utils/ir.h"
-#include "p4_symbolic/symbolic/bits.h"
 #include "p4_symbolic/symbolic/headers.h"
 
 namespace p4_symbolic {
@@ -58,9 +57,9 @@ SymbolicPerPacketState FreeSymbolicPacketState() {
 ConcreteContext ExtractFromModel(SymbolicContext context, z3::model model) {
   // Extract ports.
   std::string ingress_port =
-      model.eval(context.ingress_port, true).get_decimal_string(9);
+      model.eval(context.ingress_port, true).to_string();
   std::string egress_port =
-      model.eval(context.egress_port, true).get_decimal_string(9);
+      model.eval(context.egress_port, true).to_string();
 
   // Extract an input packet and its predicted output.
   ConcreteHeader ingress_packet =
@@ -72,7 +71,7 @@ ConcreteContext ExtractFromModel(SymbolicContext context, z3::model model) {
   // program is run on the input packet.
   ConcreteMetadata metadata;
   for (const auto &[name, expr] : context.metadata) {
-    metadata[name] = model.eval(expr, true).get_decimal_string(9);
+    metadata[name] = model.eval(expr, true).to_string();
   }
 
   // Extract the trace (matches on every table).
@@ -130,7 +129,7 @@ gutil::StatusOr<z3::expr> IrValueToZ3Expr(const pdpi::IrValue &value) {
         encoded_bits +=
             static_cast<char>(static_cast<int>(b) + static_cast<int>('0'));
       }
-      return Z3Context().bv_val(encoded_bits.c_str(), 9);
+      return Z3Context().bv_val(encoded_bits.c_str(), encoded_bits.size());
     }
     default:
       return absl::UnimplementedError(

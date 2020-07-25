@@ -17,7 +17,6 @@
 
 #include "p4_symbolic/symbolic/headers.h"
 
-#include "p4_symbolic/symbolic/bits.h"
 #include "p4_symbolic/symbolic/util.h"
 
 namespace p4_symbolic {
@@ -26,52 +25,52 @@ namespace headers {
 
 SymbolicHeader FreeSymbolicHeader() {
   return {
-      Z3Context().bv_const("ingress_eth_src", 9),
-      Z3Context().bv_const("ingress_eth_dst", 9),
-      Z3Context().bv_const("ingress_eth_type", 9),
+      Z3Context().bv_const("ingress_eth_src", 48),
+      Z3Context().bv_const("ingress_eth_dst", 48),
+      Z3Context().bv_const("ingress_eth_type", 16),
 
-      Z3Context().bv_const("ingress_outer_ipv4_src", 9),
-      Z3Context().bv_const("ingress_outer_ipv4_dst", 9),
-      Z3Context().bv_const("ingress_outer_ipv6_dst_upper", 9),
-      Z3Context().bv_const("ingress_outer_ipv6_dst_lower", 9),
-      Z3Context().bv_const("ingress_outer_protocol", 9),
-      Z3Context().bv_const("ingress_outer_dscp", 9),
-      Z3Context().bv_const("ingress_outer_ttl", 9),
+      Z3Context().bv_const("ingress_outer_ipv4_src", 32),
+      Z3Context().bv_const("ingress_outer_ipv4_dst", 32),
+      Z3Context().bv_const("ingress_outer_ipv6_dst_upper", 64),
+      Z3Context().bv_const("ingress_outer_ipv6_dst_lower", 64),
+      Z3Context().bv_const("ingress_outer_protocol", 8),
+      Z3Context().bv_const("ingress_outer_dscp", 6),
+      Z3Context().bv_const("ingress_outer_ttl", 8),
 
-      Z3Context().bv_const("ingress_inner_ipv4_dst", 9),
-      Z3Context().bv_const("ingress_inner_ipv6_dst_upper", 9),
-      Z3Context().bv_const("ingress_inner_ipv6_dst_lower", 9),
-      Z3Context().bv_const("ingress_inner_protocol", 9),
-      Z3Context().bv_const("ingress_inner_dscp", 9),
-      Z3Context().bv_const("ingress_inner_ttl", 9),
+      Z3Context().bv_const("ingress_inner_ipv4_dst", 32),
+      Z3Context().bv_const("ingress_inner_ipv6_dst_upper", 64),
+      Z3Context().bv_const("ingress_inner_ipv6_dst_lower", 64),
+      Z3Context().bv_const("ingress_inner_protocol", 8),
+      Z3Context().bv_const("ingress_inner_dscp", 6),
+      Z3Context().bv_const("ingress_inner_ttl", 8),
 
-      Z3Context().bv_const("ingress_icmp_type", 9),
-      Z3Context().bv_const("ingress_vid", 9),
+      Z3Context().bv_const("ingress_icmp_type", 8),
+      Z3Context().bv_const("ingress_vid", 12),
   };
 }
 
 ConcreteHeader ExtractConcreteHeaders(SymbolicHeader header, z3::model model) {
-  return {model.eval(header.eth_src, true).get_decimal_string(9),
-          model.eval(header.eth_dst, true).get_decimal_string(9),
-          model.eval(header.eth_type, true).get_decimal_string(9),
+  return {model.eval(header.eth_src, true).to_string(),
+          model.eval(header.eth_dst, true).to_string(),
+          model.eval(header.eth_type, true).to_string(),
 
-          model.eval(header.outer_ipv4_src, true).get_decimal_string(9),
-          model.eval(header.outer_ipv4_dst, true).get_decimal_string(9),
-          model.eval(header.outer_ipv6_dst_upper, true).get_decimal_string(9),
-          model.eval(header.outer_ipv6_dst_lower, true).get_decimal_string(9),
-          model.eval(header.outer_protocol, true).get_decimal_string(9),
-          model.eval(header.outer_dscp, true).get_decimal_string(9),
-          model.eval(header.outer_ttl, true).get_decimal_string(9),
+          model.eval(header.outer_ipv4_src, true).to_string(),
+          model.eval(header.outer_ipv4_dst, true).to_string(),
+          model.eval(header.outer_ipv6_dst_upper, true).to_string(),
+          model.eval(header.outer_ipv6_dst_lower, true).to_string(),
+          model.eval(header.outer_protocol, true).to_string(),
+          model.eval(header.outer_dscp, true).to_string(),
+          model.eval(header.outer_ttl, true).to_string(),
 
-          model.eval(header.inner_ipv4_dst, true).get_decimal_string(9),
-          model.eval(header.inner_ipv6_dst_upper, true).get_decimal_string(9),
-          model.eval(header.inner_ipv6_dst_lower, true).get_decimal_string(9),
-          model.eval(header.inner_protocol, true).get_decimal_string(9),
-          model.eval(header.inner_dscp, true).get_decimal_string(9),
-          model.eval(header.inner_ttl, true).get_decimal_string(9),
+          model.eval(header.inner_ipv4_dst, true).to_string(),
+          model.eval(header.inner_ipv6_dst_upper, true).to_string(),
+          model.eval(header.inner_ipv6_dst_lower, true).to_string(),
+          model.eval(header.inner_protocol, true).to_string(),
+          model.eval(header.inner_dscp, true).to_string(),
+          model.eval(header.inner_ttl, true).to_string(),
 
-          model.eval(header.icmp_type, true).get_decimal_string(9),
-          model.eval(header.vid, true).get_decimal_string(9)};
+          model.eval(header.icmp_type, true).to_string(),
+          model.eval(header.vid, true).to_string()};
 }
 
 SymbolicHeader MergeHeadersOnCondition(const SymbolicHeader &original,
