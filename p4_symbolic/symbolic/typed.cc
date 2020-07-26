@@ -26,25 +26,27 @@
 // it will perform any needed sign conversions and size padding.
 // The macro will define two z3::expr variables "a_expr" and "b_expr",
 // corresponding to the finalized expressions of the two operands.
-#define SORT_CHECK_AND_PADD(a, b)                                 \
-  z3::expr a_expr = a.expr_;                                      \
-  z3::expr b_expr = b.expr_;                                      \
-  assert(a.sort_.sort_kind() == b.sort_.sort_kind());             \
-  if (a.sort_.is_bv()) {                                          \
-    unsigned int a_len = a.sort_.bv_size();                       \
-    unsigned int b_len = b.sort_.bv_size();                       \
-    /* If one is signed and the other is not, we will need to     \
-     * make the unsigned one signed, by padding with a single     \
-     * zero bit, since the unsigned expression must be positive.  \
-     * As an optimization, we do not need to do that padding      \
-     * explicitly, instead we only logically account for it       \
-     * increasing the size by 1, and then the later "Pad" call    \
-     * will do that sign conversion for us along the way. */      \
-    if (a.signed_ && !b.signed_) a_len += 1;                      \
-    else if(!a.signed_ && b.signed_) b_len += 1;                  \
-    unsigned int pad_size = a_len > b_len ? a_len : b_len;        \
-    a_expr = Pad(a, pad_size);                                    \
-    b_expr = Pad(b, pad_size);                                    \
+#define SORT_CHECK_AND_PADD(a, b)                                \
+  z3::expr a_expr = a.expr_;                                     \
+  z3::expr b_expr = b.expr_;                                     \
+  assert(a.sort_.sort_kind() == b.sort_.sort_kind());            \
+  if (a.sort_.is_bv()) {                                         \
+    unsigned int a_len = a.sort_.bv_size();                      \
+    unsigned int b_len = b.sort_.bv_size();                      \
+    /* If one is signed and the other is not, we will need to    \
+     * make the unsigned one signed, by padding with a single    \
+     * zero bit, since the unsigned expression must be positive. \
+     * As an optimization, we do not need to do that padding     \
+     * explicitly, instead we only logically account for it      \
+     * increasing the size by 1, and then the later "Pad" call   \
+     * will do that sign conversion for us along the way. */     \
+    if (a.signed_ && !b.signed_)                                 \
+      a_len += 1;                                                \
+    else if (!a.signed_ && b.signed_)                            \
+      b_len += 1;                                                \
+    unsigned int pad_size = a_len > b_len ? a_len : b_len;       \
+    a_expr = Pad(a, pad_size);                                   \
+    b_expr = Pad(b, pad_size);                                   \
   }
 
 namespace p4_symbolic {
@@ -75,7 +77,7 @@ z3::expr Pad(const TypedExpr &e, unsigned int size) {
 }  // namespace
 
 // Copy and move assignment operators must respect pre-declared sort.
-TypedExpr& TypedExpr::operator=(const TypedExpr& other) {
+TypedExpr &TypedExpr::operator=(const TypedExpr &other) {
   assert(this->sort_.sort_kind() == other.sort_.sort_kind());
   if (this->sort_.is_bv()) {
     // We can assign an unsigned bit vector to a signed one, but not the other
@@ -98,8 +100,7 @@ TypedExpr& TypedExpr::operator=(const TypedExpr& other) {
   }
   return *this;
 }
-
-TypedExpr& TypedExpr::operator=(TypedExpr&& other) {
+TypedExpr &TypedExpr::operator=(TypedExpr &&other) {
   // Same sort-checking assertions as copy assignment.
   assert(this->sort_.sort_kind() == other.sort_.sort_kind());
   if (this->sort_.is_bv()) {
@@ -115,10 +116,26 @@ TypedExpr& TypedExpr::operator=(TypedExpr&& other) {
   return *this;
 }
 
-// Comparison Operators.
-TypedExpr TypedExpr::operator==(const TypedExpr &b) {
+// Overloaded operators.
+TypedExpr TypedExpr::operator==(const TypedExpr &b) const {
   SORT_CHECK_AND_PADD((*this), b);
   return TypedExpr(a_expr == b_expr, this->signed_ || b.signed_);
+}
+TypedExpr TypedExpr::operator&&(const TypedExpr &b) const {
+  return TypedExpr(this->expr_ && b.expr_);
+}
+TypedExpr TypedExpr::operator||(const TypedExpr &b) const {
+  return TypedExpr(this->expr_ || b.expr_);
+}
+TypedExpr TypedExpr::operator!() const { return TypedExpr(!this->expr_); }
+
+// If-then-else.
+TypedExpr TypedExpr::ite(const TypedExpr &condition, const TypedExpr &true_,
+                         const TypedExpr &false_) {
+  // Values in both cases must have the same sort and signedness.
+  SORT_CHECK_AND_PADD(true_, false_);
+  return TypedExpr(z3::ite(condition.expr_, a_expr, b_expr),
+                   true_.signed_ || false_.signed_);
 }
 
 }  // namespace symbolic

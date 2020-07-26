@@ -28,6 +28,7 @@
 #include "gutil/status.h"
 #include "p4_symbolic/ir/ir.pb.h"
 #include "p4_symbolic/ir/table_entries.h"
+#include "p4_symbolic/symbolic/typed.h"
 #include "z3++.h"  // TODO(babman): added as a system dependency for now.
 
 namespace p4_symbolic {
@@ -41,7 +42,6 @@ z3::context &Z3Context();
 // A concrete output packet within a concrete context produced by our solver
 // will be of this type.
 struct ConcreteHeader {
-  // TODO(babman): Switch to bit string.
   std::string eth_src;
   std::string eth_dst;
   std::string eth_type;
@@ -68,43 +68,38 @@ struct ConcreteHeader {
 // Maps the name of a metadata field to its concrete value.
 // Unlike ConcreteHeader, a metadata field is not part of the physical packet,
 // it is a logical value used by the P4 program (e.g. vrf).
-// TODO(babman): It is unclear yet if we want to hardcode the names of the
-// metadata fields, like we do with concrete header. I am using the most
-// flexible option for now, and will be able to better understand this after
-// implementing and experimenting with this a bit.
 using ConcreteMetadata = std::unordered_map<std::string, std::string>;
 
 // Provides symbolic handles for the fields of the symbolic packet used by
 // our solver. These handles can be used to contstrain the conrete output
 // packets.
 struct SymbolicHeader {
-  // TODO(babman): Swith to bit strings.
-  z3::expr eth_src;   // 48 bit.
-  z3::expr eth_dst;   // 48 bit.
-  z3::expr eth_type;  // 16 bit.
+  TypedExpr eth_src;   // 48 bit.
+  TypedExpr eth_dst;   // 48 bit.
+  TypedExpr eth_type;  // 16 bit.
 
-  z3::expr outer_ipv4_src;        // 32 bit, valid if eth_type = 0x0800
-  z3::expr outer_ipv4_dst;        // 32 bit, valid if eth_type = 0x0800
-  z3::expr outer_ipv6_dst_upper;  // 64 bit, valid if eth_type = 0x86dd
-  z3::expr outer_ipv6_dst_lower;  // 64 bit, valid if eth_type = 0x86dd
-  z3::expr outer_protocol;        // 8 bit, valid if eth_type is ip
-  z3::expr outer_dscp;            // 6 bit, valid if eth_type is ip
-  z3::expr outer_ttl;             // 8 bit, valid if eth_type is ip
+  TypedExpr outer_ipv4_src;        // 32 bit, valid if eth_type = 0x0800
+  TypedExpr outer_ipv4_dst;        // 32 bit, valid if eth_type = 0x0800
+  TypedExpr outer_ipv6_dst_upper;  // 64 bit, valid if eth_type = 0x86dd
+  TypedExpr outer_ipv6_dst_lower;  // 64 bit, valid if eth_type = 0x86dd
+  TypedExpr outer_protocol;        // 8 bit, valid if eth_type is ip
+  TypedExpr outer_dscp;            // 6 bit, valid if eth_type is ip
+  TypedExpr outer_ttl;             // 8 bit, valid if eth_type is ip
 
-  z3::expr inner_ipv4_dst;        // 32 bit, valid if outer_protocol = 4
-  z3::expr inner_ipv6_dst_upper;  // 64 bit, valid if outer_protocol = 4
-  z3::expr inner_ipv6_dst_lower;  // 64 bit, valid if outer_protocol = 41
-  z3::expr inner_protocol;        // 8 bit, valid if outer_protocol = 4/41
-  z3::expr inner_dscp;            // 6 bit, valid if outer_protocol = 4/41
-  z3::expr inner_ttl;             // 8 bit, valid if outer_protocol = 4/41
+  TypedExpr inner_ipv4_dst;        // 32 bit, valid if outer_protocol = 4
+  TypedExpr inner_ipv6_dst_upper;  // 64 bit, valid if outer_protocol = 4
+  TypedExpr inner_ipv6_dst_lower;  // 64 bit, valid if outer_protocol = 41
+  TypedExpr inner_protocol;        // 8 bit, valid if outer_protocol = 4/41
+  TypedExpr inner_dscp;            // 6 bit, valid if outer_protocol = 4/41
+  TypedExpr inner_ttl;             // 8 bit, valid if outer_protocol = 4/41
 
-  z3::expr icmp_type;  // 8 bit, valid if eth_type is ip
-  z3::expr vid;        // 12 bit, valid if eth_type = 0x6007
+  TypedExpr icmp_type;  // 8 bit, valid if eth_type is ip
+  TypedExpr vid;        // 12 bit, valid if eth_type = 0x6007
 };
 
 // The symbolic counterpart of ConcreteMetadata. This can be used to constrain
 // intermediate values.
-using SymbolicMetadata = std::unordered_map<std::string, z3::expr>;
+using SymbolicMetadata = std::unordered_map<std::string, TypedExpr>;
 
 // Expresses a concrete match for a corresponding concrete packet with a
 // table in the program.
@@ -112,7 +107,7 @@ struct ConcreteTableMatch {
   bool matched;  // false if no entry in this table was matched, true otherwise.
   // if matched is false, these two fields are set to -1.
   int entry_index;
-  int value;
+  std::string value;
 };
 
 // Exposes a symbolic handle for a match between the symbolic packet and
@@ -123,9 +118,9 @@ struct ConcreteTableMatch {
 // 1. (<symbolic_table_match>.entry_index == i) iff
 //    <entries>[<table_name>][i] was matched/hit.
 struct SymbolicTableMatch {
-  z3::expr matched;
-  z3::expr entry_index;
-  z3::expr value;
+  TypedExpr matched;
+  TypedExpr entry_index;
+  TypedExpr value;
 };
 
 // Specifies the expected trace in the program that the corresponding
@@ -142,7 +137,7 @@ struct ConcreteTrace {
 // to take in the program.
 struct SymbolicTrace {
   std::unordered_map<std::string, SymbolicTableMatch> matched_entries;
-  z3::expr dropped;
+  TypedExpr dropped;
 };
 
 // The result of solving with some assertion.
@@ -165,8 +160,8 @@ struct ConcreteContext {
 // and its trace in the program.
 // Assertions are defined on a symbolic context.
 struct SymbolicContext {
-  z3::expr ingress_port;
-  z3::expr egress_port;
+  TypedExpr ingress_port;
+  TypedExpr egress_port;
   SymbolicHeader ingress_packet;
   SymbolicHeader egress_packet;
   SymbolicMetadata metadata;  // Metadata symbols at the end of execution.
@@ -224,7 +219,7 @@ struct SymbolicPerPacketState {
 // as input, and returns constraints on symbolic handles exposed by that
 // context. For example:
 // z3::expr portIsOne(const SymbolicContext &ctx) {
-//   return ctx.ingress_port == 1;
+//   return ctx.ingress_port.expr() == 1;
 // }
 using Assertion = std::function<z3::expr(const SymbolicContext &)>;
 

@@ -46,7 +46,7 @@ gutil::StatusOr<SymbolicPerPacketState> EvaluateAssignmentStatement(
     const SymbolicPerPacketState &state, ActionContext *context) {
   // Evaluate RValue recursively, evaluate LValue in this function, then
   // assign RValue to the scope at LValue.
-  ASSIGN_OR_RETURN(z3::expr right,
+  ASSIGN_OR_RETURN(TypedExpr right,
                    EvaluateRValue(assignment.right(), state, context));
 
   switch (assignment.left().lvalue_case()) {
@@ -88,9 +88,9 @@ gutil::StatusOr<SymbolicPerPacketState> EvaluateAssignmentStatement(
 
 // Constructs a symbolic expression corresponding to this value, according
 // to its type.
-gutil::StatusOr<z3::expr> EvaluateRValue(const ir::RValue &rvalue,
-                                         const SymbolicPerPacketState &state,
-                                         ActionContext *context) {
+gutil::StatusOr<TypedExpr> EvaluateRValue(const ir::RValue &rvalue,
+                                          const SymbolicPerPacketState &state,
+                                          ActionContext *context) {
   switch (rvalue.rvalue_case()) {
     case ir::RValue::kFieldValue:
       return EvaluateFieldValue(rvalue.field_value(), state, context);
@@ -106,7 +106,7 @@ gutil::StatusOr<z3::expr> EvaluateRValue(const ir::RValue &rvalue,
 }
 
 // Extract the field symbolic value from the symbolic state.
-gutil::StatusOr<z3::expr> EvaluateFieldValue(
+gutil::StatusOr<TypedExpr> EvaluateFieldValue(
     const ir::FieldValue &field_value, const SymbolicPerPacketState &state,
     ActionContext *context) {
   std::string field_name = absl::StrFormat("%s.%s", field_value.header_name(),
@@ -121,9 +121,9 @@ gutil::StatusOr<z3::expr> EvaluateFieldValue(
 }
 
 // Looks up the symbolic value of the variable in the action scope.
-gutil::StatusOr<z3::expr> EvaluateVariable(const ir::Variable &variable,
-                                           const SymbolicPerPacketState &state,
-                                           ActionContext *context) {
+gutil::StatusOr<TypedExpr> EvaluateVariable(const ir::Variable &variable,
+                                            const SymbolicPerPacketState &state,
+                                            ActionContext *context) {
   std::string variable_name = variable.name();
   if (context->scope.count(variable_name) != 1) {
     return absl::InvalidArgumentError(
@@ -166,7 +166,7 @@ gutil::StatusOr<SymbolicPerPacketState> EvaluateAction(
     for (const pdpi::IrActionInvocation::IrActionParam &arg : args) {
       if (arg.name() == parameter_name) {
         found_parameter = true;
-        ASSIGN_OR_RETURN(z3::expr parameter_value,
+        ASSIGN_OR_RETURN(TypedExpr parameter_value,
                          util::IrValueToZ3Expr(arg.value()));
         context.scope.insert({parameter_name, parameter_value});
         break;

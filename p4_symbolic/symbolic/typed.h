@@ -37,7 +37,7 @@ namespace symbolic {
 // Additionally, this class overrides operators, similar to z3::expr, with
 // additional type checking (for signedness) and padding when needed.
 class TypedExpr {
-private:
+ private:
   // The underlying symbolic expression that is the current value of this
   // typed expression.
   z3::expr expr_;
@@ -54,32 +54,37 @@ private:
   // This class chooses which operation to apply based on this bool value.
   bool signed_;
 
-public:
-  explicit TypedExpr(z3::expr expr, bool sign) : expr_(expr), sort_(expr.get_sort()), signed_(sign) {}
+ public:
+  explicit TypedExpr(z3::expr expr)
+      : expr_(expr), sort_(expr.get_sort()), signed_(false) {}
+  explicit TypedExpr(z3::expr expr, bool sign)
+      : expr_(expr), sort_(expr.get_sort()), signed_(sign) {}
 
   // Copyable and Movable when creating new instances.
-  TypedExpr(const TypedExpr& other) = default;
-  TypedExpr(TypedExpr&& other) = default;
+  TypedExpr(const TypedExpr &other) = default;
+  TypedExpr(TypedExpr &&other) = default;
 
   // Can be re-assigned (via copy or move) as long as the re-assignment respects
   // the declared sort.
-  TypedExpr& operator=(const TypedExpr& other);
-  TypedExpr& operator=(TypedExpr&& other);
-  
+  TypedExpr &operator=(const TypedExpr &other);
+  TypedExpr &operator=(TypedExpr &&other);
+
   // Accessors
-  const z3::expr& expr() const {
-    return this->expr_;
-  }
-  const z3::sort& sort() const {
-    return this->sort_;
-  }
-  bool is_signed() const {
-    return this->signed_;
-  }
+  const z3::expr &expr() const { return this->expr_; }
+  const z3::sort &sort() const { return this->sort_; }
+  bool is_signed() const { return this->signed_; }
+  std::string to_string() const { return this->expr_.to_string(); }
 
   // Overloaded operators exposing corresponding z3::expr operators after sort
   // checking and padding.
-  TypedExpr operator==(const TypedExpr &b);
+  TypedExpr operator==(const TypedExpr &b) const;
+  TypedExpr operator&&(const TypedExpr &b) const;
+  TypedExpr operator||(const TypedExpr &b) const;
+  TypedExpr operator!() const;
+
+  // If-then-else.
+  static TypedExpr ite(const TypedExpr &condition, const TypedExpr &true_,
+                       const TypedExpr &false_);
 };
 
 }  // namespace symbolic

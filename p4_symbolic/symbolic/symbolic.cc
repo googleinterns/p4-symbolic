@@ -37,21 +37,21 @@ gutil::StatusOr<std::unique_ptr<SolverState>> EvaluateP4Pipeline(
   // Initially free/unconstrained and contains symbolic variables for
   // every input metadata and header field.
   SymbolicPerPacketState symbolic_state = util::FreeSymbolicPacketState();
-  z3::expr ingress_port =
+  TypedExpr ingress_port =
       symbolic_state.metadata.at("standard_metadata.ingress_port");
   SymbolicHeader ingress_packet = symbolic_state.header;
 
   // Restrict ports to the available physical ports.
   z3::expr ingress_port_domain = Z3Context().bool_val(false);
   for (int port : physical_ports) {
-    ingress_port_domain =
-        ingress_port_domain || ingress_port == Z3Context().bv_val(port, 9);
+    ingress_port_domain = ingress_port_domain ||
+                          ingress_port.expr() == Z3Context().bv_val(port, 9);
   }
   z3_solver->add(ingress_port_domain);
 
   // An (initially) empty trace.
   SymbolicTrace trace = {std::unordered_map<std::string, SymbolicTableMatch>(),
-                         Z3Context().bool_val(false)};
+                         TypedExpr(Z3Context().bool_val(false))};
 
   // Visit tables and find their symbolic matches (and their actions).
   for (const auto &[name, table] : data_plane.program.tables()) {
@@ -68,7 +68,7 @@ gutil::StatusOr<std::unique_ptr<SolverState>> EvaluateP4Pipeline(
 
   // Construct a symbolic context, containing state and trace information
   // from evaluating the tables.
-  z3::expr egress_port =
+  TypedExpr egress_port =
       symbolic_state.metadata.at("standard_metadata.egress_spec");
   SymbolicHeader egress_packet = symbolic_state.header;
   SymbolicMetadata metadata = symbolic_state.metadata;

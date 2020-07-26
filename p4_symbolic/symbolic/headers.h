@@ -37,7 +37,7 @@ ConcreteHeader ExtractConcreteHeaders(SymbolicHeader header, z3::model model);
 // of the original one otherwise.
 SymbolicHeader MergeHeadersOnCondition(const SymbolicHeader &original,
                                        const SymbolicHeader &changed,
-                                       const z3::expr &condition);
+                                       const TypedExpr &condition);
 
 }  // namespace headers
 }  // namespace symbolic

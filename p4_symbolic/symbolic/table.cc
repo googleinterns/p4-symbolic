@@ -23,6 +23,7 @@
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "p4_symbolic/symbolic/action.h"
+#include "p4_symbolic/symbolic/typed.h"
 #include "p4_symbolic/symbolic/util.h"
 
 namespace p4_symbolic {
@@ -34,9 +35,9 @@ namespace {
 // Analyze a single match that is part of a table entry.
 // Constructs a symbolic expression that semantically corresponds to this
 // match.
-gutil::StatusOr<z3::expr> AnalyzeSingleMatch(
+gutil::StatusOr<TypedExpr> AnalyzeSingleMatch(
     p4::config::v1::MatchField match_definition,
-    const z3::expr &field_expression, const pdpi::IrMatch &match) {
+    const TypedExpr &field_expression, const pdpi::IrMatch &match) {
   if (match_definition.match_case() != p4::config::v1::MatchField::kMatchType) {
     // Arch-specific match type.
     return absl::InvalidArgumentError(
@@ -52,7 +53,7 @@ gutil::StatusOr<z3::expr> AnalyzeSingleMatch(
                          "invocation in TableEntry has a different type ",
                          match_definition.DebugString()));
       }
-      ASSIGN_OR_RETURN(z3::expr value_expression,
+      ASSIGN_OR_RETURN(TypedExpr value_expression,
                        util::IrValueToZ3Expr(match.exact()));
       return field_expression == value_expression;
     }
@@ -64,7 +65,7 @@ gutil::StatusOr<z3::expr> AnalyzeSingleMatch(
 
 // Constructs a symbolic expression that is true if and only if this entry
 // is matched on.
-gutil::StatusOr<z3::expr> AnalyzeTableEntryCondition(
+gutil::StatusOr<TypedExpr> AnalyzeTableEntryCondition(
     const ir::Table &table, const pdpi::IrTableEntry &entry,
     const SymbolicPerPacketState &state) {
   // Make sure number of match keys is the same in the table definition and
@@ -78,7 +79,7 @@ gutil::StatusOr<z3::expr> AnalyzeTableEntryCondition(
   }
 
   // Construct the match condition expression.
-  z3::expr condition_expression = Z3Context().bool_val(true);
+  TypedExpr condition_expression = TypedExpr(Z3Context().bool_val(true));
   for (const auto &[id, match_fields] :
        table.table_definition().match_fields_by_id()) {
     p4::config::v1::MatchField match_definition = match_fields.match_field();
@@ -100,7 +101,7 @@ gutil::StatusOr<z3::expr> AnalyzeTableEntryCondition(
           " in table ", table.table_definition().preamble().name()));
     }
     ASSIGN_OR_RETURN(
-        z3::expr match_expression,
+        TypedExpr match_expression,
         AnalyzeSingleMatch(match_definition,
                            state.metadata.at(match_string_expression), match));
     condition_expression = condition_expression && match_expression;
@@ -137,9 +138,9 @@ gutil::StatusOr<SymbolicPerPacketStateAndMatch> EvaluateTable(
     const SymbolicPerPacketState &state) {
   // The overall structure describing the match on this table.
   SymbolicTableMatch table_match = {
-      Z3Context().bool_val(false),  // No match yet!
-      Z3Context().int_val(-1),      // No match index.
-      Z3Context().int_val(-1)       // Placeholder value.
+      TypedExpr(Z3Context().bool_val(false)),  // No match yet!
+      TypedExpr(Z3Context().int_val(-1)),      // No match index.
+      TypedExpr(Z3Context().int_val(-1))       // TODO(babman): bitvector.
   };
   // Accumulator state, initially same as input state.
   SymbolicPerPacketState table_state = state;
@@ -151,7 +152,7 @@ gutil::StatusOr<SymbolicPerPacketStateAndMatch> EvaluateTable(
   // building the if-elseif-...-else statement inside out.
   for (int row = entries.size() - 1; row >= 0; row--) {
     const pdpi::IrTableEntry &entry = entries.at(row);
-    ASSIGN_OR_RETURN(z3::expr row_match,
+    ASSIGN_OR_RETURN(TypedExpr row_match,
                      AnalyzeTableEntryCondition(table, entry, state));
     ASSIGN_OR_RETURN(SymbolicPerPacketState row_state,
                      AnalyzeTableEntryAction(table, entry, actions, state));
@@ -159,7 +160,8 @@ gutil::StatusOr<SymbolicPerPacketStateAndMatch> EvaluateTable(
     // Using this alias makes it simpler to put constraints on packet later.
     table_match.matched = table_match.matched || row_match;
     table_match.entry_index =
-        z3::ite(row_match, Z3Context().int_val(row), table_match.entry_index);
+        TypedExpr::ite(row_match, TypedExpr(Z3Context().int_val(row)),
+                       table_match.entry_index);
 
     // The solver state is changed accordingly if the row was matched.
     table_state =

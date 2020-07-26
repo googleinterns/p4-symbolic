@@ -20,6 +20,7 @@
 #include "gutil/status.h"
 #include "p4_pdpi/ir.pb.h"
 #include "p4_symbolic/symbolic/symbolic.h"
+#include "p4_symbolic/symbolic/typed.h"
 #include "z3++.h"
 
 namespace p4_symbolic {
@@ -35,9 +36,9 @@ SymbolicPerPacketState FreeSymbolicPacketState();
 ConcreteContext ExtractFromModel(SymbolicContext context, z3::model model);
 
 // Essentially a symbolic ternary choice/condition.
-z3::expr MergeExpressionsWithCondition(const z3::expr &original,
-                                       const z3::expr &changed,
-                                       const z3::expr &condition);
+TypedExpr MergeExpressionsWithCondition(const TypedExpr &original,
+                                        const TypedExpr &changed,
+                                        const TypedExpr &condition);
 
 // Merges two symbolic states into a single state. A field in the new state
 // has the value of the changed state if the condition is true, and the value
@@ -47,10 +48,10 @@ z3::expr MergeExpressionsWithCondition(const z3::expr &original,
 // Assertion: the changed state should not remove fields.
 SymbolicPerPacketState MergeStatesOnCondition(
     const SymbolicPerPacketState &original,
-    const SymbolicPerPacketState &changed, const z3::expr &condition);
+    const SymbolicPerPacketState &changed, const TypedExpr &condition);
 
 // Transforms a value read from a TableEntry to a z3::expr.
-gutil::StatusOr<z3::expr> IrValueToZ3Expr(const pdpi::IrValue &value);
+gutil::StatusOr<TypedExpr> IrValueToZ3Expr(const pdpi::IrValue &value);
 
 }  // namespace util
 }  // namespace symbolic

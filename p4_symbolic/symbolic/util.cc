@@ -41,7 +41,9 @@ bool Z3BooltoBool(Z3_lbool z3_bool) {
 
 SymbolicPerPacketState FreeSymbolicPacketState() {
   // Port variables.
-  z3::expr ingress_port = Z3Context().bv_const("ingress_port", 9);
+  TypedExpr ingress_port = TypedExpr(Z3Context().bv_const("ingress_port", 9));
+  // TODO(babman): not to find some better encoding of "undefined".
+  TypedExpr egress_port = TypedExpr(Z3Context().bv_val("111111111", 9));
 
   // Packet header variables.
   SymbolicHeader header = headers::FreeSymbolicHeader();
@@ -49,7 +51,7 @@ SymbolicPerPacketState FreeSymbolicPacketState() {
   // Default metadata.
   SymbolicMetadata metadata;
   metadata.insert({"standard_metadata.ingress_port", ingress_port});
-  metadata.insert({"standard_metadata.egress_spec", Z3Context().bv_val(-1, 9)});
+  metadata.insert({"standard_metadata.egress_spec", egress_port});
 
   return {header, metadata};
 }
@@ -57,9 +59,9 @@ SymbolicPerPacketState FreeSymbolicPacketState() {
 ConcreteContext ExtractFromModel(SymbolicContext context, z3::model model) {
   // Extract ports.
   std::string ingress_port =
-      model.eval(context.ingress_port, true).to_string();
+      model.eval(context.ingress_port.expr(), true).to_string();
   std::string egress_port =
-      model.eval(context.egress_port, true).to_string();
+      model.eval(context.egress_port.expr(), true).to_string();
 
   // Extract an input packet and its predicted output.
   ConcreteHeader ingress_packet =
@@ -71,18 +73,18 @@ ConcreteContext ExtractFromModel(SymbolicContext context, z3::model model) {
   // program is run on the input packet.
   ConcreteMetadata metadata;
   for (const auto &[name, expr] : context.metadata) {
-    metadata[name] = model.eval(expr, true).to_string();
+    metadata[name] = model.eval(expr.expr(), true).to_string();
   }
 
   // Extract the trace (matches on every table).
   bool dropped =
-      Z3BooltoBool(model.eval(context.trace.dropped, true).bool_value());
+      Z3BooltoBool(model.eval(context.trace.dropped.expr(), true).bool_value());
   std::unordered_map<std::string, ConcreteTableMatch> matches;
   for (const auto &[table, match] : context.trace.matched_entries) {
     matches[table] = {
-        Z3BooltoBool(model.eval(match.matched, true).bool_value()),
-        model.eval(match.entry_index, true).get_numeral_int(),
-        model.eval(match.value, true).get_numeral_int()};
+        Z3BooltoBool(model.eval(match.matched.expr(), true).bool_value()),
+        model.eval(match.entry_index.expr(), true).get_numeral_int(),
+        model.eval(match.value.expr(), true).to_string()};
   }
   ConcreteTrace trace = {matches, dropped};
 
@@ -90,18 +92,18 @@ ConcreteContext ExtractFromModel(SymbolicContext context, z3::model model) {
           egress_packet, metadata,    trace};
 }
 
-z3::expr MergeExpressionsWithCondition(const z3::expr &original,
-                                       const z3::expr &changed,
-                                       const z3::expr &condition) {
-  if (z3::eq(original, changed)) {
+TypedExpr MergeExpressionsWithCondition(const TypedExpr &original,
+                                        const TypedExpr &changed,
+                                        const TypedExpr &condition) {
+  if (z3::eq(original.expr(), changed.expr())) {
     return original;
   }
-  return z3::ite(condition, changed, original);
+  return TypedExpr::ite(condition, changed, original);
 }
 
 SymbolicPerPacketState MergeStatesOnCondition(
     const SymbolicPerPacketState &original,
-    const SymbolicPerPacketState &changed, const z3::expr &condition) {
+    const SymbolicPerPacketState &changed, const TypedExpr &condition) {
   // Merge the header.
   SymbolicHeader merged_header = headers::MergeHeadersOnCondition(
       original.header, changed.header, condition);
@@ -109,27 +111,32 @@ SymbolicPerPacketState MergeStatesOnCondition(
   // Merge metadata.
   SymbolicMetadata merged_metadata;
   for (const auto &[name, expr] : changed.metadata) {
-    z3::expr original_expr = Z3Context().int_val(-1);
     if (original.metadata.count(name) == 1) {
-      original_expr = original.metadata.at(name);
+      merged_metadata.insert(
+          {name, MergeExpressionsWithCondition(original.metadata.at(name), expr,
+                                               condition)});
+    } else {
+      merged_metadata.insert(
+          {name, MergeExpressionsWithCondition(
+                     TypedExpr(Z3Context().int_val(-1)), expr, condition)});
     }
-    merged_metadata.insert(
-        {name, MergeExpressionsWithCondition(original_expr, expr, condition)});
   }
 
   return {merged_header, merged_metadata};
 }
 
-gutil::StatusOr<z3::expr> IrValueToZ3Expr(const pdpi::IrValue &value) {
+gutil::StatusOr<TypedExpr> IrValueToZ3Expr(const pdpi::IrValue &value) {
   switch (value.format_case()) {
     case pdpi::IrValue::kHexStr: {
       ASSIGN_OR_RETURN(std::string bits, pdpi::IrValueToByteString(value));
+      std::cout << bits << std::endl;
       std::string encoded_bits;
       for (char b : bits) {
         encoded_bits +=
             static_cast<char>(static_cast<int>(b) + static_cast<int>('0'));
       }
-      return Z3Context().bv_val(encoded_bits.c_str(), encoded_bits.size());
+      return TypedExpr(
+          Z3Context().bv_val(encoded_bits.c_str(), encoded_bits.size()));
     }
     default:
       return absl::UnimplementedError(

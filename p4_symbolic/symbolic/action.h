@@ -28,6 +28,7 @@
 #include "p4_pdpi/ir.pb.h"
 #include "p4_symbolic/ir/ir.pb.h"
 #include "p4_symbolic/symbolic/symbolic.h"
+#include "p4_symbolic/symbolic/typed.h"
 #include "z3++.h"
 
 namespace p4_symbolic {
@@ -51,7 +52,7 @@ gutil::StatusOr<SymbolicPerPacketState> EvaluateAction(
 // The scope of this action: maps local variable names to their symbolic values.
 struct ActionContext {
   std::string action_name;
-  std::unordered_map<std::string, z3::expr> scope;
+  std::unordered_map<std::string, TypedExpr> scope;
 };
 
 // Performs a switch case over support statement types and call the
@@ -69,19 +70,19 @@ gutil::StatusOr<SymbolicPerPacketState> EvaluateAssignmentStatement(
 
 // Constructs a symbolic expression corresponding to this value, according
 // to its type.
-gutil::StatusOr<z3::expr> EvaluateRValue(const ir::RValue &rvalue,
-                                         const SymbolicPerPacketState &state,
-                                         ActionContext *context);
+gutil::StatusOr<TypedExpr> EvaluateRValue(const ir::RValue &rvalue,
+                                          const SymbolicPerPacketState &state,
+                                          ActionContext *context);
 
 // Extract the field symbolic value from the symbolic state.
-gutil::StatusOr<z3::expr> EvaluateFieldValue(
+gutil::StatusOr<TypedExpr> EvaluateFieldValue(
     const ir::FieldValue &field_value, const SymbolicPerPacketState &state,
     ActionContext *context);
 
 // Looks up the symbolic value of the variable in the action scope.
-gutil::StatusOr<z3::expr> EvaluateVariable(const ir::Variable &variable,
-                                           const SymbolicPerPacketState &state,
-                                           ActionContext *context);
+gutil::StatusOr<TypedExpr> EvaluateVariable(const ir::Variable &variable,
+                                            const SymbolicPerPacketState &state,
+                                            ActionContext *context);
 
 }  // namespace action
 }  // namespace symbolic
