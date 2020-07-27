@@ -84,6 +84,11 @@ gutil::StatusOr<TypedExpr> EvaluateVariable(const ir::Variable &variable,
                                             const SymbolicPerPacketState &state,
                                             ActionContext *context);
 
+// Parse and format literal values as symbolic expression.
+gutil::StatusOr<TypedExpr> EvaluateHexStr(const ir::HexstrValue &hexstr,
+                                          const SymbolicPerPacketState &state,
+                                          ActionContext *context);
+
 }  // namespace action
 }  // namespace symbolic
 }  // namespace p4_symbolic

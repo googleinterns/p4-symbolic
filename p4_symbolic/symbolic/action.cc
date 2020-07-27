@@ -98,6 +98,9 @@ gutil::StatusOr<TypedExpr> EvaluateRValue(const ir::RValue &rvalue,
     case ir::RValue::kVariableValue:
       return EvaluateVariable(rvalue.variable_value(), state, context);
 
+    case ir::RValue::kHexstrValue:
+      return EvaluateHexStr(rvalue.hexstr_value(), state, context);
+
     default:
       return absl::UnimplementedError(
           absl::StrCat("Action ", context->action_name,
@@ -134,6 +137,20 @@ gutil::StatusOr<TypedExpr> EvaluateVariable(const ir::Variable &variable,
   return context->scope.at(variable_name);
 }
 
+// Turns bmv2 values to Symbolic Expressions.
+gutil::StatusOr<TypedExpr> EvaluateHexStr(const ir::HexstrValue &hexstr,
+                                          const SymbolicPerPacketState &state,
+                                          ActionContext *context) {
+  if (hexstr.negative()) {
+    return absl::UnimplementedError(
+        "Negative hex string values are not supported!");
+  }
+
+  ASSIGN_OR_RETURN(pdpi::IrValue parsed_value,
+                   util::StringToIrValue(hexstr.value()));
+  return util::IrValueToZ3Expr(parsed_value);
+}
+
 // Symbolically evaluates the given action on the given symbolic parameters.
 // This produces a symbolic expression on the symbolic parameters that is
 // semantically equivalent to the behavior of the action on its concrete
@@ -157,28 +174,13 @@ gutil::StatusOr<SymbolicPerPacketState> EvaluateAction(
 
   // Find each parameter value in argument by parameter's name.
   for (size_t i = 1; i <= parameters.size(); i++) {
+    // parameter id is the same as its index + 1.
     const pdpi::IrActionDefinition::IrActionParamDefinition &parameter =
         parameters.at(i);
     const std::string &parameter_name = parameter.param().name();
-
-    // Search for value by name.
-    bool found_parameter = false;
-    for (const pdpi::IrActionInvocation::IrActionParam &arg : args) {
-      if (arg.name() == parameter_name) {
-        found_parameter = true;
-        ASSIGN_OR_RETURN(TypedExpr parameter_value,
-                         util::IrValueToZ3Expr(arg.value()));
-        context.scope.insert({parameter_name, parameter_value});
-        break;
-      }
-    }
-
-    // Error if parameter name is not found in entries.
-    if (!found_parameter) {
-      return absl::InvalidArgumentError(
-          absl::StrCat("Action ", action.action_definition().preamble().name(),
-                       " called without passing parameter ", parameter_name));
-    }
+    ASSIGN_OR_RETURN(TypedExpr parameter_value,
+                     util::IrValueToZ3Expr(args.at(i-1).value()));
+    context.scope.insert({parameter_name, parameter_value});
   }
 
   // Iterate over the body in order, and evaluate each statement.
