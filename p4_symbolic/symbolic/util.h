@@ -17,8 +17,10 @@
 #ifndef P4_SYMBOLIC_SYMBOLIC_UTIL_H_
 #define P4_SYMBOLIC_SYMBOLIC_UTIL_H_
 
+#include "google/protobuf/map.h"
 #include "gutil/status.h"
 #include "p4_pdpi/ir.pb.h"
+#include "p4_symbolic/ir/ir.pb.h"
 #include "p4_symbolic/symbolic/symbolic.h"
 #include "p4_symbolic/symbolic/typed.h"
 #include "z3++.h"
@@ -29,7 +31,8 @@ namespace util {
 
 // Free (unconstrained) symbolic context consisting of input symbolic variables
 // for headers and empty trace and metadata.
-SymbolicPerPacketState FreeSymbolicPacketState();
+SymbolicPerPacketState FreeSymbolicPacketState(
+    const google::protobuf::Map<std::string, ir::HeaderType> &headers);
 
 // Extract a concrete context by evaluating every component's corresponding
 // expression in the model.

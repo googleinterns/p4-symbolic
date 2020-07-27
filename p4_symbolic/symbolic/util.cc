@@ -44,19 +44,24 @@ bool Z3BooltoBool(Z3_lbool z3_bool) {
 
 }  // namespace
 
-SymbolicPerPacketState FreeSymbolicPacketState() {
-  // Port variables.
-  TypedExpr ingress_port = TypedExpr(Z3Context().bv_const("ingress_port", 9));
-  // TODO(babman): find some better encoding of "undefined".
-  TypedExpr egress_port = TypedExpr(Z3Context().bv_val("111111111", 9));
+SymbolicPerPacketState FreeSymbolicPacketState(
+    const google::protobuf::Map<std::string, ir::HeaderType> &headers) {
 
   // Packet header variables.
   SymbolicHeader header = headers::FreeSymbolicHeader();
 
-  // Default metadata.
+  // Metadata fields.
   SymbolicMetadata metadata;
-  metadata.insert({"standard_metadata.ingress_port", ingress_port});
-  metadata.insert({"standard_metadata.egress_spec", egress_port});
+  for (const auto &[header_name, header_type] : headers) {
+    for (const auto &[field_name, field] : header_type.fields()) {
+      std::string field_full_name =
+          absl::StrFormat("%s.%s", header_name, field_name);
+      TypedExpr field_expression =
+          TypedExpr(Z3Context().bv_const(field_full_name.c_str(), field.bitwidth()),
+                    field.signed_());
+      metadata.insert({field_full_name, field_expression});
+    }
+  }
 
   return {header, metadata};
 }

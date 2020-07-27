@@ -36,16 +36,18 @@ gutil::StatusOr<std::unique_ptr<SolverState>> EvaluateP4Pipeline(
   // "Accumulator"-style state used to evaluate tables.
   // Initially free/unconstrained and contains symbolic variables for
   // every input metadata and header field.
-  SymbolicPerPacketState symbolic_state = util::FreeSymbolicPacketState();
+  SymbolicPerPacketState symbolic_state =
+      util::FreeSymbolicPacketState(data_plane.program.headers());
   TypedExpr ingress_port =
       symbolic_state.metadata.at("standard_metadata.ingress_port");
   SymbolicHeader ingress_packet = symbolic_state.header;
 
   // Restrict ports to the available physical ports.
   z3::expr ingress_port_domain = Z3Context().bool_val(false);
+  unsigned int port_bitsize = ingress_port.sort().bv_size();
   for (int port : physical_ports) {
     ingress_port_domain = ingress_port_domain ||
-                          ingress_port.expr() == Z3Context().bv_val(port, 9);
+        ingress_port.expr() == Z3Context().bv_val(port, port_bitsize);
   }
   z3_solver->add(ingress_port_domain);
 
