@@ -663,9 +663,14 @@ gutil::StatusOr<P4Program> Bmv2AndP4infoToIr(const bmv2::P4Program &bmv2,
   P4Program output;
 
   // Translate headers.
-  for (const bmv2::HeaderType &unparsed_header : bmv2.header_types()) {
-    ASSIGN_OR_RETURN((*output.mutable_headers())[unparsed_header.name()],
-                     ExtractHeaderType(unparsed_header));
+  for (const bmv2::Header header : bmv2.headers()) {
+    for (const bmv2::HeaderType &header_type : bmv2.header_types()) {
+      if (header.header_type() == header_type.name()) {
+        ASSIGN_OR_RETURN((*output.mutable_headers())[header.name()],
+                         ExtractHeaderType(header_type));
+        break;
+      }
+    }
   }
 
   // In reality, pdpi.actions_by_name is keyed on aliases and

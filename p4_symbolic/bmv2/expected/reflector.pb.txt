@@ -193,11 +193,13 @@ header_types {
   }
 }
 headers {
+  name: "scalars"
   header_type: "scalars_0"
   metadata: true
 }
 headers {
   id: 1
+  name: "standard_metadata"
   header_type: "standard_metadata"
   metadata: true
 }

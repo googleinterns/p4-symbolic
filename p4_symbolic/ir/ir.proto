@@ -42,7 +42,9 @@ message TableEntriesFile {
 
 // Overall structure of a p4 program.
 message P4Program {
-  // Header definitions, keyed by the header type name (e.g. standard_metadata).
+  // Header definitions, keyed by a header instance name, which is mapped
+  // to its HeaderType.
+  // e.g. "standard_metadata" => <standard_metadata_t type definition>.
   map<string, HeaderType> headers = 1;
   // Action definitions and implementations, keyed by qualified action name.
   map<string, Action> actions = 2;

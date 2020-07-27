@@ -98,18 +98,25 @@ message HeaderType {
   repeated google.protobuf.ListValue fields = 3;
 }
 
-// A single entry in the overal header definition for packets
-// defined in terms of a HeaderType
+// A single header instance with a given name and type.
+// Corresponds to header declaration in a control parameter list
+// e.g. control MyIngress(..., inout standard_metadata_t standard_metadata)
+// will correspond to a header instance with name "standard_metadata" and
+// type "standard_metadata_t".
+// The type name must match one of the HeaderType instances found at
+// P4Program.header_types.
 message Header {
   // Auto-generated id
   int32 id = 1;
+  // The name of the header instance.
+  string name = 2;
   // The name of the header type
   // e.g. standard_metadata
-  string header_type = 2;
+  string header_type = 3;
   // True if this is a built in header type
   // containing meta-data assigned by the switch
   // e.g. standard_metadata
-  bool metadata = 3;
+  bool metadata = 4;
 }
 
 // Defines a P4 parser flow.

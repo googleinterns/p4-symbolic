@@ -1,5 +1,5 @@
 headers {
-  key: "ethernet_t"
+  key: "ethernet"
   value {
     name: "ethernet_t"
     id: 2
@@ -27,7 +27,7 @@ headers {
   }
 }
 headers {
-  key: "ipv4_t"
+  key: "ipv4"
   value {
     name: "ipv4_t"
     id: 3
@@ -118,7 +118,7 @@ headers {
   }
 }
 headers {
-  key: "scalars_0"
+  key: "scalars"
   value {
     name: "scalars_0"
   }
