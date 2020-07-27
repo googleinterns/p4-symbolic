@@ -16,9 +16,14 @@
 
 #include "p4_symbolic/symbolic/util.h"
 
+#include <locale>
+#include <sstream>
 #include <string>
 #include <unordered_map>
 
+#include "absl/strings/match.h"
+#include "absl/strings/str_format.h"
+#include "absl/strings/strip.h"
 #include "p4_pdpi/utils/ir.h"
 #include "p4_symbolic/symbolic/headers.h"
 
@@ -42,7 +47,7 @@ bool Z3BooltoBool(Z3_lbool z3_bool) {
 SymbolicPerPacketState FreeSymbolicPacketState() {
   // Port variables.
   TypedExpr ingress_port = TypedExpr(Z3Context().bv_const("ingress_port", 9));
-  // TODO(babman): not to find some better encoding of "undefined".
+  // TODO(babman): find some better encoding of "undefined".
   TypedExpr egress_port = TypedExpr(Z3Context().bv_val("111111111", 9));
 
   // Packet header variables.
@@ -128,19 +133,43 @@ SymbolicPerPacketState MergeStatesOnCondition(
 gutil::StatusOr<TypedExpr> IrValueToZ3Expr(const pdpi::IrValue &value) {
   switch (value.format_case()) {
     case pdpi::IrValue::kHexStr: {
-      ASSIGN_OR_RETURN(std::string bits, pdpi::IrValueToByteString(value));
-      std::cout << bits << std::endl;
-      std::string encoded_bits;
-      for (char b : bits) {
-        encoded_bits +=
-            static_cast<char>(static_cast<int>(b) + static_cast<int>('0'));
+      const std::string &hexstr = value.hex_str();
+
+      unsigned long long decimal;
+      std::stringstream converter;
+      converter << std::hex << hexstr;
+      if (converter >> decimal) {
+        unsigned int bitsize = 0;
+        unsigned long long pow = 1;
+        while (bitsize <= 64 && pow < decimal) {
+          pow = pow * 2;
+          bitsize++;
+        }
+        bitsize = (bitsize > 1 ? bitsize : 1);  // At least 1 bit.
+
+        auto result = TypedExpr(
+            Z3Context().bv_val(std::to_string(decimal).c_str(), bitsize));
+        return result;
       }
-      return TypedExpr(
-          Z3Context().bv_val(encoded_bits.c_str(), encoded_bits.size()));
+
+      return absl::InvalidArgumentError(
+            absl::StrCat("Cannot process hex string \"", hexstr,
+                         "\", the value is too big!"));
     }
     default:
       return absl::UnimplementedError(
           absl::StrCat("Found unsupported value type ", value.DebugString()));
+  }
+}
+
+gutil::StatusOr<pdpi::IrValue> StringToIrValue(std::string value) {
+  // Format according to type.
+  if (absl::StartsWith(value, "0x")) {
+    return pdpi::FormattedStringToIrValue(value, pdpi::Format::HEX_STRING);
+  } else {
+    // Some unsupported format!
+    return absl::InvalidArgumentError(
+        absl::StrCat("Literal value \"", value, "\" has unknown format!"));
   }
 }
 

@@ -53,6 +53,9 @@ SymbolicPerPacketState MergeStatesOnCondition(
 // Transforms a value read from a TableEntry to a z3::expr.
 gutil::StatusOr<TypedExpr> IrValueToZ3Expr(const pdpi::IrValue &value);
 
+// Transforms a string value from bmv2 json to a pdpi::IrValue
+gutil::StatusOr<pdpi::IrValue> StringToIrValue(std::string value);
+
 }  // namespace util
 }  // namespace symbolic
 }  // namespace p4_symbolic
