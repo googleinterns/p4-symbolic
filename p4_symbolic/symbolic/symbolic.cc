@@ -55,9 +55,14 @@ gutil::StatusOr<std::unique_ptr<SolverState>> EvaluateP4Pipeline(
 
   // Visit tables and find their symbolic matches (and their actions).
   for (const auto &[name, table] : data_plane.program.tables()) {
+    std::vector<pdpi::IrTableEntry> table_entries;
+    if (data_plane.entries.count(name) == 1) {
+      table_entries = data_plane.entries.at(name);
+    }
+
     ASSIGN_OR_RETURN(
         table::SymbolicPerPacketStateAndMatch state_and_match,
-        table::EvaluateTable(table, data_plane.entries.at(name),
+        table::EvaluateTable(table, table_entries,
                              data_plane.program.actions(), symbolic_state));
 
     // Update accumulator state and matches.
