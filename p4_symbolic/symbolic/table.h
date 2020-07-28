@@ -35,15 +35,15 @@ namespace p4_symbolic {
 namespace symbolic {
 namespace table {
 
-struct SymbolicPerPacketStateAndMatch {
-  SymbolicPerPacketState state;
+struct SymbolicHeadersAndTableMatch {
+  SymbolicHeaders state;
   SymbolicTableMatch match;
 };
 
-gutil::StatusOr<SymbolicPerPacketStateAndMatch> EvaluateTable(
+gutil::StatusOr<SymbolicHeadersAndTableMatch> EvaluateTable(
     const ir::Table &table, const std::vector<pdpi::IrTableEntry> &entries,
     const google::protobuf::Map<std::string, ir::Action> &actions,
-    const SymbolicPerPacketState &state);
+    const SymbolicHeaders &headers);
 
 }  // namespace table
 }  // namespace symbolic

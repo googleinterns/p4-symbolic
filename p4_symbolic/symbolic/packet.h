@@ -13,34 +13,27 @@
 // limitations under the License.
 
 // Contains helpers for creating, extracting, and managing concerete and
-// symbolic header structs.
+// symbolic packet structs.
 
-#ifndef P4_SYMBOLIC_SYMBOLIC_HEADERS_H_
-#define P4_SYMBOLIC_SYMBOLIC_HEADERS_H_
+#ifndef P4_SYMBOLIC_SYMBOLIC_PACKET_H_
+#define P4_SYMBOLIC_SYMBOLIC_PACKET_H_
 
 #include "p4_symbolic/symbolic/symbolic.h"
 #include "z3++.h"
 
 namespace p4_symbolic {
 namespace symbolic {
-namespace headers {
+namespace packet {
 
-// Free (unconstrained) symbolic header.
-SymbolicHeader FreeSymbolicHeader();
+// Extract the packet fields from their p4 program counterparts.
+SymbolicPacket ExtractSymbolicPacket(SymbolicHeaders headers);
 
-// Extract a concrete header by evaluating every field's corresponding
+// Extract a concrete packet by evaluating every field's corresponding
 // expression in the model.
-ConcreteHeader ExtractConcreteHeaders(SymbolicHeader header, z3::model model);
+ConcretePacket ExtractConcretePacket(SymbolicPacket packet, z3::model model);
 
-// Merges two symbolic headers into a single header. A field in the new header
-// has the value of the changed state if the condition is true, and the value
-// of the original one otherwise.
-SymbolicHeader MergeHeadersOnCondition(const SymbolicHeader &original,
-                                       const SymbolicHeader &changed,
-                                       const TypedExpr &condition);
-
-}  // namespace headers
+}  // namespace packet
 }  // namespace symbolic
 }  // namespace p4_symbolic
 
-#endif  // P4_SYMBOLIC_SYMBOLIC_HEADERS_H_
+#endif  // P4_SYMBOLIC_SYMBOLIC_PACKET_H_

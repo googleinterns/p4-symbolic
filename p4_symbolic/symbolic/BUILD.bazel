@@ -19,7 +19,7 @@ cc_library(
     name = "symbolic",
     srcs = [
         "action.cc",
-        "headers.cc",
+        "packet.cc",
         "symbolic.cc",
         "table.cc",
         "typed.cc",
@@ -27,7 +27,7 @@ cc_library(
     ],
     hdrs = [
         "action.h",
-        "headers.h",
+        "packet.h",
         "symbolic.h",
         "table.h",
         "typed.h",

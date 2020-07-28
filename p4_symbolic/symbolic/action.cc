@@ -23,12 +23,12 @@ namespace p4_symbolic {
 namespace symbolic {
 namespace action {
 
-gutil::StatusOr<SymbolicPerPacketState> EvaluateStatement(
-    const ir::Statement &statement, const SymbolicPerPacketState &state,
+gutil::StatusOr<SymbolicHeaders> EvaluateStatement(
+    const ir::Statement &statement, const SymbolicHeaders &headers,
     ActionContext *context) {
   switch (statement.statement_case()) {
     case ir::Statement::kAssignment:
-      return EvaluateAssignmentStatement(statement.assignment(), state,
+      return EvaluateAssignmentStatement(statement.assignment(), headers,
                                          context);
 
     default:
@@ -41,42 +41,34 @@ gutil::StatusOr<SymbolicPerPacketState> EvaluateStatement(
 // Constructs a symbolic expression for the assignment value, and either
 // constrains it in an enclosing assignment expression, or stores it in
 // the action scope.
-gutil::StatusOr<SymbolicPerPacketState> EvaluateAssignmentStatement(
-    const ir::AssignmentStatement &assignment,
-    const SymbolicPerPacketState &state, ActionContext *context) {
+gutil::StatusOr<SymbolicHeaders> EvaluateAssignmentStatement(
+    const ir::AssignmentStatement &assignment, const SymbolicHeaders &headers,
+    ActionContext *context) {
   // Evaluate RValue recursively, evaluate LValue in this function, then
   // assign RValue to the scope at LValue.
   ASSIGN_OR_RETURN(TypedExpr right,
-                   EvaluateRValue(assignment.right(), state, context));
+                   EvaluateRValue(assignment.right(), headers, context));
 
   switch (assignment.left().lvalue_case()) {
     case ir::LValue::kFieldValue: {
+      SymbolicHeaders modified_headers = headers;
       const ir::FieldValue &field_value = assignment.left().field_value();
-      // TODO(babman): Better handling of metadata and headers in general.
-      //               What should be hardcoded? probably only the headers
-      //               used for packet generation.
-      //               Need a better way to translate between hardcoded names
-      //               and strings / FieldValue objects.
-      //               Need to detect fields automatically. We already have this
-      //               information in bmv2, and we already did it in a previous
-      //               version of this code.
-      SymbolicPerPacketState modified_state = state;
       std::string field_name = absl::StrFormat(
           "%s.%s", field_value.header_name(), field_value.field_name());
-      if (modified_state.metadata.count(field_name) != 1) {
+      if (modified_headers.count(field_name) != 1) {
         return absl::UnimplementedError(absl::StrCat(
             "Action ", context->action_name, " refers to unknown header field ",
             field_value.DebugString()));
       }
 
-      modified_state.metadata.at(field_name) = right;
-      return modified_state;
+      modified_headers.at(field_name) = right;
+      return modified_headers;
     }
 
     case ir::LValue::kVariableValue: {
       const std::string &variable = assignment.left().variable_value().name();
       context->scope.insert_or_assign(variable, right);
-      return state;
+      return headers;
     }
 
     default:
@@ -89,17 +81,17 @@ gutil::StatusOr<SymbolicPerPacketState> EvaluateAssignmentStatement(
 // Constructs a symbolic expression corresponding to this value, according
 // to its type.
 gutil::StatusOr<TypedExpr> EvaluateRValue(const ir::RValue &rvalue,
-                                          const SymbolicPerPacketState &state,
+                                          const SymbolicHeaders &headers,
                                           ActionContext *context) {
   switch (rvalue.rvalue_case()) {
     case ir::RValue::kFieldValue:
-      return EvaluateFieldValue(rvalue.field_value(), state, context);
+      return EvaluateFieldValue(rvalue.field_value(), headers, context);
 
     case ir::RValue::kVariableValue:
-      return EvaluateVariable(rvalue.variable_value(), state, context);
+      return EvaluateVariable(rvalue.variable_value(), headers, context);
 
     case ir::RValue::kHexstrValue:
-      return EvaluateHexStr(rvalue.hexstr_value(), state, context);
+      return EvaluateHexStr(rvalue.hexstr_value(), headers, context);
 
     default:
       return absl::UnimplementedError(
@@ -108,24 +100,24 @@ gutil::StatusOr<TypedExpr> EvaluateRValue(const ir::RValue &rvalue,
   }
 }
 
-// Extract the field symbolic value from the symbolic state.
-gutil::StatusOr<TypedExpr> EvaluateFieldValue(
-    const ir::FieldValue &field_value, const SymbolicPerPacketState &state,
-    ActionContext *context) {
+// Extract the field symbolic value from the symbolic headers.
+gutil::StatusOr<TypedExpr> EvaluateFieldValue(const ir::FieldValue &field_value,
+                                              const SymbolicHeaders &headers,
+                                              ActionContext *context) {
   std::string field_name = absl::StrFormat("%s.%s", field_value.header_name(),
                                            field_value.field_name());
-  if (state.metadata.count(field_name) != 1) {
+  if (headers.count(field_name) != 1) {
     return absl::UnimplementedError(absl::StrCat(
         "Action ", context->action_name, " refers to unknown header field ",
         field_value.DebugString()));
   }
 
-  return state.metadata.at(field_name);
+  return headers.at(field_name);
 }
 
 // Looks up the symbolic value of the variable in the action scope.
 gutil::StatusOr<TypedExpr> EvaluateVariable(const ir::Variable &variable,
-                                            const SymbolicPerPacketState &state,
+                                            const SymbolicHeaders &headers,
                                             ActionContext *context) {
   std::string variable_name = variable.name();
   if (context->scope.count(variable_name) != 1) {
@@ -139,7 +131,7 @@ gutil::StatusOr<TypedExpr> EvaluateVariable(const ir::Variable &variable,
 
 // Turns bmv2 values to Symbolic Expressions.
 gutil::StatusOr<TypedExpr> EvaluateHexStr(const ir::HexstrValue &hexstr,
-                                          const SymbolicPerPacketState &state,
+                                          const SymbolicHeaders &headers,
                                           ActionContext *context) {
   if (hexstr.negative()) {
     return absl::UnimplementedError(
@@ -155,11 +147,11 @@ gutil::StatusOr<TypedExpr> EvaluateHexStr(const ir::HexstrValue &hexstr,
 // This produces a symbolic expression on the symbolic parameters that is
 // semantically equivalent to the behavior of the action on its concrete
 // parameters.
-gutil::StatusOr<SymbolicPerPacketState> EvaluateAction(
+gutil::StatusOr<SymbolicHeaders> EvaluateAction(
     const ir::Action &action,
     const google::protobuf::RepeatedPtrField<
         pdpi::IrActionInvocation::IrActionParam> &args,
-    const SymbolicPerPacketState &state) {
+    const SymbolicHeaders &headers) {
   // Construct this action's context.
   ActionContext context;
   context.action_name = action.action_definition().preamble().name();
@@ -184,7 +176,7 @@ gutil::StatusOr<SymbolicPerPacketState> EvaluateAction(
   }
 
   // Iterate over the body in order, and evaluate each statement.
-  SymbolicPerPacketState result = state;
+  SymbolicHeaders result = headers;
   for (const auto &statement : action.action_implementation().action_body()) {
     ASSIGN_OR_RETURN(result, EvaluateStatement(statement, result, &context));
   }

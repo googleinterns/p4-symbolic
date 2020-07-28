@@ -39,11 +39,11 @@ namespace action {
 // This produces a symbolic expression on the symbolic parameters that is
 // semantically equivalent to the behavior of the action on its concrete
 // parameters.
-gutil::StatusOr<SymbolicPerPacketState> EvaluateAction(
+gutil::StatusOr<SymbolicHeaders> EvaluateAction(
     const ir::Action &action,
     const google::protobuf::RepeatedPtrField<
         pdpi::IrActionInvocation::IrActionParam> &args,
-    const SymbolicPerPacketState &state);
+    const SymbolicHeaders &headers);
 
 // Internal functions used to Evaluate statements and expressions within an
 // action body. These are internal functions not used beyond this header and its
@@ -57,36 +57,36 @@ struct ActionContext {
 
 // Performs a switch case over support statement types and call the
 // appropriate function.
-gutil::StatusOr<SymbolicPerPacketState> EvaluateStatement(
-    const ir::Statement &statement, const SymbolicPerPacketState &state,
+gutil::StatusOr<SymbolicHeaders> EvaluateStatement(
+    const ir::Statement &statement, const SymbolicHeaders &headers,
     ActionContext *context);
 
 // Constructs a symbolic expression for the assignment value, and either
 // constrains it in an enclosing assignment expression, or stores it in
 // the action scope.
-gutil::StatusOr<SymbolicPerPacketState> EvaluateAssignmentStatement(
-    const ir::AssignmentStatement &assignment,
-    const SymbolicPerPacketState &state, ActionContext *context);
+gutil::StatusOr<SymbolicHeaders> EvaluateAssignmentStatement(
+    const ir::AssignmentStatement &assignment, const SymbolicHeaders &headers,
+    ActionContext *context);
 
 // Constructs a symbolic expression corresponding to this value, according
 // to its type.
 gutil::StatusOr<TypedExpr> EvaluateRValue(const ir::RValue &rvalue,
-                                          const SymbolicPerPacketState &state,
+                                          const SymbolicHeaders &headers,
                                           ActionContext *context);
 
 // Extract the field symbolic value from the symbolic state.
-gutil::StatusOr<TypedExpr> EvaluateFieldValue(
-    const ir::FieldValue &field_value, const SymbolicPerPacketState &state,
-    ActionContext *context);
+gutil::StatusOr<TypedExpr> EvaluateFieldValue(const ir::FieldValue &field_value,
+                                              const SymbolicHeaders &headers,
+                                              ActionContext *context);
 
 // Looks up the symbolic value of the variable in the action scope.
 gutil::StatusOr<TypedExpr> EvaluateVariable(const ir::Variable &variable,
-                                            const SymbolicPerPacketState &state,
+                                            const SymbolicHeaders &headers,
                                             ActionContext *context);
 
 // Parse and format literal values as symbolic expression.
 gutil::StatusOr<TypedExpr> EvaluateHexStr(const ir::HexstrValue &hexstr,
-                                          const SymbolicPerPacketState &state,
+                                          const SymbolicHeaders &headers,
                                           ActionContext *context);
 
 }  // namespace action

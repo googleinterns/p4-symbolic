@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Helpful utilities for managing symbolic and concrete states.
+// Helpful utilities for managing symbolic and concrete headers and values.
 
 #include "p4_symbolic/symbolic/util.h"
 
@@ -26,7 +26,7 @@
 #include "absl/strings/str_format.h"
 #include "absl/strings/strip.h"
 #include "p4_pdpi/utils/ir.h"
-#include "p4_symbolic/symbolic/headers.h"
+#include "p4_symbolic/symbolic/packet.h"
 
 namespace p4_symbolic {
 namespace symbolic {
@@ -45,19 +45,18 @@ bool Z3BooltoBool(Z3_lbool z3_bool) {
 
 }  // namespace
 
-gutil::StatusOr<SymbolicPerPacketState> FreeSymbolicPacketState(
+gutil::StatusOr<SymbolicHeaders> FreeSymbolicHeaders(
     const google::protobuf::Map<std::string, ir::HeaderType> &headers) {
-  // Packet header variables.
-  SymbolicHeader header = headers::FreeSymbolicHeader();
-
-  // Metadata fields.
-  SymbolicMetadata metadata;
+  // Loop over every header instance in the p4 program.
+  // Find its type, and loop over every field in it, creating a symbolic free
+  // variable for every field in every header instance.
+  SymbolicHeaders symbolic_headers;
   for (const auto &[header_name, header_type] : headers) {
     // Special validity field.
     std::string valid_field_name = absl::StrFormat("%s.$valid$", header_name);
     TypedExpr valid_expression =
         TypedExpr(Z3Context().bool_const(valid_field_name.c_str()));
-    metadata.insert({valid_field_name, valid_expression});
+    symbolic_headers.insert({valid_field_name, valid_expression});
 
     // Regular fields defined in the p4 program or v1model.
     for (const auto &[field_name, field] : header_type.fields()) {
@@ -70,11 +69,11 @@ gutil::StatusOr<SymbolicPerPacketState> FreeSymbolicPacketState(
           absl::StrFormat("%s.%s", header_name, field_name);
       TypedExpr field_expression = TypedExpr(
           Z3Context().bv_const(field_full_name.c_str(), field.bitwidth()));
-      metadata.insert({field_full_name, field_expression});
+      symbolic_headers.insert({field_full_name, field_expression});
     }
   }
 
-  return SymbolicPerPacketState{header, metadata};
+  return symbolic_headers;
 }
 
 ConcreteContext ExtractFromModel(SymbolicContext context, z3::model model) {
@@ -85,16 +84,16 @@ ConcreteContext ExtractFromModel(SymbolicContext context, z3::model model) {
       model.eval(context.egress_port.expr(), true).to_string();
 
   // Extract an input packet and its predicted output.
-  ConcreteHeader ingress_packet =
-      headers::ExtractConcreteHeaders(context.ingress_packet, model);
-  ConcreteHeader egress_packet =
-      headers::ExtractConcreteHeaders(context.egress_packet, model);
+  ConcretePacket ingress_packet =
+      packet::ExtractConcretePacket(context.ingress_packet, model);
+  ConcretePacket egress_packet =
+      packet::ExtractConcretePacket(context.egress_packet, model);
 
-  // Extract the last predicited value assigned to every metadata field when the
+  // Extract the last predicited value assigned to every header field when the
   // program is run on the input packet.
-  ConcreteMetadata metadata;
-  for (const auto &[name, expr] : context.metadata) {
-    metadata[name] = model.eval(expr.expr(), true).to_string();
+  ConcreteHeaders concrete_headers;
+  for (const auto &[name, expr] : context.headers) {
+    concrete_headers[name] = model.eval(expr.expr(), true).to_string();
   }
 
   // Extract the trace (matches on every table).
@@ -109,41 +108,21 @@ ConcreteContext ExtractFromModel(SymbolicContext context, z3::model model) {
   }
   ConcreteTrace trace = {matches, dropped};
 
-  return {ingress_port,  egress_port, ingress_packet,
-          egress_packet, metadata,    trace};
+  return {ingress_port,  egress_port,      ingress_packet,
+          egress_packet, concrete_headers, trace};
 }
 
-TypedExpr MergeExpressionsWithCondition(const TypedExpr &original,
-                                        const TypedExpr &changed,
+SymbolicHeaders MergeHeadersOnCondition(const SymbolicHeaders &original,
+                                        const SymbolicHeaders &changed,
                                         const TypedExpr &condition) {
-  if (z3::eq(original.expr(), changed.expr())) {
-    return original;
+  SymbolicHeaders merged;
+  for (const auto &[name, expr] : changed) {
+    // SymbolicHeaders have the same set of fields always, and they are assigned
+    // prior to any evaluation.
+    // Hence, it is safe to access original.at(name) directly.
+    merged.insert({name, TypedExpr::ite(condition, expr, original.at(name))});
   }
-  return TypedExpr::ite(condition, changed, original);
-}
-
-SymbolicPerPacketState MergeStatesOnCondition(
-    const SymbolicPerPacketState &original,
-    const SymbolicPerPacketState &changed, const TypedExpr &condition) {
-  // Merge the header.
-  SymbolicHeader merged_header = headers::MergeHeadersOnCondition(
-      original.header, changed.header, condition);
-
-  // Merge metadata.
-  SymbolicMetadata merged_metadata;
-  for (const auto &[name, expr] : changed.metadata) {
-    if (original.metadata.count(name) == 1) {
-      merged_metadata.insert(
-          {name, MergeExpressionsWithCondition(original.metadata.at(name), expr,
-                                               condition)});
-    } else {
-      merged_metadata.insert(
-          {name, MergeExpressionsWithCondition(
-                     TypedExpr(Z3Context().int_val(-1)), expr, condition)});
-    }
-  }
-
-  return {merged_header, merged_metadata};
+  return merged;
 }
 
 gutil::StatusOr<TypedExpr> IrValueToZ3Expr(const pdpi::IrValue &value) {

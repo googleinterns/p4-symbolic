@@ -88,6 +88,13 @@ TypedExpr TypedExpr::operator!() const { return TypedExpr(!this->expr_); }
 TypedExpr TypedExpr::ite(const TypedExpr &condition,
                          const TypedExpr &true_value,
                          const TypedExpr &false_value) {
+  // Optimization: if both branches are the same *syntactically*
+  // then we can just use the branch expression directly and no need
+  // for an if-then-else statement.
+  if (z3::eq(true_value.expr(), false_value.expr())) {
+    return true_value;
+  }
+
   // Values in both cases must have the same sort and signedness.
   SORT_CHECK_AND_PAD(true_value, false_value);
   return TypedExpr(z3::ite(condition.expr_, a_expr, b_expr));

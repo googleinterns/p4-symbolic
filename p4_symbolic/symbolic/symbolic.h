@@ -38,68 +38,20 @@ namespace symbolic {
 // evaluation.
 z3::context &Z3Context();
 
-// Specifies what a packet essentially looks like.
-// A concrete output packet within a concrete context produced by our solver
-// will be of this type.
-struct ConcreteHeader {
-  std::string eth_src;
-  std::string eth_dst;
-  std::string eth_type;
+// Maps the name of a header field in the p4 program to its concrete value.
+using ConcreteHeaders = std::unordered_map<std::string, std::string>;
 
-  std::string outer_ipv4_src;
-  std::string outer_ipv4_dst;
-  std::string outer_ipv6_dst_upper;
-  std::string outer_ipv6_dst_lower;
-  std::string outer_protocol;
-  std::string outer_dscp;
-  std::string outer_ttl;
-
-  std::string inner_ipv4_dst;
-  std::string inner_ipv6_dst_upper;
-  std::string inner_ipv6_dst_lower;
-  std::string inner_protocol;
-  std::string inner_dscp;
-  std::string inner_ttl;
-
-  std::string icmp_type;
-  std::string vid;
-};
-
-// Maps the name of a metadata field to its concrete value.
-// Unlike ConcreteHeader, a metadata field is not part of the physical packet,
-// it is a logical value used by the P4 program (e.g. vrf).
-using ConcreteMetadata = std::unordered_map<std::string, std::string>;
-
-// Provides symbolic handles for the fields of the symbolic packet used by
-// our solver. These handles can be used to contstrain the conrete output
-// packets.
-struct SymbolicHeader {
-  TypedExpr eth_src;   // 48 bit.
-  TypedExpr eth_dst;   // 48 bit.
-  TypedExpr eth_type;  // 16 bit.
-
-  TypedExpr outer_ipv4_src;        // 32 bit, valid if eth_type = 0x0800
-  TypedExpr outer_ipv4_dst;        // 32 bit, valid if eth_type = 0x0800
-  TypedExpr outer_ipv6_dst_upper;  // 64 bit, valid if eth_type = 0x86dd
-  TypedExpr outer_ipv6_dst_lower;  // 64 bit, valid if eth_type = 0x86dd
-  TypedExpr outer_protocol;        // 8 bit, valid if eth_type is ip
-  TypedExpr outer_dscp;            // 6 bit, valid if eth_type is ip
-  TypedExpr outer_ttl;             // 8 bit, valid if eth_type is ip
-
-  TypedExpr inner_ipv4_dst;        // 32 bit, valid if outer_protocol = 4
-  TypedExpr inner_ipv6_dst_upper;  // 64 bit, valid if outer_protocol = 4
-  TypedExpr inner_ipv6_dst_lower;  // 64 bit, valid if outer_protocol = 41
-  TypedExpr inner_protocol;        // 8 bit, valid if outer_protocol = 4/41
-  TypedExpr inner_dscp;            // 6 bit, valid if outer_protocol = 4/41
-  TypedExpr inner_ttl;             // 8 bit, valid if outer_protocol = 4/41
-
-  TypedExpr icmp_type;  // 8 bit, valid if eth_type is ip
-  TypedExpr vid;        // 12 bit, valid if eth_type = 0x6007
-};
-
-// The symbolic counterpart of ConcreteMetadata. This can be used to constrain
-// intermediate values.
-using SymbolicMetadata = std::unordered_map<std::string, TypedExpr>;
+// The symbolic counterpart of ConcreteHeader.
+// Maps the name of a header field in the p4 program to its symbolic value.
+// This can be used to constrain p4 program fields.
+// This is automatically constructred from the header type definitions
+// the p4 program has.
+// Assume the p4 program has a header instance named "standard_metadata" of type
+// "standard_metadata_t", which has field "ingress_port" of type "bit<9>" in it.
+// Then, we will have:
+//     SymbolicMetadata["standard_metadata.ingress_port"] =
+//         TypedExpr<symbolic bit vector of size 9>
+using SymbolicHeaders = std::unordered_map<std::string, TypedExpr>;
 
 // Expresses a concrete match for a corresponding concrete packet with a
 // table in the program.
@@ -140,18 +92,73 @@ struct SymbolicTrace {
   TypedExpr dropped;
 };
 
+// Specifies the concrete data inside a packet.
+// This is a friendly helper struct, all information in this struct
+// is extracted from ConcreteHeader.
+struct ConcretePacket {
+  std::string eth_src;
+  std::string eth_dst;
+  std::string eth_type;
+
+  std::string outer_ipv4_src;
+  std::string outer_ipv4_dst;
+  std::string outer_ipv6_dst_upper;
+  std::string outer_ipv6_dst_lower;
+  std::string outer_protocol;
+  std::string outer_dscp;
+  std::string outer_ttl;
+
+  std::string inner_ipv4_dst;
+  std::string inner_ipv6_dst_upper;
+  std::string inner_ipv6_dst_lower;
+  std::string inner_protocol;
+  std::string inner_dscp;
+  std::string inner_ttl;
+
+  std::string icmp_type;
+  std::string vid;
+};
+
+// A helper struct containing symbolic expressions for every field in a packet.
+// All expressions in this struct are extracted from SymbolicHeader.
+// We explicitly give these fields name in this struct to simplify how the
+// client code can impose constraints on them in assertions.
+struct SymbolicPacket {
+  TypedExpr eth_src;   // 48 bit.
+  TypedExpr eth_dst;   // 48 bit.
+  TypedExpr eth_type;  // 16 bit.
+
+  TypedExpr outer_ipv4_src;        // 32 bit, valid if eth_type = 0x0800
+  TypedExpr outer_ipv4_dst;        // 32 bit, valid if eth_type = 0x0800
+  TypedExpr outer_ipv6_dst_upper;  // 64 bit, valid if eth_type = 0x86dd
+  TypedExpr outer_ipv6_dst_lower;  // 64 bit, valid if eth_type = 0x86dd
+  TypedExpr outer_protocol;        // 8 bit, valid if eth_type is ip
+  TypedExpr outer_dscp;            // 6 bit, valid if eth_type is ip
+  TypedExpr outer_ttl;             // 8 bit, valid if eth_type is ip
+
+  TypedExpr inner_ipv4_dst;        // 32 bit, valid if outer_protocol = 4
+  TypedExpr inner_ipv6_dst_upper;  // 64 bit, valid if outer_protocol = 4
+  TypedExpr inner_ipv6_dst_lower;  // 64 bit, valid if outer_protocol = 41
+  TypedExpr inner_protocol;        // 8 bit, valid if outer_protocol = 4/41
+  TypedExpr inner_dscp;            // 6 bit, valid if outer_protocol = 4/41
+  TypedExpr inner_ttl;             // 8 bit, valid if outer_protocol = 4/41
+
+  TypedExpr icmp_type;  // 8 bit, valid if eth_type is ip
+  TypedExpr vid;        // 12 bit, valid if eth_type = 0x6007
+};
+
 // The result of solving with some assertion.
 // This contains an input test packet with its predicted flow in the program,
 // and the predicted output.
 struct ConcreteContext {
   std::string ingress_port;
   std::string egress_port;
-  ConcreteHeader ingress_packet;  // Input packet into the program/switch.
-  ConcreteHeader egress_packet;   // Expected output packet.
-  // Expected metadata field values at the end of execution.
+  ConcretePacket ingress_packet;  // Input packet into the program/switch.
+  ConcretePacket egress_packet;   // Expected output packet.
+  // Expected header field values at the end of execution.
   // E.g. if vrf is set to different values through out the execution of the
   // program on this packet, this will contain the last value set for the vrf.
-  ConcreteMetadata metadata;
+  ConcreteHeaders headers;
   ConcreteTrace trace;  // Expected trace in the program.
 };
 
@@ -162,9 +169,9 @@ struct ConcreteContext {
 struct SymbolicContext {
   TypedExpr ingress_port;
   TypedExpr egress_port;
-  SymbolicHeader ingress_packet;
-  SymbolicHeader egress_packet;
-  SymbolicMetadata metadata;  // Metadata symbols at the end of execution.
+  SymbolicPacket ingress_packet;
+  SymbolicPacket egress_packet;
+  SymbolicHeaders headers;  // Header symbols at the end of execution.
   SymbolicTrace trace;
 };
 
@@ -204,15 +211,6 @@ struct SolverState {
         entries(entries),
         context(context),
         solver(std::move(solver)) {}
-};
-
-// Instances of these structs are passed around and returned between our
-// internal evaluation functions. An instance of this struct captures
-// the symbolic state of the P4 program being evaluated at the current
-// step in the interpration.
-struct SymbolicPerPacketState {
-  SymbolicHeader header;
-  SymbolicMetadata metadata;
 };
 
 // An assertion is a user defined function that takes a symbolic context

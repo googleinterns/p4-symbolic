@@ -67,7 +67,7 @@ gutil::StatusOr<TypedExpr> AnalyzeSingleMatch(
 // is matched on.
 gutil::StatusOr<TypedExpr> AnalyzeTableEntryCondition(
     const ir::Table &table, const pdpi::IrTableEntry &entry,
-    const SymbolicPerPacketState &state) {
+    const SymbolicHeaders &headers) {
   // Make sure number of match keys is the same in the table definition and
   // table entry.
   if (table.table_definition().match_fields_by_id_size() !=
@@ -95,7 +95,7 @@ gutil::StatusOr<TypedExpr> AnalyzeTableEntryCondition(
     //               json in the IR, and use instead of the name.
     //               @konne mentioned this before in a meeting.
     const std::string &match_string_expression = match_definition.name();
-    if (state.metadata.count(match_string_expression) != 1) {
+    if (headers.count(match_string_expression) != 1) {
       return absl::InvalidArgumentError(absl::StrCat(
           "Unknown table match expression ", match_string_expression,
           " in table ", table.table_definition().preamble().name()));
@@ -103,7 +103,7 @@ gutil::StatusOr<TypedExpr> AnalyzeTableEntryCondition(
     ASSIGN_OR_RETURN(
         TypedExpr match_expression,
         AnalyzeSingleMatch(match_definition,
-                           state.metadata.at(match_string_expression), match));
+                           headers.at(match_string_expression), match));
     condition_expression = condition_expression && match_expression;
   }
 
@@ -112,10 +112,10 @@ gutil::StatusOr<TypedExpr> AnalyzeTableEntryCondition(
 
 // Constructs a symbolic expressions that represents the action invocation
 // corresponding to this entry.
-gutil::StatusOr<SymbolicPerPacketState> AnalyzeTableEntryAction(
+gutil::StatusOr<SymbolicHeaders> AnalyzeTableEntryAction(
     const ir::Table &table, const pdpi::IrTableEntry &entry,
     const google::protobuf::Map<std::string, ir::Action> &actions,
-    const SymbolicPerPacketState &state) {
+    const SymbolicHeaders &headers) {
   // Check that the action invoked by entry exists.
   const std::string &table_name = table.table_definition().preamble().name();
   const std::string &action_name = entry.action().name();
@@ -127,15 +127,15 @@ gutil::StatusOr<SymbolicPerPacketState> AnalyzeTableEntryAction(
 
   // Instantiate the action's symbolic expression with the entry values.
   const ir::Action &action = actions.at(action_name);
-  return action::EvaluateAction(action, entry.action().params(), state);
+  return action::EvaluateAction(action, entry.action().params(), headers);
 }
 
 }  // namespace
 
-gutil::StatusOr<SymbolicPerPacketStateAndMatch> EvaluateTable(
+gutil::StatusOr<SymbolicHeadersAndTableMatch> EvaluateTable(
     const ir::Table &table, const std::vector<pdpi::IrTableEntry> &entries,
     const google::protobuf::Map<std::string, ir::Action> &actions,
-    const SymbolicPerPacketState &state) {
+    const SymbolicHeaders &headers) {
   // The overall structure describing the match on this table.
   SymbolicTableMatch table_match = {
       TypedExpr(Z3Context().bool_val(false)),  // No match yet!
@@ -154,8 +154,8 @@ gutil::StatusOr<SymbolicPerPacketStateAndMatch> EvaluateTable(
         util::StringToIrValue(parameter_value));
   }
   ASSIGN_OR_RETURN(
-      SymbolicPerPacketState table_state,
-      AnalyzeTableEntryAction(table, default_entry, actions, state));
+      SymbolicHeaders modified_headers,
+      AnalyzeTableEntryAction(table, default_entry, actions, headers));
 
   // The table semantically is just a bunch of if conditions, one per
   // table entry, we construct this big if-elseif-...-else construct via
@@ -165,9 +165,9 @@ gutil::StatusOr<SymbolicPerPacketStateAndMatch> EvaluateTable(
   for (int row = entries.size() - 1; row >= 0; row--) {
     const pdpi::IrTableEntry &entry = entries.at(row);
     ASSIGN_OR_RETURN(TypedExpr row_match,
-                     AnalyzeTableEntryCondition(table, entry, state));
-    ASSIGN_OR_RETURN(SymbolicPerPacketState row_state,
-                     AnalyzeTableEntryAction(table, entry, actions, state));
+                     AnalyzeTableEntryCondition(table, entry, headers));
+    ASSIGN_OR_RETURN(SymbolicHeaders row_headers,
+                     AnalyzeTableEntryAction(table, entry, actions, headers));
 
     // Using this alias makes it simpler to put constraints on packet later.
     table_match.matched = table_match.matched || row_match;
@@ -175,12 +175,13 @@ gutil::StatusOr<SymbolicPerPacketStateAndMatch> EvaluateTable(
         TypedExpr::ite(row_match, TypedExpr(Z3Context().int_val(row)),
                        table_match.entry_index);
 
-    // The solver state is changed accordingly if the row was matched.
-    table_state =
-        util::MergeStatesOnCondition(table_state, row_state, row_match);
+    // Apply the changes to the header fields if the symbolic condition to match
+    // on this entry is satisified.
+    modified_headers =
+        util::MergeHeadersOnCondition(modified_headers, row_headers, row_match);
   }
 
-  return SymbolicPerPacketStateAndMatch{table_state, table_match};
+  return SymbolicHeadersAndTableMatch{modified_headers, table_match};
 }
 
 }  // namespace table

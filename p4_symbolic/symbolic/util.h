@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Helpful utilities for managing symbolic and concrete states.
+// Helpful utilities for managing symbolic and concrete headers and values.
 
 #ifndef P4_SYMBOLIC_SYMBOLIC_UTIL_H_
 #define P4_SYMBOLIC_SYMBOLIC_UTIL_H_
@@ -31,19 +31,14 @@ namespace p4_symbolic {
 namespace symbolic {
 namespace util {
 
-// Free (unconstrained) symbolic context consisting of input symbolic variables
-// for headers and empty trace and metadata.
-gutil::StatusOr<SymbolicPerPacketState> FreeSymbolicPacketState(
+// Free (unconstrained) symbolic headers consisting of free symbolic variables
+// for every field in every header instance defined in the P4 program.
+gutil::StatusOr<SymbolicHeaders> FreeSymbolicHeaders(
     const google::protobuf::Map<std::string, ir::HeaderType> &headers);
 
 // Extract a concrete context by evaluating every component's corresponding
 // expression in the model.
 ConcreteContext ExtractFromModel(SymbolicContext context, z3::model model);
-
-// Essentially a symbolic ternary choice/condition.
-TypedExpr MergeExpressionsWithCondition(const TypedExpr &original,
-                                        const TypedExpr &changed,
-                                        const TypedExpr &condition);
 
 // Merges two symbolic states into a single state. A field in the new state
 // has the value of the changed state if the condition is true, and the value
@@ -51,9 +46,9 @@ TypedExpr MergeExpressionsWithCondition(const TypedExpr &original,
 // If original does not contain that field, a default value (e.g. -1) is used if
 // the condition is false.
 // Assertion: the changed state should not remove fields.
-SymbolicPerPacketState MergeStatesOnCondition(
-    const SymbolicPerPacketState &original,
-    const SymbolicPerPacketState &changed, const TypedExpr &condition);
+SymbolicHeaders MergeHeadersOnCondition(const SymbolicHeaders &original,
+                                        const SymbolicHeaders &changed,
+                                        const TypedExpr &condition);
 
 // Transforms a value read from a TableEntry to a z3::expr.
 gutil::StatusOr<TypedExpr> IrValueToZ3Expr(const pdpi::IrValue &value);
