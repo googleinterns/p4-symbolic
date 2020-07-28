@@ -45,7 +45,7 @@ bool Z3BooltoBool(Z3_lbool z3_bool) {
 
 }  // namespace
 
-SymbolicPerPacketState FreeSymbolicPacketState(
+gutil::StatusOr<SymbolicPerPacketState> FreeSymbolicPacketState(
     const google::protobuf::Map<std::string, ir::HeaderType> &headers) {
   // Packet header variables.
   SymbolicHeader header = headers::FreeSymbolicHeader();
@@ -61,16 +61,20 @@ SymbolicPerPacketState FreeSymbolicPacketState(
 
     // Regular fields defined in the p4 program or v1model.
     for (const auto &[field_name, field] : header_type.fields()) {
+      if (field.signed_()) {
+        return absl::UnimplementedError(
+            "Negative header fields are not supported");
+      }
+
       std::string field_full_name =
           absl::StrFormat("%s.%s", header_name, field_name);
       TypedExpr field_expression = TypedExpr(
-          Z3Context().bv_const(field_full_name.c_str(), field.bitwidth()),
-          field.signed_());
+          Z3Context().bv_const(field_full_name.c_str(), field.bitwidth()));
       metadata.insert({field_full_name, field_expression});
     }
   }
 
-  return {header, metadata};
+  return SymbolicPerPacketState{header, metadata};
 }
 
 ConcreteContext ExtractFromModel(SymbolicContext context, z3::model model) {

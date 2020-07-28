@@ -33,7 +33,7 @@ namespace util {
 
 // Free (unconstrained) symbolic context consisting of input symbolic variables
 // for headers and empty trace and metadata.
-SymbolicPerPacketState FreeSymbolicPacketState(
+gutil::StatusOr<SymbolicPerPacketState> FreeSymbolicPacketState(
     const google::protobuf::Map<std::string, ir::HeaderType> &headers);
 
 // Extract a concrete context by evaluating every component's corresponding

@@ -25,42 +25,82 @@
 namespace p4_symbolic {
 namespace symbolic {
 
-// This is very similar to z3::expr, however it stores additional type
-// information (e.g. sign), and performs type checking on copy/assignment,
-// and can unify different sized bit vectors by padding.
+// This class is very similar to z3::expr. However, it enforces an important
+// invariant: copy/move assignments to variables, map locations, etc containing
+// instances of this type must maintain that the expression sort is the same.
 //
-// Specifically, when a typed expression is declared, it can only be re-assigned
-// to z3::expr of the same matching sort (or of a bit vector sort that can be
-// padded to that sort).
+// The sort of the expression includes its base type (e.g. boolean, integer,
+// bitvector), as well as size information (e.g. the size of the bitvector).
 //
-// This is important for metadata fields, which may be assigned new values as
-// the symbolic program is evaluated.
+// Example:
+// // A metadata map from field names to expressions is defined at the begining.
+// map<std::string, TypedExpr> metadata;
+// // The map is filled with some initial mapping.
+// metadata.insert({"x", TypedExpr(<bit vector of size 10>)});
+// // The map is now passed to some complicated pipeline that evaluates code
+// // and makes changes to the metadata map.
+// // At some point this line is executed.
+// metadata.at("x") = TypedExpr(<bit vector of size n>);
 //
-// Additionally, this class overrides operators, similar to z3::expr, with
-// additional type checking (for signedness) and padding when needed.
+// // This above line will complete successfuly if n <= 10, it will padd
+// // the assigned values with 0 bits so that the new size is 10.
+// // However, if n > 10, or if the sort of the expression is not a bitvector
+// // to begin with. The call will fail because of an assertion failure.
+// End of Example.
+//
+// The class override needed operators by our symbolic code, in a way identical
+// to how z3::expr overrides them, with the exception of being able to operate
+// on bitvectors of different sizes via padding.
+// Example:
+// // This errors out:
+// z3::expr<bit vector of size 5> + z3::expr<bit vector of size 4>;
+// // This does not error out. The second vector is padded to 5:
+// TypedExpr<bit vector of size 5> + TypedExpr<bit vector of size 4>;
+//
+// These operators do not violate the stated invariant, they do not mutate
+// the operands. Assigning the result of an such operation to an existing
+// TypedExpr must satisfiy the invariant, other wise that assignment (not the
+// operator) will fail.
+//
+// Note about sign:
+//
+// We do not support signed bitvectors in this pipeline because they are not
+// used in programs we are interested in.
+//
+// However, if the need arise to support them. The sign of bit vectors msut be
+// explicitly stored in this class, because z3::expr does not store it at all.
+// We recommend that the sign is stored in this class, and included in the
+// invariant, so that the sign is preserved.
+//
+// This means that unsigned expressions may be assigned to signed ones, but not
+// the other way around. Unsigned expressions must have size < than the signed
+// one. Otherwise, the unsigned expression may begin with 1, and re-interpreting
+// it as signed will change its value. If the size is less, the unsigned
+// expression can be padded with zeros to ensure its signed interpretation
+// is ok.
+//
+// Finally, z3 provides different implementations for the corresponding signed
+// and unsigned mathematical operators, for those where the sign makes a
+// difference. For example, + and - have a single implementation for both.
+// While comparisons are different. z3::expr < z3::expr refers to the signed
+// version, while z3::ult(<z3::expr>, <z3::expr>) refers to the unsigned
+// version.
+//
+// We suggest that operators overloaded in this class check the sign and call
+// the appropriate Z3 operations. The overloaded operators may also padd
+// unsigned expressions to signed ones, so that it can operate on operands of
+// different signedness.
+
 class TypedExpr {
  private:
   // The underlying symbolic expression that is the current value of this
   // typed expression.
+  // Invariant: the sort of the expression this instance is initially defined by
+  // is always respected, all future assignments to it must satisify that sort.
   z3::expr expr_;
-  // The declared sort of this typed expression. It will only accept
-  // reassignments to expressions of this same sort.
-  // Guaranteed to match the sort of expr_.
-  z3::sort sort_;
-  // Only relevant if sort_ is a bitvector. Specifies whether the bitvector
-  // is interpreted as signed (i.e. int<n> in P4) or unsigned (i.e. bit<n>
-  // in P4).
-  // Z3 does not make a distinction between these two cases at the sort level,
-  // instead, it exposed two sets of operations on bit vectors, corresponding
-  // to either cases.
-  // This class chooses which operation to apply based on this bool value.
-  bool signed_;
 
  public:
-  explicit TypedExpr(z3::expr expr)
-      : expr_(expr), sort_(expr.get_sort()), signed_(false) {}
-  explicit TypedExpr(z3::expr expr, bool sign)
-      : expr_(expr), sort_(expr.get_sort()), signed_(sign) {}
+  explicit TypedExpr(z3::expr expr) : expr_(expr) {}
 
   // Copyable and Movable when creating new instances.
   TypedExpr(const TypedExpr &other) = default;
@@ -73,8 +113,7 @@ class TypedExpr {
 
   // Accessors
   const z3::expr &expr() const { return this->expr_; }
-  const z3::sort &sort() const { return this->sort_; }
-  bool is_signed() const { return this->signed_; }
+  inline z3::sort sort() const { return this->expr_.get_sort(); }
   std::string to_string() const { return this->expr_.to_string(); }
 
   // Overloaded operators exposing corresponding z3::expr operators after sort
@@ -85,8 +124,8 @@ class TypedExpr {
   TypedExpr operator!() const;
 
   // If-then-else.
-  static TypedExpr ite(const TypedExpr &condition, const TypedExpr &true_,
-                       const TypedExpr &false_);
+  static TypedExpr ite(const TypedExpr &condition, const TypedExpr &true_value,
+                       const TypedExpr &false_value);
 };
 
 }  // namespace symbolic

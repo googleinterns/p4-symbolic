@@ -36,8 +36,8 @@ gutil::StatusOr<std::unique_ptr<SolverState>> EvaluateP4Pipeline(
   // "Accumulator"-style state used to evaluate tables.
   // Initially free/unconstrained and contains symbolic variables for
   // every input metadata and header field.
-  SymbolicPerPacketState symbolic_state =
-      util::FreeSymbolicPacketState(data_plane.program.headers());
+  ASSIGN_OR_RETURN(SymbolicPerPacketState symbolic_state,
+                   util::FreeSymbolicPacketState(data_plane.program.headers()));
   TypedExpr ingress_port =
       symbolic_state.metadata.at("standard_metadata.ingress_port");
   SymbolicHeader ingress_packet = symbolic_state.header;
