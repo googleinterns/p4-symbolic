@@ -53,6 +53,13 @@ SymbolicPerPacketState FreeSymbolicPacketState(
   // Metadata fields.
   SymbolicMetadata metadata;
   for (const auto &[header_name, header_type] : headers) {
+    // Special validity field.
+    std::string valid_field_name = absl::StrFormat("%s.$valid$", header_name);
+    TypedExpr valid_expression =
+        TypedExpr(Z3Context().bool_const(valid_field_name.c_str()));
+    metadata.insert({valid_field_name, valid_expression});
+
+    // Regular fields defined in the p4 program or v1model.
     for (const auto &[field_name, field] : header_type.fields()) {
       std::string field_full_name =
           absl::StrFormat("%s.%s", header_name, field_name);
