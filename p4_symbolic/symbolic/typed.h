@@ -17,6 +17,8 @@
 #ifndef P4_SYMBOLIC_SYMBOLIC_TYPED_H_
 #define P4_SYMBOLIC_SYMBOLIC_TYPED_H_
 
+#include <string>
+
 #include "gutil/status.h"
 #include "z3++.h"
 

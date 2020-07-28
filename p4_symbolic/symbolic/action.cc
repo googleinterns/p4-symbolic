@@ -179,7 +179,7 @@ gutil::StatusOr<SymbolicPerPacketState> EvaluateAction(
         parameters.at(i);
     const std::string &parameter_name = parameter.param().name();
     ASSIGN_OR_RETURN(TypedExpr parameter_value,
-                     util::IrValueToZ3Expr(args.at(i-1).value()));
+                     util::IrValueToZ3Expr(args.at(i - 1).value()));
     context.scope.insert({parameter_name, parameter_value});
   }
 

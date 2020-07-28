@@ -16,6 +16,7 @@
 
 #include "p4_symbolic/symbolic/util.h"
 
+#include <cstdint>
 #include <locale>
 #include <sstream>
 #include <string>
@@ -46,7 +47,6 @@ bool Z3BooltoBool(Z3_lbool z3_bool) {
 
 SymbolicPerPacketState FreeSymbolicPacketState(
     const google::protobuf::Map<std::string, ir::HeaderType> &headers) {
-
   // Packet header variables.
   SymbolicHeader header = headers::FreeSymbolicHeader();
 
@@ -56,9 +56,9 @@ SymbolicPerPacketState FreeSymbolicPacketState(
     for (const auto &[field_name, field] : header_type.fields()) {
       std::string field_full_name =
           absl::StrFormat("%s.%s", header_name, field_name);
-      TypedExpr field_expression =
-          TypedExpr(Z3Context().bv_const(field_full_name.c_str(), field.bitwidth()),
-                    field.signed_());
+      TypedExpr field_expression = TypedExpr(
+          Z3Context().bv_const(field_full_name.c_str(), field.bitwidth()),
+          field.signed_());
       metadata.insert({field_full_name, field_expression});
     }
   }
@@ -140,12 +140,12 @@ gutil::StatusOr<TypedExpr> IrValueToZ3Expr(const pdpi::IrValue &value) {
     case pdpi::IrValue::kHexStr: {
       const std::string &hexstr = value.hex_str();
 
-      unsigned long long decimal;
+      uint64_t decimal;
       std::stringstream converter;
       converter << std::hex << hexstr;
       if (converter >> decimal) {
         unsigned int bitsize = 0;
-        unsigned long long pow = 1;
+        uint64_t pow = 1;
         while (bitsize <= 64 && pow < decimal) {
           pow = pow * 2;
           bitsize++;
@@ -157,9 +157,8 @@ gutil::StatusOr<TypedExpr> IrValueToZ3Expr(const pdpi::IrValue &value) {
         return result;
       }
 
-      return absl::InvalidArgumentError(
-            absl::StrCat("Cannot process hex string \"", hexstr,
-                         "\", the value is too big!"));
+      return absl::InvalidArgumentError(absl::StrCat(
+          "Cannot process hex string \"", hexstr, "\", the value is too big!"));
     }
     default:
       return absl::UnimplementedError(

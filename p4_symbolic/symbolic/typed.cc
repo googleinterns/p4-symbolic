@@ -14,10 +14,8 @@
 
 #include "p4_symbolic/symbolic/typed.h"
 
-/*
-#include "absl/status/status.h"
-#include "absl/strings/str_cat.h"
-*/
+#include <utility>
+
 #include "p4_symbolic/symbolic/symbolic.h"
 
 // This macro is used through out the implementation of the overloaded
@@ -26,27 +24,31 @@
 // it will perform any needed sign conversions and size padding.
 // The macro will define two z3::expr variables "a_expr" and "b_expr",
 // corresponding to the finalized expressions of the two operands.
-#define SORT_CHECK_AND_PADD(a, b)                                \
-  z3::expr a_expr = a.expr_;                                     \
-  z3::expr b_expr = b.expr_;                                     \
-  assert(a.sort_.sort_kind() == b.sort_.sort_kind());            \
-  if (a.sort_.is_bv()) {                                         \
-    unsigned int a_len = a.sort_.bv_size();                      \
-    unsigned int b_len = b.sort_.bv_size();                      \
-    /* If one is signed and the other is not, we will need to    \
-     * make the unsigned one signed, by padding with a single    \
-     * zero bit, since the unsigned expression must be positive. \
-     * As an optimization, we do not need to do that padding     \
-     * explicitly, instead we only logically account for it      \
-     * increasing the size by 1, and then the later "Pad" call   \
-     * will do that sign conversion for us along the way. */     \
-    if (a.signed_ && !b.signed_)                                 \
-      a_len += 1;                                                \
-    else if (!a.signed_ && b.signed_)                            \
-      b_len += 1;                                                \
-    unsigned int pad_size = a_len > b_len ? a_len : b_len;       \
-    a_expr = Pad(a, pad_size);                                   \
-    b_expr = Pad(b, pad_size);                                   \
+//
+// If one operand is signed and the other is not, we will need to
+// make the unsigned one signed, by padding with a single
+// zero bit, since the unsigned expression must be positive.
+// We cannot guarantee that the original unsigned expression does
+// not start with a 1 bit.
+//
+// As an optimization, we do not need to do that padding
+// explicitly, instead we only logically account for it
+// increasing the size by 1, and then the later "Pad" call
+// will do that sign conversion for us along the way.
+#define SORT_CHECK_AND_PADD(a, b)                          \
+  z3::expr a_expr = a.expr_;                               \
+  z3::expr b_expr = b.expr_;                               \
+  assert(a.sort_.sort_kind() == b.sort_.sort_kind());      \
+  if (a.sort_.is_bv()) {                                   \
+    unsigned int a_len = a.sort_.bv_size();                \
+    unsigned int b_len = b.sort_.bv_size();                \
+    if (a.signed_ && !b.signed_)                           \
+      b_len += 1;                                          \
+    else if (!a.signed_ && b.signed_)                      \
+      a_len += 1;                                          \
+    unsigned int pad_size = a_len > b_len ? a_len : b_len; \
+    a_expr = Pad(a, pad_size);                             \
+    b_expr = Pad(b, pad_size);                             \
   }
 
 namespace p4_symbolic {

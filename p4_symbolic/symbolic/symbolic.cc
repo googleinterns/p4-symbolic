@@ -46,7 +46,8 @@ gutil::StatusOr<std::unique_ptr<SolverState>> EvaluateP4Pipeline(
   z3::expr ingress_port_domain = Z3Context().bool_val(false);
   unsigned int port_bitsize = ingress_port.sort().bv_size();
   for (int port : physical_ports) {
-    ingress_port_domain = ingress_port_domain ||
+    ingress_port_domain =
+        ingress_port_domain ||
         ingress_port.expr() == Z3Context().bv_val(port, port_bitsize);
   }
   z3_solver->add(ingress_port_domain);
@@ -64,8 +65,8 @@ gutil::StatusOr<std::unique_ptr<SolverState>> EvaluateP4Pipeline(
 
     ASSIGN_OR_RETURN(
         table::SymbolicPerPacketStateAndMatch state_and_match,
-        table::EvaluateTable(table, table_entries,
-                             data_plane.program.actions(), symbolic_state));
+        table::EvaluateTable(table, table_entries, data_plane.program.actions(),
+                             symbolic_state));
 
     // Update accumulator state and matches.
     symbolic_state = state_and_match.state;

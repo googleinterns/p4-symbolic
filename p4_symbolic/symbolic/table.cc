@@ -147,13 +147,15 @@ gutil::StatusOr<SymbolicPerPacketStateAndMatch> EvaluateTable(
   pdpi::IrTableEntry default_entry;
   default_entry.mutable_action()->set_name(
       table.table_implementation().default_action());
-  for (const std::string &parameter_value : table.table_implementation().default_action_parameters()) {
+  for (const std::string &parameter_value :
+       table.table_implementation().default_action_parameters()) {
     ASSIGN_OR_RETURN(
         *(default_entry.mutable_action()->add_params()->mutable_value()),
         util::StringToIrValue(parameter_value));
   }
-  ASSIGN_OR_RETURN(SymbolicPerPacketState table_state,
-                   AnalyzeTableEntryAction(table, default_entry, actions, state));
+  ASSIGN_OR_RETURN(
+      SymbolicPerPacketState table_state,
+      AnalyzeTableEntryAction(table, default_entry, actions, state));
 
   // The table semantically is just a bunch of if conditions, one per
   // table entry, we construct this big if-elseif-...-else construct via
