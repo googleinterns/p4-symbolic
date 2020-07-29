@@ -154,6 +154,11 @@ class TypedExpr {
   // Converts the expression into a semantically equivalent boolean expression.
   gutil::StatusOr<TypedExpr> ToBoolSort();
   gutil::StatusOr<TypedExpr> ToBitVectorSort(unsigned int size);
+
+  // Prefix equality: this is the basis for evaluating LPMs.
+  static gutil::StatusOr<TypedExpr> PrefixEq(const TypedExpr &a,
+                                             const TypedExpr &b,
+                                             unsigned int prefix_size);
 };
 
 }  // namespace symbolic

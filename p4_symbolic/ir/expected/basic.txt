@@ -584,6 +584,13 @@ tables {
     }
     table_implementation {
       default_action: "MyIngress.drop"
+      match_name_to_field {
+        key: "hdr.ipv4.dstAddr"
+        value {
+          header_name: "ipv4"
+          field_name: "dstAddr"
+        }
+      }
     }
   }
 }

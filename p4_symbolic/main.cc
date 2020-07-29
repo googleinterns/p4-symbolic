@@ -96,6 +96,16 @@ absl::Status ParseAndEvaluate() {
                   << packet_option.value().ingress_port << std::endl;
         std::cout << "\tstandard_metadata.egress_spec = "
                   << packet_option.value().egress_port << std::endl;
+        if (packet_option.value().headers.count("ipv4.dstAddr")) {
+          std::cout << "\tipv4.dstAddr = "
+                    << packet_option.value().headers.at("ipv4.dstAddr")
+                    << std::endl;
+        }
+        if (packet_option.value().headers.count("ethernet.dstAddr")) {
+          std::cout << "\tethernet.dstAddr = "
+                    << packet_option.value().headers.at("ethernet.dstAddr")
+                    << std::endl;
+        }
       } else {
         std::cout << "Cannot find solution!" << std::endl;
       }

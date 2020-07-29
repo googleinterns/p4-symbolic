@@ -177,7 +177,9 @@ gutil::StatusOr<TypedExpr> TypedExpr::ToBoolSort() {
 
 gutil::StatusOr<TypedExpr> TypedExpr::ToBitVectorSort(unsigned int size) {
   if (this->sort().is_bool()) {
-    TypedExpr bitvector = TypedExpr::ite(*this, TypedExpr(Z3Context().bv_val(1, 1)), TypedExpr(Z3Context().bv_val(0, 1)));
+    TypedExpr bitvector =
+        TypedExpr::ite(*this, TypedExpr(Z3Context().bv_val(1, 1)),
+                       TypedExpr(Z3Context().bv_val(0, 1)));
     return TypedExpr(PAD(bitvector, size - 1));
   } else if (this->sort().is_bv()) {
     if (this->sort().bv_size() <= size) {
@@ -185,6 +187,41 @@ gutil::StatusOr<TypedExpr> TypedExpr::ToBitVectorSort(unsigned int size) {
     }
   }
   return absl::InvalidArgumentError("Illegal conversion to bitvector sort");
+}
+
+// Prefix equality.
+gutil::StatusOr<TypedExpr> TypedExpr::PrefixEq(const TypedExpr &a,
+                                               const TypedExpr &b,
+                                               unsigned int prefix_size) {
+  if (!a.sort().is_bv() || !b.sort().is_bv()) {
+    return absl::InvalidArgumentError("PrefixEq is only valid for bitvectors");
+  }
+
+  unsigned int a_size = a.sort().bv_size();
+  unsigned int b_size = b.sort().bv_size();
+  z3::expr a_expr = a.expr_;
+  z3::expr b_expr = b.expr_;
+
+  // Pad shorter bit vectors
+  if (a_size < prefix_size) {
+    a_expr = PAD(a, prefix_size - a_size);
+    a_size = prefix_size;
+  }
+  if (b_size < prefix_size) {
+    b_expr = PAD(b, prefix_size - b_size);
+    b_size = prefix_size;
+  }
+
+  // Extract prefix from longer bit vectors.
+  if (a_size > prefix_size) {
+    // Note: extract(hi, lo) is inclusive on both ends.
+    a_expr = a_expr.extract(a_size - 1, a_size - prefix_size);
+  }
+  if (b_size > prefix_size) {
+    b_expr = b_expr.extract(b_size - 1, b_size - prefix_size);
+  }
+
+  return TypedExpr(a_expr == b_expr);
 }
 
 }  // namespace symbolic

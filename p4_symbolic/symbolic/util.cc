@@ -24,6 +24,7 @@
 
 #include "absl/strings/match.h"
 #include "absl/strings/str_format.h"
+#include "absl/strings/str_split.h"
 #include "absl/strings/strip.h"
 #include "p4_pdpi/utils/ir.h"
 #include "p4_symbolic/symbolic/packet.h"
@@ -175,6 +176,18 @@ gutil::StatusOr<TypedExpr> IrValueToZ3Expr(const pdpi::IrValue &value) {
       return absl::InvalidArgumentError(absl::StrCat(
           "Cannot process hex string \"", hexstr, "\", the value is too big!"));
     }
+
+    case pdpi::IrValue::kIpv4: {
+      uint32_t ip = 0;
+      std::vector<std::string> ipv4 = absl::StrSplit(value.ipv4(), ".");
+      for (size_t i = 0; i < ipv4.size(); i++) {
+        uint32_t shifted_component = static_cast<uint32_t>(std::stoull(ipv4[i]))
+                                     << ((3 - i) * 8);
+        ip += shifted_component;
+      }
+      return TypedExpr(Z3Context().bv_val(std::to_string(ip).c_str(), 32));
+    }
+
     default:
       return absl::UnimplementedError(
           absl::StrCat("Found unsupported value type ", value.DebugString()));

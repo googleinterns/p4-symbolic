@@ -288,6 +288,13 @@ tables {
     }
     table_implementation {
       default_action: "NoAction"
+      match_name_to_field {
+        key: "standard_metadata.ingress_port"
+        value {
+          header_name: "standard_metadata"
+          field_name: "ingress_port"
+        }
+      }
     }
   }
 }

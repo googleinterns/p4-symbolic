@@ -267,10 +267,10 @@ gutil::StatusOr<TypedExpr> EvaluateRExpression(const ir::RExpression &expr,
         case ir::BuiltinExpression::BOOL_TO_DATA:
           return args.at(0).ToBitVectorSort(1);
         default:
-          return absl::UnimplementedError(absl::StrCat(
-              "Action ", context->action_name,
-              " contains unsupported BuiltinExpression ",
-              builtin_expr.DebugString()));
+          return absl::UnimplementedError(
+              absl::StrCat("Action ", context->action_name,
+                           " contains unsupported BuiltinExpression ",
+                           builtin_expr.DebugString()));
       }
     }
 

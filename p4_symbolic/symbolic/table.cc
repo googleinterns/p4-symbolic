@@ -57,6 +57,22 @@ gutil::StatusOr<TypedExpr> AnalyzeSingleMatch(
                        util::IrValueToZ3Expr(match.exact()));
       return field_expression == value_expression;
     }
+
+    case p4::config::v1::MatchField::LPM: {
+      if (match.match_value_case() != pdpi::IrMatch::kLpm) {
+        return absl::InvalidArgumentError(
+            absl::StrCat("Match definition in table has type \"LPM\" but its "
+                         "invocation in TableEntry has a different type ",
+                         match_definition.DebugString()));
+      }
+
+      ASSIGN_OR_RETURN(TypedExpr value_expression,
+                       util::IrValueToZ3Expr(match.lpm().value()));
+      return TypedExpr::PrefixEq(
+          field_expression, value_expression,
+          static_cast<unsigned int>(match.lpm().prefix_length()));
+    }
+
     default:
       return absl::UnimplementedError(absl::StrCat(
           "Found unsupported match type ", match_definition.DebugString()));
