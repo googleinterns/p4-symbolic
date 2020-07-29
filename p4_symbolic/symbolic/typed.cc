@@ -16,6 +16,7 @@
 
 #include <utility>
 
+#include "absl/status/status.h"
 #include "p4_symbolic/symbolic/symbolic.h"
 
 // Pad if needed by using the appropriate z3 API.
@@ -159,6 +160,31 @@ TypedExpr TypedExpr::shl(const TypedExpr &bit_vector,
 TypedExpr TypedExpr::shr(const TypedExpr &bit_vector,
                          const TypedExpr &shift_value) {
   return TypedExpr(z3::lshr(bit_vector.expr_, shift_value.expr_));
+}
+
+// Conversions.
+gutil::StatusOr<TypedExpr> TypedExpr::ToBoolSort() {
+  if (this->sort().is_bool()) {
+    return *this;
+  } else if (this->sort().is_bv()) {
+    return (*this) >= TypedExpr(Z3Context().bv_val(1, 1));
+  } else if (this->sort().is_int()) {
+    return (*this) >= TypedExpr(Z3Context().int_val(1));
+  } else {
+    return absl::InvalidArgumentError("Illegal conversion to bool sort");
+  }
+}
+
+gutil::StatusOr<TypedExpr> TypedExpr::ToBitVectorSort(unsigned int size) {
+  if (this->sort().is_bool()) {
+    TypedExpr bitvector = TypedExpr::ite(*this, TypedExpr(Z3Context().bv_val(1, 1)), TypedExpr(Z3Context().bv_val(0, 1)));
+    return TypedExpr(PAD(bitvector, size - 1));
+  } else if (this->sort().is_bv()) {
+    if (this->sort().bv_size() <= size) {
+      return TypedExpr(PAD((*this), size - this->sort().bv_size()));
+    }
+  }
+  return absl::InvalidArgumentError("Illegal conversion to bitvector sort");
 }
 
 }  // namespace symbolic

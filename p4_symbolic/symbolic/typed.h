@@ -150,6 +150,10 @@ class TypedExpr {
                        const TypedExpr &shift_value);
   static TypedExpr shr(const TypedExpr &bit_vector,
                        const TypedExpr &shift_value);
+
+  // Converts the expression into a semantically equivalent boolean expression.
+  gutil::StatusOr<TypedExpr> ToBoolSort();
+  gutil::StatusOr<TypedExpr> ToBitVectorSort(unsigned int size);
 };
 
 }  // namespace symbolic

@@ -251,7 +251,29 @@ gutil::StatusOr<TypedExpr> EvaluateRExpression(const ir::RExpression &expr,
       return TypedExpr::ite(condition, left, right);
     }
 
-    case ir::RExpression::kBuiltinExpression:
+    case ir::RExpression::kBuiltinExpression: {
+      ir::BuiltinExpression builtin_expr = expr.builtin_expression();
+      // Evaluate arguments.
+      std::vector<TypedExpr> args;
+      for (const auto &arg_value : builtin_expr.arguments()) {
+        ASSIGN_OR_RETURN(TypedExpr arg,
+                         EvaluateRValue(arg_value, headers, context));
+        args.push_back(arg);
+      }
+
+      switch (builtin_expr.function()) {
+        case ir::BuiltinExpression::DATA_TO_BOOL:
+          return args.at(0).ToBoolSort();
+        case ir::BuiltinExpression::BOOL_TO_DATA:
+          return args.at(0).ToBitVectorSort(1);
+        default:
+          return absl::UnimplementedError(absl::StrCat(
+              "Action ", context->action_name,
+              " contains unsupported BuiltinExpression ",
+              builtin_expr.DebugString()));
+      }
+    }
+
     default:
       return absl::UnimplementedError(absl::StrCat(
           "Action ", context->action_name, " contains unsupported RExpression ",
