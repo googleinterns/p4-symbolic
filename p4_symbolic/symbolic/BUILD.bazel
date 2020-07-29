@@ -74,6 +74,9 @@ end_to_end_test(
     smt_golden_file = "expected/reflector.smt2",
 )
 
+# TODO(babman): support LPM, validity, and other binary expressions
+# required by this program.
+"""
 end_to_end_test(
     name = "ipv4_routing_test",
     output_golden_file = "expected/basic.txt",
@@ -81,3 +84,4 @@ end_to_end_test(
     smt_golden_file = "expected/basic.smt2",
     table_entries = "//p4-samples:ipv4-routing/entries.pb.txt",
 )
+"""

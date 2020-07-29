@@ -67,7 +67,8 @@ absl::Status ParseAndEvaluate() {
   // Find a packet matching every entry of every table.
   std::string debug_smt_formula = "";
   for (const auto &[name, table] : dataplane.program.tables()) {
-    for (size_t i = 0; i < dataplane.entries[name].size(); i++) {
+    int row_count = static_cast<int>(dataplane.entries[name].size());
+    for (int i = -1; i < row_count; i++) {
       std::cout << "Finding packet for table " << name << " and row " << i
                 << std::endl;
 
