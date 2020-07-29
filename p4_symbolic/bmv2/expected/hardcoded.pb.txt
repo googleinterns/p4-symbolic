@@ -416,6 +416,12 @@ pipelines {
     max_size: 1024
     action_ids: 0
     actions: "hardcoded55"
+    default_entry {
+    }
+    next_tables {
+      key: "hardcoded55"
+      value: ""
+    }
   }
   tables {
     name: "tbl_hardcoded57"
@@ -429,6 +435,84 @@ pipelines {
     max_size: 1024
     action_ids: 1
     actions: "hardcoded57"
+    default_entry {
+      action_id: 1
+    }
+    next_tables {
+      key: "hardcoded57"
+      value: ""
+    }
+  }
+  conditionals {
+    name: "node_2"
+    expression {
+      fields {
+        key: "type"
+        value {
+          string_value: "expression"
+        }
+      }
+      fields {
+        key: "value"
+        value {
+          struct_value {
+            fields {
+              key: "left"
+              value {
+                struct_value {
+                  fields {
+                    key: "type"
+                    value {
+                      string_value: "field"
+                    }
+                  }
+                  fields {
+                    key: "value"
+                    value {
+                      list_value {
+                        values {
+                          string_value: "standard_metadata"
+                        }
+                        values {
+                          string_value: "ingress_port"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+            fields {
+              key: "op"
+              value {
+                string_value: "=="
+              }
+            }
+            fields {
+              key: "right"
+              value {
+                struct_value {
+                  fields {
+                    key: "type"
+                    value {
+                      string_value: "hexstr"
+                    }
+                  }
+                  fields {
+                    key: "value"
+                    value {
+                      string_value: "0x0000"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    true_next: "tbl_hardcoded55"
+    false_next: "tbl_hardcoded57"
   }
 }
 pipelines {

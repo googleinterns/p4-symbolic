@@ -161,7 +161,7 @@ actions {
       }
     }
     action_implementation {
-      variables {
+      parameter_to_bitwidth {
         key: "port"
         value: 9
       }
@@ -287,10 +287,11 @@ tables {
       size: 1024
     }
     table_implementation {
+      default_action: "NoAction"
     }
   }
 }
-initial_table: "MyIngress.ports_exact"
+initial_control: "MyIngress.ports_exact"
 
 =====MyIngress.ports_exact Entries=====
 

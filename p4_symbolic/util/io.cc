@@ -31,12 +31,11 @@ absl::Status ErrorNoToAbsl(const char *operation, const std::string &path) {
   switch (errno) {
     case EACCES:
     case ENOENT:
-      return absl::Status(absl::StatusCode::kNotFound,
-                          absl::StrFormat("%s: %s", strerror(errno), path));
+      return absl::NotFoundError(
+          absl::StrFormat("%s: %s", strerror(errno), path));
     default:
-      return absl::Status(absl::StatusCode::kUnknown,
-                          absl::StrFormat("Cannot %s file %s, errno = %d",
-                                          operation, path, errno));
+      return absl::UnknownError(absl::StrFormat("Cannot %s file %s, errno = %d",
+                                                operation, path, errno));
   }
 }
 

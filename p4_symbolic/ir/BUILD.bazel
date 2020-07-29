@@ -84,6 +84,7 @@ cc_library(
         ":ir_cc_proto",
         ":table_entries",
         "//p4_symbolic/bmv2:bmv2_cc_proto",
+        "@com_github_p4lang_p4runtime//:p4runtime_cc_proto",
         "@com_google_absl//absl/strings",
         "@com_google_protobuf//:protobuf_headers",
         "@p4_pdpi//gutil:status",
@@ -113,4 +114,23 @@ ir_parsing_test(
     golden_file = "expected/table.txt",
     p4_program = "//p4-samples:port-table/table.p4",
     table_entries = "//p4-samples:port-table/entries.pb.txt",
+)
+
+ir_parsing_test(
+    name = "port_hardcoded_test",
+    golden_file = "expected/hardcoded.txt",
+    p4_program = "//p4-samples:hardcoded/hardcoded.p4",
+)
+
+ir_parsing_test(
+    name = "reflector_test",
+    golden_file = "expected/reflector.txt",
+    p4_program = "//p4-samples:reflector/reflector.p4",
+)
+
+ir_parsing_test(
+    name = "ipv4_routing_test",
+    golden_file = "expected/basic.txt",
+    p4_program = "//p4-samples:ipv4-routing/basic.p4",
+    table_entries = "//p4-samples:ipv4-routing/entries.pb.txt",
 )

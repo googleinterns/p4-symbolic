@@ -215,8 +215,7 @@ gutil::StatusOr<z3::expr> IrValueToZ3Expr(const pdpi::IrValue &value) {
       return Z3Context().int_val(static_cast<int>(bytes.at(1)));
     }
     default:
-      return absl::Status(
-          absl::StatusCode::kUnimplemented,
+      return absl::UnimplementedError(
           absl::StrCat("Found unsupported value type ", value.DebugString()));
   }
 
