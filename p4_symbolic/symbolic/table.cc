@@ -132,16 +132,13 @@ gutil::StatusOr<SymbolicHeaders> AnalyzeTableEntryAction(
 
 }  // namespace
 
-gutil::StatusOr<SymbolicHeadersAndTableMatch> EvaluateTable(
-    const ir::Table &table, const std::vector<pdpi::IrTableEntry> &entries,
-    const google::protobuf::Map<std::string, ir::Action> &actions,
+gutil::StatusOr<control::SymbolicHeadersAndTrace> EvaluateTable(
+    const Dataplane data_plane, const ir::Table &table,
+    const std::vector<pdpi::IrTableEntry> &entries,
     const SymbolicHeaders &headers) {
   // The overall structure describing the match on this table.
-  SymbolicTableMatch table_match = {
-      TypedExpr(Z3Context().bool_val(false)),  // No match yet!
-      TypedExpr(Z3Context().int_val(-1)),      // No match index.
-      TypedExpr(Z3Context().int_val(-1))       // TODO(babman): bitvector.
-  };
+  SymbolicTableMatch table_match = EmptyTableMatch(table);
+  const std::string &table_name = table.table_definition().preamble().name();
 
   // Begin with the default entry.
   pdpi::IrTableEntry default_entry;
@@ -155,7 +152,8 @@ gutil::StatusOr<SymbolicHeadersAndTableMatch> EvaluateTable(
   }
   ASSIGN_OR_RETURN(
       SymbolicHeaders modified_headers,
-      AnalyzeTableEntryAction(table, default_entry, actions, headers));
+      AnalyzeTableEntryAction(table, default_entry,
+                              data_plane.program.actions(), headers));
 
   // The table semantically is just a bunch of if conditions, one per
   // table entry, we construct this big if-elseif-...-else construct via
@@ -167,7 +165,8 @@ gutil::StatusOr<SymbolicHeadersAndTableMatch> EvaluateTable(
     ASSIGN_OR_RETURN(TypedExpr row_match,
                      AnalyzeTableEntryCondition(table, entry, headers));
     ASSIGN_OR_RETURN(SymbolicHeaders row_headers,
-                     AnalyzeTableEntryAction(table, entry, actions, headers));
+                     AnalyzeTableEntryAction(
+                         table, entry, data_plane.program.actions(), headers));
 
     // Using this alias makes it simpler to put constraints on packet later.
     table_match.matched = table_match.matched || row_match;
@@ -181,7 +180,42 @@ gutil::StatusOr<SymbolicHeadersAndTableMatch> EvaluateTable(
         util::MergeHeadersOnCondition(modified_headers, row_headers, row_match);
   }
 
-  return SymbolicHeadersAndTableMatch{modified_headers, table_match};
+  // This table has been completely evaluated, the result of the evaluation
+  // is now in "modified_headers" and "table_match". Time to evaluate the next
+  // control construct.
+  std::string next_control;
+  bool first = true;
+  // We only support tables that always have the same next control construct
+  // regardless of the table's matches.
+  for (const auto &[_, control] :
+       table.table_implementation().action_to_next_control()) {
+    if (first) {
+      next_control = control;
+      continue;
+    }
+    if (next_control != control) {
+      return absl::UnimplementedError(absl::StrCat(
+          "Table \"", table_name,
+          "\" invokes different control constructs based on matched actions."));
+    }
+  }
+
+  // Evaluate the next control.
+  ASSIGN_OR_RETURN(
+      control::SymbolicHeadersAndTrace result,
+      control::EvaluateControl(data_plane, next_control, modified_headers));
+
+  // Add this table's match to the trace, and return it.
+  result.trace.matched_entries.at(table_name) = table_match;
+  return result;
+}
+
+SymbolicTableMatch EmptyTableMatch(const ir::Table &table) {
+  return {
+      TypedExpr(Z3Context().bool_val(false)),  // No match yet!
+      TypedExpr(Z3Context().int_val(-1)),      // No match index.
+      TypedExpr(Z3Context().int_val(-1))       // TODO(babman): bitvector.
+  };
 }
 
 }  // namespace table

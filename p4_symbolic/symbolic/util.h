@@ -43,12 +43,16 @@ ConcreteContext ExtractFromModel(SymbolicContext context, z3::model model);
 // Merges two symbolic states into a single state. A field in the new state
 // has the value of the changed state if the condition is true, and the value
 // of the original one otherwise.
-// If original does not contain that field, a default value (e.g. -1) is used if
-// the condition is false.
-// Assertion: the changed state should not remove fields.
+// Assertion: both headers should contain the same set of field names.
 SymbolicHeaders MergeHeadersOnCondition(const SymbolicHeaders &original,
                                         const SymbolicHeaders &changed,
                                         const TypedExpr &condition);
+
+// Similar to MergeHeadersOnCondition but for traces.
+// Assertion: both traces must contain matches for the same set of table names.
+SymbolicTrace MergeTracesOnCondition(const SymbolicTrace &original,
+                                     const SymbolicTrace &changed,
+                                     const TypedExpr &condition);
 
 // Transforms a value read from a TableEntry to a z3::expr.
 gutil::StatusOr<TypedExpr> IrValueToZ3Expr(const pdpi::IrValue &value);

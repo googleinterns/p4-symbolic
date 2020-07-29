@@ -12,39 +12,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Contains functions used to symbolically evaluate P4 tables and their entries.
-// A table is turned into a sequence of if-conditions (one per entry),
-// each condition corresponds to having that entry matched on, and the
-// corresponding then body invokes the appropriate symbolic action expression
-// with the parameters specified in the entry.
+// Contains functions used to symbolically evaluate P4 conditionals and their
+// branches.
 
-#ifndef P4_SYMBOLIC_SYMBOLIC_TABLE_H_
-#define P4_SYMBOLIC_SYMBOLIC_TABLE_H_
+#ifndef P4_SYMBOLIC_SYMBOLIC_CONDITIONAL_H_
+#define P4_SYMBOLIC_SYMBOLIC_CONDITIONAL_H_
 
-#include <string>
-#include <vector>
-
-#include "google/protobuf/map.h"
 #include "gutil/status.h"
-#include "p4_pdpi/ir.pb.h"
 #include "p4_symbolic/ir/ir.pb.h"
 #include "p4_symbolic/symbolic/control.h"
 #include "p4_symbolic/symbolic/symbolic.h"
-#include "z3++.h"
 
 namespace p4_symbolic {
 namespace symbolic {
-namespace table {
+namespace conditional {
 
-SymbolicTableMatch EmptyTableMatch(const ir::Table &table);
-
-gutil::StatusOr<control::SymbolicHeadersAndTrace> EvaluateTable(
-    const Dataplane data_plane, const ir::Table &table,
-    const std::vector<pdpi::IrTableEntry> &entries,
+gutil::StatusOr<control::SymbolicHeadersAndTrace> EvaluateConditional(
+    const Dataplane data_plane, const ir::Conditional &table,
     const SymbolicHeaders &headers);
 
-}  // namespace table
+}  // namespace conditional
 }  // namespace symbolic
 }  // namespace p4_symbolic
 
-#endif  // P4_SYMBOLIC_SYMBOLIC_TABLE_H_
+#endif  // P4_SYMBOLIC_SYMBOLIC_CONDITIONAL_H_

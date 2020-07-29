@@ -16,8 +16,8 @@
 
 #include <utility>
 
+#include "p4_symbolic/symbolic/control.h"
 #include "p4_symbolic/symbolic/packet.h"
-#include "p4_symbolic/symbolic/table.h"
 #include "p4_symbolic/symbolic/util.h"
 
 namespace p4_symbolic {
@@ -55,36 +55,20 @@ gutil::StatusOr<std::unique_ptr<SolverState>> EvaluateP4Pipeline(
   }
   z3_solver->add(ingress_port_domain);
 
-  // An (initially) empty trace.
-  SymbolicTrace trace = {std::unordered_map<std::string, SymbolicTableMatch>(),
-                         TypedExpr(Z3Context().bool_val(false))};
-
-  // Visit tables and find their symbolic matches (and their actions).
-  for (const auto &[name, table] : data_plane.program.tables()) {
-    std::vector<pdpi::IrTableEntry> table_entries;
-    if (data_plane.entries.count(name) == 1) {
-      table_entries = data_plane.entries.at(name);
-    }
-
-    ASSIGN_OR_RETURN(
-        table::SymbolicHeadersAndTableMatch headers_and_match,
-        table::EvaluateTable(table, table_entries, data_plane.program.actions(),
-                             symbolic_headers));
-
-    // Update accumulator state and matches.
-    symbolic_headers = headers_and_match.state;
-    trace.matched_entries.insert({name, headers_and_match.match});
-    trace.dropped = trace.dropped || !headers_and_match.match.matched;
-  }
+  // Evaluate the initial control, which will evaluate the next controls
+  // internally and return the full symbolic trace.
+  ASSIGN_OR_RETURN(
+      control::SymbolicHeadersAndTrace result,
+      control::EvaluateControl(data_plane, data_plane.program.initial_control(),
+                               symbolic_headers));
 
   // Construct a symbolic context, containing state and trace information
   // from evaluating the tables.
-  TypedExpr egress_port = symbolic_headers.at("standard_metadata.egress_spec");
-  SymbolicPacket egress_packet =
-      packet::ExtractSymbolicPacket(symbolic_headers);
-  SymbolicContext symbolic_context = {ingress_port,     egress_port,
-                                      ingress_packet,   egress_packet,
-                                      symbolic_headers, trace};
+  TypedExpr egress_port = result.headers.at("standard_metadata.egress_spec");
+  SymbolicPacket egress_packet = packet::ExtractSymbolicPacket(result.headers);
+  SymbolicContext symbolic_context = {ingress_port,   egress_port,
+                                      ingress_packet, egress_packet,
+                                      result.headers, result.trace};
 
   // Construct solver state for this program.
   return std::make_unique<SolverState>(data_plane.program, data_plane.entries,

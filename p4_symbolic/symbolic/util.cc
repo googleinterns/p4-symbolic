@@ -125,6 +125,27 @@ SymbolicHeaders MergeHeadersOnCondition(const SymbolicHeaders &original,
   return merged;
 }
 
+SymbolicTrace MergeTracesOnCondition(const SymbolicTrace &original,
+                                     const SymbolicTrace &changed,
+                                     const TypedExpr &condition) {
+  SymbolicTrace merged = {{}, TypedExpr(Z3Context().bool_val(false))};
+  merged.dropped = TypedExpr::ite(condition, changed.dropped, original.dropped);
+  for (const auto &[name, changed_match] : changed.matched_entries) {
+    // SymbolicTraces have the same set of tables always, similar to
+    // SymbolicHeaders, accessing with .at() is safe here.
+    const auto &original_match = original.matched_entries.at(name);
+    SymbolicTableMatch merged_match = {
+        TypedExpr::ite(condition, changed_match.matched,
+                       original_match.matched),
+        TypedExpr::ite(condition, changed_match.entry_index,
+                       original_match.entry_index),
+        TypedExpr::ite(condition, changed_match.value, original_match.value)};
+
+    merged.matched_entries.insert({name, merged_match});
+  }
+  return merged;
+}
+
 gutil::StatusOr<TypedExpr> IrValueToZ3Expr(const pdpi::IrValue &value) {
   switch (value.format_case()) {
     case pdpi::IrValue::kHexStr: {

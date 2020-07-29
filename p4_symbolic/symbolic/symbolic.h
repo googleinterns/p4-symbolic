@@ -88,6 +88,7 @@ struct ConcreteTrace {
 // Provides symbolic handles for the trace the symbolic packet is constrained
 // to take in the program.
 struct SymbolicTrace {
+  // Full table name to its symbolic match.
   std::unordered_map<std::string, SymbolicTableMatch> matched_entries;
   TypedExpr dropped;
 };

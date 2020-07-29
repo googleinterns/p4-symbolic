@@ -19,6 +19,8 @@ cc_library(
     name = "symbolic",
     srcs = [
         "action.cc",
+        "conditional.cc",
+        "control.cc",
         "packet.cc",
         "symbolic.cc",
         "table.cc",
@@ -27,6 +29,8 @@ cc_library(
     ],
     hdrs = [
         "action.h",
+        "conditional.h",
+        "control.h",
         "packet.h",
         "symbolic.h",
         "table.h",
@@ -54,4 +58,26 @@ end_to_end_test(
     p4_program = "//p4-samples:port-table/table.p4",
     smt_golden_file = "expected/table.smt2",
     table_entries = "//p4-samples:port-table/entries.pb.txt",
+)
+
+end_to_end_test(
+    name = "port_hardcoded_test",
+    output_golden_file = "expected/hardcoded.txt",
+    p4_program = "//p4-samples:hardcoded/hardcoded.p4",
+    smt_golden_file = "expected/hardcoded.smt2",
+)
+
+end_to_end_test(
+    name = "reflector_test",
+    output_golden_file = "expected/reflector.txt",
+    p4_program = "//p4-samples:reflector/reflector.p4",
+    smt_golden_file = "expected/reflector.smt2",
+)
+
+end_to_end_test(
+    name = "ipv4_routing_test",
+    output_golden_file = "expected/basic.txt",
+    p4_program = "//p4-samples:ipv4-routing/basic.p4",
+    smt_golden_file = "expected/basic.smt2",
+    table_entries = "//p4-samples:ipv4-routing/entries.pb.txt",
 )
