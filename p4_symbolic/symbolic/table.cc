@@ -138,6 +138,7 @@ gutil::StatusOr<control::SymbolicHeadersAndTrace> EvaluateTable(
     const SymbolicHeaders &headers) {
   // The overall structure describing the match on this table.
   SymbolicTableMatch table_match = EmptyTableMatch(table);
+  table_match.matched = TypedExpr(Z3Context().bool_val(true));
   const std::string &table_name = table.table_definition().preamble().name();
 
   // Begin with the default entry.

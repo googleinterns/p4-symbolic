@@ -87,11 +87,20 @@ gutil::StatusOr<TypedExpr> EvaluateRValue(const ir::RValue &rvalue,
     case ir::RValue::kFieldValue:
       return EvaluateFieldValue(rvalue.field_value(), headers, context);
 
+    case ir::RValue::kHexstrValue:
+      return EvaluateHexStr(rvalue.hexstr_value(), headers, context);
+
+    case ir::RValue::kBoolValue:
+      return EvaluateBool(rvalue.bool_value(), headers, context);
+
+    case ir::RValue::kStringValue:
+      return EvaluateString(rvalue.string_value(), headers, context);
+
     case ir::RValue::kVariableValue:
       return EvaluateVariable(rvalue.variable_value(), headers, context);
 
-    case ir::RValue::kHexstrValue:
-      return EvaluateHexStr(rvalue.hexstr_value(), headers, context);
+    case ir::RValue::kExpressionValue:
+      return EvaluateRExpression(rvalue.expression_value(), headers, context);
 
     default:
       return absl::UnimplementedError(
@@ -115,6 +124,32 @@ gutil::StatusOr<TypedExpr> EvaluateFieldValue(const ir::FieldValue &field_value,
   return headers.at(field_name);
 }
 
+// Turns bmv2 values to Symbolic Expressions.
+gutil::StatusOr<TypedExpr> EvaluateHexStr(const ir::HexstrValue &hexstr,
+                                          const SymbolicHeaders &headers,
+                                          ActionContext *context) {
+  if (hexstr.negative()) {
+    return absl::UnimplementedError(
+        "Negative hex string values are not supported!");
+  }
+
+  ASSIGN_OR_RETURN(pdpi::IrValue parsed_value,
+                   util::StringToIrValue(hexstr.value()));
+  return util::IrValueToZ3Expr(parsed_value);
+}
+
+gutil::StatusOr<TypedExpr> EvaluateBool(const ir::BoolValue &bool_value,
+                                        const SymbolicHeaders &headers,
+                                        ActionContext *context) {
+  return TypedExpr(Z3Context().bool_val(bool_value.value()));
+}
+
+gutil::StatusOr<TypedExpr> EvaluateString(const ir::StringValue &string_value,
+                                          const SymbolicHeaders &headers,
+                                          ActionContext *context) {
+  return TypedExpr(Z3Context().string_val(string_value.value().c_str()));
+}
+
 // Looks up the symbolic value of the variable in the action scope.
 gutil::StatusOr<TypedExpr> EvaluateVariable(const ir::Variable &variable,
                                             const SymbolicHeaders &headers,
@@ -129,18 +164,102 @@ gutil::StatusOr<TypedExpr> EvaluateVariable(const ir::Variable &variable,
   return context->scope.at(variable_name);
 }
 
-// Turns bmv2 values to Symbolic Expressions.
-gutil::StatusOr<TypedExpr> EvaluateHexStr(const ir::HexstrValue &hexstr,
-                                          const SymbolicHeaders &headers,
-                                          ActionContext *context) {
-  if (hexstr.negative()) {
-    return absl::UnimplementedError(
-        "Negative hex string values are not supported!");
-  }
+// Recursively evaluate expressions.
+gutil::StatusOr<TypedExpr> EvaluateRExpression(const ir::RExpression &expr,
+                                               const SymbolicHeaders &headers,
+                                               ActionContext *context) {
+  // TODO(babman): support remaining expressions.
+  switch (expr.expression_case()) {
+    case ir::RExpression::kBinaryExpression: {
+      ir::BinaryExpression bin_expr = expr.binary_expression();
+      ASSIGN_OR_RETURN(TypedExpr left,
+                       EvaluateRValue(bin_expr.left(), headers, context));
+      ASSIGN_OR_RETURN(TypedExpr right,
+                       EvaluateRValue(bin_expr.right(), headers, context));
+      switch (bin_expr.operation()) {
+        /*
+        case ir::BinaryExpression::PLUS:
+          return left + right;
+        case ir::BinaryExpression::MINUS:
+          return left - right;
+        case ir::BinaryExpression::TIMES::
+          return left * right;
+        case ir::BinaryExpression::LEFT_SHIT::
+          return left << right;
+        case ir::BinaryExpression::RIGHT_SHIFT::
+          return left >> right;
+        */
+        case ir::BinaryExpression::EQUALS:
+          return left == right;
+        case ir::BinaryExpression::NOT_EQUALS:
+          return !(left == right);
+        /*
+        case ir::BinaryExpression::GREATER::
+          return left > right;
+        case ir::BinaryExpression::GREATER_EQUALS::
+          return left >= right;
+        case ir::BinaryExpression::LESS::
+          return left < right;
+        case ir::BinaryExpression::LESS_EQUALS::
+          return left <= right;
+        */
+        case ir::BinaryExpression::AND:
+          return left && right;
+        case ir::BinaryExpression::OR:
+          return left || right;
+        /*
+        case ir::BinaryExpression::BIT_AND::
+          return left & right;
+        case ir::BinaryExpression::BIT_OR::
+          return left | right;
+        case ir::BinaryExpression::BIT_XOR::
+          return left ^ right;
+        */
+        default:
+          return absl::UnimplementedError(
+              absl::StrCat("Action ", context->action_name,
+                           " contains unsupported BinaryExpression ",
+                           bin_expr.DebugString()));
+      }
+      break;
+    }
 
-  ASSIGN_OR_RETURN(pdpi::IrValue parsed_value,
-                   util::StringToIrValue(hexstr.value()));
-  return util::IrValueToZ3Expr(parsed_value);
+    case ir::RExpression::kUnaryExpression: {
+      ir::UnaryExpression un_expr = expr.unary_expression();
+      ASSIGN_OR_RETURN(TypedExpr operand,
+                       EvaluateRValue(un_expr.operand(), headers, context));
+      switch (un_expr.operation()) {
+        case ir::UnaryExpression::NOT:
+          return !operand;
+        /*
+        case ir::UnaryExpression::BIT_NEGATION:
+          return ~operand;
+        */
+        default:
+          return absl::UnimplementedError(absl::StrCat(
+              "Action ", context->action_name,
+              " contains unsupported UnaryExpression ", un_expr.DebugString()));
+      }
+      break;
+    }
+
+    case ir::RExpression::kTernaryExpression: {
+      ir::TernaryExpression tern_expr = expr.ternary_expression();
+      ASSIGN_OR_RETURN(TypedExpr condition,
+                       EvaluateRValue(tern_expr.condition(), headers, context));
+      ASSIGN_OR_RETURN(TypedExpr left,
+                       EvaluateRValue(tern_expr.left(), headers, context));
+      ASSIGN_OR_RETURN(TypedExpr right,
+                       EvaluateRValue(tern_expr.right(), headers, context));
+      return TypedExpr::ite(condition, left, right);
+    }
+
+    case ir::RExpression::kBuiltinExpression:
+    default:
+      return absl::UnimplementedError(absl::StrCat(
+          "Action ", context->action_name, " contains unsupported RExpression ",
+          expr.DebugString()));
+  }
 }
 
 // Symbolically evaluates the given action on the given symbolic parameters.

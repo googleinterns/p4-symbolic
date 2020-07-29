@@ -79,15 +79,29 @@ gutil::StatusOr<TypedExpr> EvaluateFieldValue(const ir::FieldValue &field_value,
                                               const SymbolicHeaders &headers,
                                               ActionContext *context);
 
+// Parse and format literal values as symbolic expression.
+gutil::StatusOr<TypedExpr> EvaluateHexStr(const ir::HexstrValue &hexstr,
+                                          const SymbolicHeaders &headers,
+                                          ActionContext *context);
+
+gutil::StatusOr<TypedExpr> EvaluateBool(const ir::BoolValue &bool_value,
+                                        const SymbolicHeaders &headers,
+                                        ActionContext *context);
+
+gutil::StatusOr<TypedExpr> EvaluateString(const ir::StringValue &string_value,
+                                          const SymbolicHeaders &headers,
+                                          ActionContext *context);
+
 // Looks up the symbolic value of the variable in the action scope.
 gutil::StatusOr<TypedExpr> EvaluateVariable(const ir::Variable &variable,
                                             const SymbolicHeaders &headers,
                                             ActionContext *context);
 
-// Parse and format literal values as symbolic expression.
-gutil::StatusOr<TypedExpr> EvaluateHexStr(const ir::HexstrValue &hexstr,
-                                          const SymbolicHeaders &headers,
-                                          ActionContext *context);
+// Evaluate expression by recursively evaluating operands and applying the
+// symbolic version of the operator to them.
+gutil::StatusOr<TypedExpr> EvaluateRExpression(const ir::RExpression &expr,
+                                               const SymbolicHeaders &headers,
+                                               ActionContext *context);
 
 }  // namespace action
 }  // namespace symbolic
