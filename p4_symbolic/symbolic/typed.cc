@@ -72,17 +72,68 @@ TypedExpr &TypedExpr::operator=(TypedExpr &&other) {
 }
 
 // Overloaded operators.
+// Arithmetic operators.
+TypedExpr TypedExpr::operator+(const TypedExpr &b) const {
+  SORT_CHECK_AND_PAD((*this), b);
+  return TypedExpr(a_expr + b_expr);
+}
+TypedExpr TypedExpr::operator-(const TypedExpr &b) const {
+  SORT_CHECK_AND_PAD((*this), b);
+  return TypedExpr(a_expr - b_expr);
+}
+TypedExpr TypedExpr::operator*(const TypedExpr &b) const {
+  SORT_CHECK_AND_PAD((*this), b);
+  return TypedExpr(a_expr * b_expr);
+}
+
+// Relational operators.
 TypedExpr TypedExpr::operator==(const TypedExpr &b) const {
   SORT_CHECK_AND_PAD((*this), b);
   return TypedExpr(a_expr == b_expr);
 }
+TypedExpr TypedExpr::operator!=(const TypedExpr &b) const {
+  return !(*this == b);
+}
+TypedExpr TypedExpr::operator<(const TypedExpr &b) const {
+  SORT_CHECK_AND_PAD((*this), b);
+  return TypedExpr(z3::ult(a_expr, b_expr));
+}
+TypedExpr TypedExpr::operator<=(const TypedExpr &b) const {
+  SORT_CHECK_AND_PAD((*this), b);
+  return TypedExpr(z3::ule(a_expr, b_expr));
+}
+TypedExpr TypedExpr::operator>(const TypedExpr &b) const {
+  SORT_CHECK_AND_PAD((*this), b);
+  return TypedExpr(z3::ugt(a_expr, b_expr));
+}
+TypedExpr TypedExpr::operator>=(const TypedExpr &b) const {
+  SORT_CHECK_AND_PAD((*this), b);
+  return TypedExpr(z3::uge(a_expr, b_expr));
+}
+
+// Boolean operators.
+TypedExpr TypedExpr::operator!() const { return TypedExpr(!this->expr_); }
 TypedExpr TypedExpr::operator&&(const TypedExpr &b) const {
   return TypedExpr(this->expr_ && b.expr_);
 }
 TypedExpr TypedExpr::operator||(const TypedExpr &b) const {
   return TypedExpr(this->expr_ || b.expr_);
 }
-TypedExpr TypedExpr::operator!() const { return TypedExpr(!this->expr_); }
+
+// Binary operators.
+TypedExpr TypedExpr::operator~() const { return TypedExpr(~this->expr_); }
+TypedExpr TypedExpr::operator&(const TypedExpr &b) const {
+  SORT_CHECK_AND_PAD((*this), b);
+  return TypedExpr(a_expr & b_expr);
+}
+TypedExpr TypedExpr::operator|(const TypedExpr &b) const {
+  SORT_CHECK_AND_PAD((*this), b);
+  return TypedExpr(a_expr | b_expr);
+}
+TypedExpr TypedExpr::operator^(const TypedExpr &b) const {
+  SORT_CHECK_AND_PAD((*this), b);
+  return TypedExpr(a_expr ^ b_expr);
+}
 
 // If-then-else.
 TypedExpr TypedExpr::ite(const TypedExpr &condition,
@@ -98,6 +149,16 @@ TypedExpr TypedExpr::ite(const TypedExpr &condition,
   // Values in both cases must have the same sort and signedness.
   SORT_CHECK_AND_PAD(true_value, false_value);
   return TypedExpr(z3::ite(condition.expr_, a_expr, b_expr));
+}
+
+// Bit-wise shifts
+TypedExpr TypedExpr::shl(const TypedExpr &bit_vector,
+                         const TypedExpr &shift_value) {
+  return TypedExpr(z3::shl(bit_vector.expr_, shift_value.expr_));
+}
+TypedExpr TypedExpr::shr(const TypedExpr &bit_vector,
+                         const TypedExpr &shift_value) {
+  return TypedExpr(z3::lshr(bit_vector.expr_, shift_value.expr_));
 }
 
 }  // namespace symbolic

@@ -118,14 +118,38 @@ class TypedExpr {
 
   // Overloaded operators exposing corresponding z3::expr operators after sort
   // checking and padding.
+  // Arithmetic operators.
+  TypedExpr operator+(const TypedExpr &b) const;
+  TypedExpr operator-(const TypedExpr &b) const;
+  TypedExpr operator*(const TypedExpr &b) const;
+
+  // Relational operators.
   TypedExpr operator==(const TypedExpr &b) const;
+  TypedExpr operator!=(const TypedExpr &b) const;
+  TypedExpr operator<(const TypedExpr &b) const;
+  TypedExpr operator<=(const TypedExpr &b) const;
+  TypedExpr operator>(const TypedExpr &b) const;
+  TypedExpr operator>=(const TypedExpr &b) const;
+
+  // Boolean operators.
+  TypedExpr operator!() const;
   TypedExpr operator&&(const TypedExpr &b) const;
   TypedExpr operator||(const TypedExpr &b) const;
-  TypedExpr operator!() const;
+
+  // Binary operators.
+  TypedExpr operator~() const;
+  TypedExpr operator&(const TypedExpr &b) const;
+  TypedExpr operator|(const TypedExpr &b) const;
+  TypedExpr operator^(const TypedExpr &b) const;
 
   // If-then-else.
   static TypedExpr ite(const TypedExpr &condition, const TypedExpr &true_value,
                        const TypedExpr &false_value);
+  // Bit-wise shifts
+  static TypedExpr shl(const TypedExpr &bit_vector,
+                       const TypedExpr &shift_value);
+  static TypedExpr shr(const TypedExpr &bit_vector,
+                       const TypedExpr &shift_value);
 };
 
 }  // namespace symbolic

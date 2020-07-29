@@ -73,6 +73,10 @@ gutil::StatusOr<SymbolicHeaders> FreeSymbolicHeaders(
     }
   }
 
+  // Finally, we have a special field marking if the packet represented by
+  // these headers was dropped.
+  symbolic_headers.insert(
+      {"$dropped$", TypedExpr(Z3Context().bool_val(false))});
   return symbolic_headers;
 }
 

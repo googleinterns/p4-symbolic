@@ -207,7 +207,10 @@ gutil::StatusOr<control::SymbolicHeadersAndTrace> EvaluateTable(
       control::EvaluateControl(data_plane, next_control, modified_headers));
 
   // Add this table's match to the trace, and return it.
+  // Mark the packet as dropped if this table ends up dropping it.
   result.trace.matched_entries.at(table_name) = table_match;
+  result.trace.dropped =
+      result.trace.dropped || modified_headers.at("$dropped$");
   return result;
 }
 

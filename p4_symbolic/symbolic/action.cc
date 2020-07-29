@@ -27,10 +27,15 @@ gutil::StatusOr<SymbolicHeaders> EvaluateStatement(
     const ir::Statement &statement, const SymbolicHeaders &headers,
     ActionContext *context) {
   switch (statement.statement_case()) {
-    case ir::Statement::kAssignment:
+    case ir::Statement::kAssignment: {
       return EvaluateAssignmentStatement(statement.assignment(), headers,
                                          context);
-
+    }
+    case ir::Statement::kDrop: {
+      SymbolicHeaders result = headers;
+      result.at("$dropped$") = TypedExpr(Z3Context().bool_val(true));
+      return result;
+    }
     default:
       return absl::UnimplementedError(absl::StrCat(
           "Action ", context->action_name, " contains unsupported statement ",
@@ -177,44 +182,38 @@ gutil::StatusOr<TypedExpr> EvaluateRExpression(const ir::RExpression &expr,
       ASSIGN_OR_RETURN(TypedExpr right,
                        EvaluateRValue(bin_expr.right(), headers, context));
       switch (bin_expr.operation()) {
-        /*
         case ir::BinaryExpression::PLUS:
           return left + right;
         case ir::BinaryExpression::MINUS:
           return left - right;
-        case ir::BinaryExpression::TIMES::
+        case ir::BinaryExpression::TIMES:
           return left * right;
-        case ir::BinaryExpression::LEFT_SHIT::
-          return left << right;
-        case ir::BinaryExpression::RIGHT_SHIFT::
-          return left >> right;
-        */
+        case ir::BinaryExpression::LEFT_SHIT:
+          return TypedExpr::shl(left, right);
+        case ir::BinaryExpression::RIGHT_SHIFT:
+          return TypedExpr::shr(left, right);
         case ir::BinaryExpression::EQUALS:
           return left == right;
         case ir::BinaryExpression::NOT_EQUALS:
           return !(left == right);
-        /*
-        case ir::BinaryExpression::GREATER::
+        case ir::BinaryExpression::GREATER:
           return left > right;
-        case ir::BinaryExpression::GREATER_EQUALS::
+        case ir::BinaryExpression::GREATER_EQUALS:
           return left >= right;
-        case ir::BinaryExpression::LESS::
+        case ir::BinaryExpression::LESS:
           return left < right;
-        case ir::BinaryExpression::LESS_EQUALS::
+        case ir::BinaryExpression::LESS_EQUALS:
           return left <= right;
-        */
         case ir::BinaryExpression::AND:
           return left && right;
         case ir::BinaryExpression::OR:
           return left || right;
-        /*
-        case ir::BinaryExpression::BIT_AND::
+        case ir::BinaryExpression::BIT_AND:
           return left & right;
-        case ir::BinaryExpression::BIT_OR::
+        case ir::BinaryExpression::BIT_OR:
           return left | right;
-        case ir::BinaryExpression::BIT_XOR::
+        case ir::BinaryExpression::BIT_XOR:
           return left ^ right;
-        */
         default:
           return absl::UnimplementedError(
               absl::StrCat("Action ", context->action_name,
@@ -231,10 +230,8 @@ gutil::StatusOr<TypedExpr> EvaluateRExpression(const ir::RExpression &expr,
       switch (un_expr.operation()) {
         case ir::UnaryExpression::NOT:
           return !operand;
-        /*
         case ir::UnaryExpression::BIT_NEGATION:
           return ~operand;
-        */
         default:
           return absl::UnimplementedError(absl::StrCat(
               "Action ", context->action_name,

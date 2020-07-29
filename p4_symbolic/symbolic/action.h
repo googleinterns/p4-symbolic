@@ -29,7 +29,6 @@
 #include "p4_symbolic/ir/ir.pb.h"
 #include "p4_symbolic/symbolic/symbolic.h"
 #include "p4_symbolic/symbolic/typed.h"
-#include "z3++.h"
 
 namespace p4_symbolic {
 namespace symbolic {
