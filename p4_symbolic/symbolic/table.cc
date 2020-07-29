@@ -70,16 +70,18 @@ gutil::StatusOr<TypedExpr> AnalyzeTableEntryCondition(
     const SymbolicHeaders &headers) {
   // Make sure number of match keys is the same in the table definition and
   // table entry.
+  const std::string &table_name = table.table_definition().preamble().name();
   if (table.table_definition().match_fields_by_id_size() !=
       entry.matches_size()) {
     return absl::InvalidArgumentError(
         absl::StrCat("Found a match entry ", entry.DebugString(), " in table",
-                     table.table_definition().preamble().name(),
-                     " with wrong match fields count"));
+                     table_name, " with wrong match fields count"));
   }
 
   // Construct the match condition expression.
   TypedExpr condition_expression = TypedExpr(Z3Context().bool_val(true));
+  const google::protobuf::Map<std::string, ir::FieldValue> &match_to_fields =
+      table.table_implementation().match_name_to_field();
   for (const auto &[id, match_fields] :
        table.table_definition().match_fields_by_id()) {
     p4::config::v1::MatchField match_definition = match_fields.match_field();
@@ -91,19 +93,28 @@ gutil::StatusOr<TypedExpr> AnalyzeTableEntryCondition(
     // the table entries file.
     const pdpi::IrMatch &match = entry.matches(id - 1);
 
-    // TODO(babman): We should put in the expression of the match from bmv2
-    //               json in the IR, and use instead of the name.
-    //               @konne mentioned this before in a meeting.
-    const std::string &match_string_expression = match_definition.name();
-    if (headers.count(match_string_expression) != 1) {
+    // We get the match name for pdpi/p4info for simplicity, however that
+    // file only contains the match name as a string, which is the same as the
+    // match target expression in most cases but not always.
+    // For conciseness, we get the corresponding accurate match target from
+    // bmv2 by looking up the match name there.
+    // In certain cases this is important, e.g. a match defined over field
+    // "dstAddr" may have aliases of that field as a match name, but will always
+    // have the fully qualified name of the field in the bmv2 format.
+    if (match_to_fields.count(match_definition.name()) != 1) {
       return absl::InvalidArgumentError(absl::StrCat(
-          "Unknown table match expression ", match_string_expression,
-          " in table ", table.table_definition().preamble().name()));
+          "Match key with name \"", match_definition.name(),
+          "\" was not found in implementation of table \"", table_name, "\""));
     }
+
+    ir::FieldValue match_field = match_to_fields.at(match_definition.name());
+    action::ActionContext fake_context = {table_name, {}};
+    ASSIGN_OR_RETURN(
+        TypedExpr match_field_expr,
+        action::EvaluateFieldValue(match_field, headers, &fake_context));
     ASSIGN_OR_RETURN(
         TypedExpr match_expression,
-        AnalyzeSingleMatch(match_definition,
-                           headers.at(match_string_expression), match));
+        AnalyzeSingleMatch(match_definition, match_field_expr, match));
     condition_expression = condition_expression && match_expression;
   }
 

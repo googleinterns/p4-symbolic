@@ -124,6 +124,10 @@ message TableImplementation {
   // if an action is not in this map, or is mapped to the empty string, then
   // that action is at the end of the flow.
   map<string, string> action_to_next_control = 4;
+
+  // Maps the name of a match (identical to the name used in p4 info), to
+  // that match's target field.
+  map<string, FieldValue> match_name_to_field = 5;
 }
 
 // A conditional statement.

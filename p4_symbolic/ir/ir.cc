@@ -652,6 +652,21 @@ gutil::StatusOr<Table> ExtractTable(
     }
   }
 
+  // Build a mapping from match names to match target field.
+  for (const bmv2::TableKey &match_key : bmv2_table.key()) {
+    if (match_key.target_size() != 2) {
+      return absl::InvalidArgumentError(
+          absl::StrCat("Table \"", bmv2_table.name(),
+                       "\" has a match key with a non field target ",
+                       match_key.DebugString()));
+    }
+
+    FieldValue &field =
+        (*table_impl->mutable_match_name_to_field())[match_key.name()];
+    field.set_header_name(match_key.target(0));
+    field.set_field_name(match_key.target(1));
+  }
+
   return output;
 }
 

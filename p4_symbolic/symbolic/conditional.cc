@@ -37,10 +37,10 @@ gutil::StatusOr<control::SymbolicHeadersAndTrace> EvaluateConditional(
       control::EvaluateControl(data_plane, conditional.else_branch(), headers));
 
   // Evaluate the condition.
-  action::ActionContext action_context = {conditional.name(), {}};
-  ASSIGN_OR_RETURN(TypedExpr condition,
-                   action::EvaluateRValue(conditional.condition(), headers,
-                                          &action_context));
+  action::ActionContext fake_context = {conditional.name(), {}};
+  ASSIGN_OR_RETURN(
+      TypedExpr condition,
+      action::EvaluateRValue(conditional.condition(), headers, &fake_context));
 
   // Now we have two headers and traces that need mergine.
   // We should merge in a way such that the value of a header or trace is
