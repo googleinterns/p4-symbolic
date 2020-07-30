@@ -20,11 +20,13 @@
 
 #include "p4_symbolic/symbolic/control.h"
 
+#include <vector>
+
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
+#include "p4_pdpi/ir.pb.h"
 #include "p4_symbolic/symbolic/conditional.h"
 #include "p4_symbolic/symbolic/table.h"
-#include "p4_symbolic/symbolic/typed.h"
 
 namespace p4_symbolic {
 namespace symbolic {
@@ -33,7 +35,7 @@ namespace control {
 namespace {
 
 SymbolicTrace EmptyTrace(const Dataplane &data_plane) {
-  SymbolicTrace empty_trace = {{}, TypedExpr(Z3Context().bool_val(false))};
+  SymbolicTrace empty_trace = {{}, Z3Context().bool_val(false)};
   for (const auto &[name, table] : data_plane.program.tables()) {
     empty_trace.matched_entries.insert({name, table::EmptyTableMatch(table)});
   }
@@ -42,12 +44,13 @@ SymbolicTrace EmptyTrace(const Dataplane &data_plane) {
 
 }  // namespace
 
-gutil::StatusOr<SymbolicHeadersAndTrace> EvaluateControl(
-    const Dataplane &data_plane, const std::string &control_name,
-    const SymbolicHeaders &headers) {
+gutil::StatusOr<SymbolicTrace> EvaluateControl(const Dataplane &data_plane,
+                                               const std::string &control_name,
+                                               SymbolicHeaders *headers,
+                                               const z3::expr &guard) {
   // Base case: we got to the end of the evaluation, no more controls!
   if (control_name.empty()) {
-    return SymbolicHeadersAndTrace{headers, EmptyTrace(data_plane)};
+    return EmptyTrace(data_plane);
   }
 
   // Find out what type of control we need to evaluate.
@@ -58,12 +61,14 @@ gutil::StatusOr<SymbolicHeadersAndTrace> EvaluateControl(
     if (data_plane.entries.count(control_name) == 1) {
       table_entries = data_plane.entries.at(control_name);
     }
-    return table::EvaluateTable(data_plane, table, table_entries, headers);
+    return table::EvaluateTable(data_plane, table, table_entries, headers,
+                                guard);
   } else if (data_plane.program.conditionals().count(control_name) == 1) {
     // Conditional: let EvaluateConditional handle it.
     const ir::Conditional &conditional =
         data_plane.program.conditionals().at(control_name);
-    return conditional::EvaluateConditional(data_plane, conditional, headers);
+    return conditional::EvaluateConditional(data_plane, conditional, headers,
+                                            guard);
   } else {
     // Something else: unsupported.
     return absl::UnimplementedError(

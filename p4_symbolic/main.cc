@@ -82,9 +82,8 @@ absl::Status ParseAndEvaluate() {
            i](const p4_symbolic::symbolic::SymbolicContext &symbolic_context) {
             const p4_symbolic::symbolic::SymbolicTableMatch &match =
                 symbolic_context.trace.matched_entries.at(name);
-            return (!symbolic_context.trace.dropped.expr() &&
-                    match.matched.expr() &&
-                    match.entry_index.expr() == static_cast<int>(i));
+            return (!symbolic_context.trace.dropped && match.matched &&
+                    match.entry_index == static_cast<int>(i));
           };
 
       debug_smt_formula = absl::StrCat(

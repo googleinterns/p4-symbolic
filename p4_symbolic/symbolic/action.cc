@@ -17,24 +17,25 @@
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
+#include "p4_symbolic/symbolic/operators.h"
 #include "p4_symbolic/symbolic/util.h"
 
 namespace p4_symbolic {
 namespace symbolic {
 namespace action {
 
-gutil::StatusOr<SymbolicHeaders> EvaluateStatement(
-    const ir::Statement &statement, const SymbolicHeaders &headers,
-    ActionContext *context) {
+absl::Status EvaluateStatement(const ir::Statement &statement,
+                               SymbolicHeaders *headers, ActionContext *context,
+                               const z3::expr &guard) {
   switch (statement.statement_case()) {
     case ir::Statement::kAssignment: {
       return EvaluateAssignmentStatement(statement.assignment(), headers,
-                                         context);
+                                         context, guard);
     }
     case ir::Statement::kDrop: {
-      SymbolicHeaders result = headers;
-      result.at("$dropped$") = TypedExpr(Z3Context().bool_val(true));
-      return result;
+      RETURN_IF_ERROR(
+          headers->Set("$dropped$", Z3Context().bool_val(true), guard));
+      return absl::OkStatus();
     }
     default:
       return absl::UnimplementedError(absl::StrCat(
@@ -46,34 +47,32 @@ gutil::StatusOr<SymbolicHeaders> EvaluateStatement(
 // Constructs a symbolic expression for the assignment value, and either
 // constrains it in an enclosing assignment expression, or stores it in
 // the action scope.
-gutil::StatusOr<SymbolicHeaders> EvaluateAssignmentStatement(
-    const ir::AssignmentStatement &assignment, const SymbolicHeaders &headers,
-    ActionContext *context) {
+absl::Status EvaluateAssignmentStatement(
+    const ir::AssignmentStatement &assignment, SymbolicHeaders *headers,
+    ActionContext *context, const z3::expr &guard) {
   // Evaluate RValue recursively, evaluate LValue in this function, then
   // assign RValue to the scope at LValue.
-  ASSIGN_OR_RETURN(TypedExpr right,
-                   EvaluateRValue(assignment.right(), headers, context));
+  ASSIGN_OR_RETURN(z3::expr right,
+                   EvaluateRValue(assignment.right(), *headers, context));
 
   switch (assignment.left().lvalue_case()) {
     case ir::LValue::kFieldValue: {
-      SymbolicHeaders modified_headers = headers;
       const ir::FieldValue &field_value = assignment.left().field_value();
       std::string field_name = absl::StrFormat(
           "%s.%s", field_value.header_name(), field_value.field_name());
-      if (modified_headers.count(field_name) != 1) {
+      if (headers->Count(field_name) != 1) {
         return absl::UnimplementedError(absl::StrCat(
             "Action ", context->action_name, " refers to unknown header field ",
             field_value.DebugString()));
       }
-
-      modified_headers.at(field_name) = right;
-      return modified_headers;
+      RETURN_IF_ERROR(headers->Set(field_name, right, guard));
+      return absl::OkStatus();
     }
 
     case ir::LValue::kVariableValue: {
       const std::string &variable = assignment.left().variable_value().name();
       context->scope.insert_or_assign(variable, right);
-      return headers;
+      return absl::OkStatus();
     }
 
     default:
@@ -85,9 +84,9 @@ gutil::StatusOr<SymbolicHeaders> EvaluateAssignmentStatement(
 
 // Constructs a symbolic expression corresponding to this value, according
 // to its type.
-gutil::StatusOr<TypedExpr> EvaluateRValue(const ir::RValue &rvalue,
-                                          const SymbolicHeaders &headers,
-                                          ActionContext *context) {
+gutil::StatusOr<z3::expr> EvaluateRValue(const ir::RValue &rvalue,
+                                         const SymbolicHeaders &headers,
+                                         ActionContext *context) {
   switch (rvalue.rvalue_case()) {
     case ir::RValue::kFieldValue:
       return EvaluateFieldValue(rvalue.field_value(), headers, context);
@@ -115,24 +114,24 @@ gutil::StatusOr<TypedExpr> EvaluateRValue(const ir::RValue &rvalue,
 }
 
 // Extract the field symbolic value from the symbolic headers.
-gutil::StatusOr<TypedExpr> EvaluateFieldValue(const ir::FieldValue &field_value,
-                                              const SymbolicHeaders &headers,
-                                              ActionContext *context) {
+gutil::StatusOr<z3::expr> EvaluateFieldValue(const ir::FieldValue &field_value,
+                                             const SymbolicHeaders &headers,
+                                             ActionContext *context) {
   std::string field_name = absl::StrFormat("%s.%s", field_value.header_name(),
                                            field_value.field_name());
-  if (headers.count(field_name) != 1) {
+  if (headers.Count(field_name) != 1) {
     return absl::UnimplementedError(absl::StrCat(
         "Action ", context->action_name, " refers to unknown header field ",
         field_value.DebugString()));
   }
 
-  return headers.at(field_name);
+  return headers.Get(field_name);
 }
 
 // Turns bmv2 values to Symbolic Expressions.
-gutil::StatusOr<TypedExpr> EvaluateHexStr(const ir::HexstrValue &hexstr,
-                                          const SymbolicHeaders &headers,
-                                          ActionContext *context) {
+gutil::StatusOr<z3::expr> EvaluateHexStr(const ir::HexstrValue &hexstr,
+                                         const SymbolicHeaders &headers,
+                                         ActionContext *context) {
   if (hexstr.negative()) {
     return absl::UnimplementedError(
         "Negative hex string values are not supported!");
@@ -143,22 +142,22 @@ gutil::StatusOr<TypedExpr> EvaluateHexStr(const ir::HexstrValue &hexstr,
   return util::IrValueToZ3Expr(parsed_value);
 }
 
-gutil::StatusOr<TypedExpr> EvaluateBool(const ir::BoolValue &bool_value,
-                                        const SymbolicHeaders &headers,
-                                        ActionContext *context) {
-  return TypedExpr(Z3Context().bool_val(bool_value.value()));
+gutil::StatusOr<z3::expr> EvaluateBool(const ir::BoolValue &bool_value,
+                                       const SymbolicHeaders &headers,
+                                       ActionContext *context) {
+  return Z3Context().bool_val(bool_value.value());
 }
 
-gutil::StatusOr<TypedExpr> EvaluateString(const ir::StringValue &string_value,
-                                          const SymbolicHeaders &headers,
-                                          ActionContext *context) {
-  return TypedExpr(Z3Context().string_val(string_value.value().c_str()));
+gutil::StatusOr<z3::expr> EvaluateString(const ir::StringValue &string_value,
+                                         const SymbolicHeaders &headers,
+                                         ActionContext *context) {
+  return Z3Context().string_val(string_value.value().c_str());
 }
 
 // Looks up the symbolic value of the variable in the action scope.
-gutil::StatusOr<TypedExpr> EvaluateVariable(const ir::Variable &variable,
-                                            const SymbolicHeaders &headers,
-                                            ActionContext *context) {
+gutil::StatusOr<z3::expr> EvaluateVariable(const ir::Variable &variable,
+                                           const SymbolicHeaders &headers,
+                                           ActionContext *context) {
   std::string variable_name = variable.name();
   if (context->scope.count(variable_name) != 1) {
     return absl::InvalidArgumentError(
@@ -170,50 +169,50 @@ gutil::StatusOr<TypedExpr> EvaluateVariable(const ir::Variable &variable,
 }
 
 // Recursively evaluate expressions.
-gutil::StatusOr<TypedExpr> EvaluateRExpression(const ir::RExpression &expr,
-                                               const SymbolicHeaders &headers,
-                                               ActionContext *context) {
+gutil::StatusOr<z3::expr> EvaluateRExpression(const ir::RExpression &expr,
+                                              const SymbolicHeaders &headers,
+                                              ActionContext *context) {
   // TODO(babman): support remaining expressions.
   switch (expr.expression_case()) {
     case ir::RExpression::kBinaryExpression: {
       ir::BinaryExpression bin_expr = expr.binary_expression();
-      ASSIGN_OR_RETURN(TypedExpr left,
+      ASSIGN_OR_RETURN(z3::expr left,
                        EvaluateRValue(bin_expr.left(), headers, context));
-      ASSIGN_OR_RETURN(TypedExpr right,
+      ASSIGN_OR_RETURN(z3::expr right,
                        EvaluateRValue(bin_expr.right(), headers, context));
       switch (bin_expr.operation()) {
         case ir::BinaryExpression::PLUS:
-          return left + right;
+          return operators::Plus(left, right);
         case ir::BinaryExpression::MINUS:
-          return left - right;
+          return operators::Minus(left, right);
         case ir::BinaryExpression::TIMES:
-          return left * right;
+          return operators::Times(left, right);
         case ir::BinaryExpression::LEFT_SHIT:
-          return TypedExpr::shl(left, right);
+          return operators::LShift(left, right);
         case ir::BinaryExpression::RIGHT_SHIFT:
-          return TypedExpr::shr(left, right);
+          return operators::RShift(left, right);
         case ir::BinaryExpression::EQUALS:
-          return left == right;
+          return operators::Eq(left, right);
         case ir::BinaryExpression::NOT_EQUALS:
-          return !(left == right);
+          return operators::Neq(left, right);
         case ir::BinaryExpression::GREATER:
-          return left > right;
+          return operators::Gt(left, right);
         case ir::BinaryExpression::GREATER_EQUALS:
-          return left >= right;
+          return operators::Gte(left, right);
         case ir::BinaryExpression::LESS:
-          return left < right;
+          return operators::Lt(left, right);
         case ir::BinaryExpression::LESS_EQUALS:
-          return left <= right;
+          return operators::Lte(left, right);
         case ir::BinaryExpression::AND:
-          return left && right;
+          return operators::And(left, right);
         case ir::BinaryExpression::OR:
-          return left || right;
+          return operators::Or(left, right);
         case ir::BinaryExpression::BIT_AND:
-          return left & right;
+          return operators::BitAnd(left, right);
         case ir::BinaryExpression::BIT_OR:
-          return left | right;
+          return operators::BitOr(left, right);
         case ir::BinaryExpression::BIT_XOR:
-          return left ^ right;
+          return operators::BitXor(left, right);
         default:
           return absl::UnimplementedError(
               absl::StrCat("Action ", context->action_name,
@@ -225,13 +224,13 @@ gutil::StatusOr<TypedExpr> EvaluateRExpression(const ir::RExpression &expr,
 
     case ir::RExpression::kUnaryExpression: {
       ir::UnaryExpression un_expr = expr.unary_expression();
-      ASSIGN_OR_RETURN(TypedExpr operand,
+      ASSIGN_OR_RETURN(z3::expr operand,
                        EvaluateRValue(un_expr.operand(), headers, context));
       switch (un_expr.operation()) {
         case ir::UnaryExpression::NOT:
-          return !operand;
+          return operators::Not(operand);
         case ir::UnaryExpression::BIT_NEGATION:
-          return ~operand;
+          return operators::BitNeg(operand);
         default:
           return absl::UnimplementedError(absl::StrCat(
               "Action ", context->action_name,
@@ -242,30 +241,30 @@ gutil::StatusOr<TypedExpr> EvaluateRExpression(const ir::RExpression &expr,
 
     case ir::RExpression::kTernaryExpression: {
       ir::TernaryExpression tern_expr = expr.ternary_expression();
-      ASSIGN_OR_RETURN(TypedExpr condition,
+      ASSIGN_OR_RETURN(z3::expr condition,
                        EvaluateRValue(tern_expr.condition(), headers, context));
-      ASSIGN_OR_RETURN(TypedExpr left,
+      ASSIGN_OR_RETURN(z3::expr left,
                        EvaluateRValue(tern_expr.left(), headers, context));
-      ASSIGN_OR_RETURN(TypedExpr right,
+      ASSIGN_OR_RETURN(z3::expr right,
                        EvaluateRValue(tern_expr.right(), headers, context));
-      return TypedExpr::ite(condition, left, right);
+      return operators::Ite(condition, left, right);
     }
 
     case ir::RExpression::kBuiltinExpression: {
       ir::BuiltinExpression builtin_expr = expr.builtin_expression();
       // Evaluate arguments.
-      std::vector<TypedExpr> args;
+      std::vector<z3::expr> args;
       for (const auto &arg_value : builtin_expr.arguments()) {
-        ASSIGN_OR_RETURN(TypedExpr arg,
+        ASSIGN_OR_RETURN(z3::expr arg,
                          EvaluateRValue(arg_value, headers, context));
         args.push_back(arg);
       }
 
       switch (builtin_expr.function()) {
         case ir::BuiltinExpression::DATA_TO_BOOL:
-          return args.at(0).ToBoolSort();
+          return operators::ToBoolSort(args.at(0));
         case ir::BuiltinExpression::BOOL_TO_DATA:
-          return args.at(0).ToBitVectorSort(1);
+          return operators::ToBitVectorSort(args.at(0), 1);
         default:
           return absl::UnimplementedError(
               absl::StrCat("Action ", context->action_name,
@@ -285,11 +284,10 @@ gutil::StatusOr<TypedExpr> EvaluateRExpression(const ir::RExpression &expr,
 // This produces a symbolic expression on the symbolic parameters that is
 // semantically equivalent to the behavior of the action on its concrete
 // parameters.
-gutil::StatusOr<SymbolicHeaders> EvaluateAction(
-    const ir::Action &action,
-    const google::protobuf::RepeatedPtrField<
-        pdpi::IrActionInvocation::IrActionParam> &args,
-    const SymbolicHeaders &headers) {
+absl::Status EvaluateAction(const ir::Action &action,
+                            const google::protobuf::RepeatedPtrField<
+                                pdpi::IrActionInvocation::IrActionParam> &args,
+                            SymbolicHeaders *headers, const z3::expr &guard) {
   // Construct this action's context.
   ActionContext context;
   context.action_name = action.action_definition().preamble().name();
@@ -308,18 +306,17 @@ gutil::StatusOr<SymbolicHeaders> EvaluateAction(
     const pdpi::IrActionDefinition::IrActionParamDefinition &parameter =
         parameters.at(i);
     const std::string &parameter_name = parameter.param().name();
-    ASSIGN_OR_RETURN(TypedExpr parameter_value,
+    ASSIGN_OR_RETURN(z3::expr parameter_value,
                      util::IrValueToZ3Expr(args.at(i - 1).value()));
     context.scope.insert({parameter_name, parameter_value});
   }
 
   // Iterate over the body in order, and evaluate each statement.
-  SymbolicHeaders result = headers;
   for (const auto &statement : action.action_implementation().action_body()) {
-    ASSIGN_OR_RETURN(result, EvaluateStatement(statement, result, &context));
+    RETURN_IF_ERROR(EvaluateStatement(statement, headers, &context, guard));
   }
 
-  return result;
+  return absl::OkStatus();
 }
 
 }  // namespace action

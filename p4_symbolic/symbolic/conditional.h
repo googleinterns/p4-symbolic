@@ -22,14 +22,16 @@
 #include "p4_symbolic/ir/ir.pb.h"
 #include "p4_symbolic/symbolic/control.h"
 #include "p4_symbolic/symbolic/symbolic.h"
+#include "z3++.h"
 
 namespace p4_symbolic {
 namespace symbolic {
 namespace conditional {
 
-gutil::StatusOr<control::SymbolicHeadersAndTrace> EvaluateConditional(
-    const Dataplane data_plane, const ir::Conditional &table,
-    const SymbolicHeaders &headers);
+gutil::StatusOr<SymbolicTrace> EvaluateConditional(const Dataplane data_plane,
+                                                   const ir::Conditional &table,
+                                                   SymbolicHeaders *headers,
+                                                   const z3::expr &guard);
 
 }  // namespace conditional
 }  // namespace symbolic

@@ -18,39 +18,43 @@
 #include "p4_symbolic/symbolic/conditional.h"
 
 #include "p4_symbolic/symbolic/action.h"
-#include "p4_symbolic/symbolic/typed.h"
+#include "p4_symbolic/symbolic/operators.h"
 #include "p4_symbolic/symbolic/util.h"
+#include "z3++.h"
 
 namespace p4_symbolic {
 namespace symbolic {
 namespace conditional {
 
-gutil::StatusOr<control::SymbolicHeadersAndTrace> EvaluateConditional(
+gutil::StatusOr<SymbolicTrace> EvaluateConditional(
     const Dataplane data_plane, const ir::Conditional &conditional,
-    const SymbolicHeaders &headers) {
-  // Evaluate both branches.
-  ASSIGN_OR_RETURN(
-      control::SymbolicHeadersAndTrace if_branch,
-      control::EvaluateControl(data_plane, conditional.if_branch(), headers));
-  ASSIGN_OR_RETURN(
-      control::SymbolicHeadersAndTrace else_branch,
-      control::EvaluateControl(data_plane, conditional.else_branch(), headers));
-
+    SymbolicHeaders *headers, const z3::expr &guard) {
   // Evaluate the condition.
   action::ActionContext fake_context = {conditional.name(), {}};
   ASSIGN_OR_RETURN(
-      TypedExpr condition,
-      action::EvaluateRValue(conditional.condition(), headers, &fake_context));
+      z3::expr condition,
+      action::EvaluateRValue(conditional.condition(), *headers, &fake_context));
+  ASSIGN_OR_RETURN(z3::expr negated_condition, operators::Not(condition));
+
+  // Build new guards for each branch.
+  ASSIGN_OR_RETURN(z3::expr if_guard, operators::And(guard, condition));
+  ASSIGN_OR_RETURN(z3::expr else_guard,
+                   operators::And(guard, negated_condition));
+
+  // Evaluate both branches.
+  ASSIGN_OR_RETURN(SymbolicTrace if_trace,
+                   control::EvaluateControl(data_plane, conditional.if_branch(),
+                                            headers, if_guard));
+  ASSIGN_OR_RETURN(
+      SymbolicTrace else_trace,
+      control::EvaluateControl(data_plane, conditional.else_branch(), headers,
+                               else_guard));
 
   // Now we have two headers and traces that need mergine.
   // We should merge in a way such that the value of a header or trace is
   // the one from the if branch if the condition is true, and the else branch
   // otherwise.
-  return control::SymbolicHeadersAndTrace{
-      util::MergeHeadersOnCondition(else_branch.headers, if_branch.headers,
-                                    condition),
-      util::MergeTracesOnCondition(else_branch.trace, if_branch.trace,
-                                   condition)};
+  return util::MergeTracesOnCondition(else_trace, if_trace, condition);
 }
 
 }  // namespace conditional

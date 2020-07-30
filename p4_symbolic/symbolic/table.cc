@@ -23,8 +23,9 @@
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "p4_symbolic/symbolic/action.h"
-#include "p4_symbolic/symbolic/typed.h"
+#include "p4_symbolic/symbolic/operators.h"
 #include "p4_symbolic/symbolic/util.h"
+#include "z3++.h"
 
 namespace p4_symbolic {
 namespace symbolic {
@@ -35,9 +36,9 @@ namespace {
 // Analyze a single match that is part of a table entry.
 // Constructs a symbolic expression that semantically corresponds to this
 // match.
-gutil::StatusOr<TypedExpr> AnalyzeSingleMatch(
+gutil::StatusOr<z3::expr> AnalyzeSingleMatch(
     p4::config::v1::MatchField match_definition,
-    const TypedExpr &field_expression, const pdpi::IrMatch &match) {
+    const z3::expr &field_expression, const pdpi::IrMatch &match) {
   if (match_definition.match_case() != p4::config::v1::MatchField::kMatchType) {
     // Arch-specific match type.
     return absl::InvalidArgumentError(
@@ -53,9 +54,9 @@ gutil::StatusOr<TypedExpr> AnalyzeSingleMatch(
                          "invocation in TableEntry has a different type ",
                          match_definition.DebugString()));
       }
-      ASSIGN_OR_RETURN(TypedExpr value_expression,
+      ASSIGN_OR_RETURN(z3::expr value_expression,
                        util::IrValueToZ3Expr(match.exact()));
-      return field_expression == value_expression;
+      return operators::Eq(field_expression, value_expression);
     }
 
     case p4::config::v1::MatchField::LPM: {
@@ -66,9 +67,9 @@ gutil::StatusOr<TypedExpr> AnalyzeSingleMatch(
                          match_definition.DebugString()));
       }
 
-      ASSIGN_OR_RETURN(TypedExpr value_expression,
+      ASSIGN_OR_RETURN(z3::expr value_expression,
                        util::IrValueToZ3Expr(match.lpm().value()));
-      return TypedExpr::PrefixEq(
+      return operators::PrefixEq(
           field_expression, value_expression,
           static_cast<unsigned int>(match.lpm().prefix_length()));
     }
@@ -81,7 +82,7 @@ gutil::StatusOr<TypedExpr> AnalyzeSingleMatch(
 
 // Constructs a symbolic expression that is true if and only if this entry
 // is matched on.
-gutil::StatusOr<TypedExpr> AnalyzeTableEntryCondition(
+gutil::StatusOr<z3::expr> AnalyzeTableEntryCondition(
     const ir::Table &table, const pdpi::IrTableEntry &entry,
     const SymbolicHeaders &headers) {
   // Make sure number of match keys is the same in the table definition and
@@ -95,7 +96,7 @@ gutil::StatusOr<TypedExpr> AnalyzeTableEntryCondition(
   }
 
   // Construct the match condition expression.
-  TypedExpr condition_expression = TypedExpr(Z3Context().bool_val(true));
+  z3::expr condition_expression = Z3Context().bool_val(true);
   const google::protobuf::Map<std::string, ir::FieldValue> &match_to_fields =
       table.table_implementation().match_name_to_field();
   for (const auto &[id, match_fields] :
@@ -126,12 +127,13 @@ gutil::StatusOr<TypedExpr> AnalyzeTableEntryCondition(
     ir::FieldValue match_field = match_to_fields.at(match_definition.name());
     action::ActionContext fake_context = {table_name, {}};
     ASSIGN_OR_RETURN(
-        TypedExpr match_field_expr,
+        z3::expr match_field_expr,
         action::EvaluateFieldValue(match_field, headers, &fake_context));
     ASSIGN_OR_RETURN(
-        TypedExpr match_expression,
+        z3::expr match_expression,
         AnalyzeSingleMatch(match_definition, match_field_expr, match));
-    condition_expression = condition_expression && match_expression;
+    ASSIGN_OR_RETURN(condition_expression,
+                     operators::And(condition_expression, match_expression));
   }
 
   return condition_expression;
@@ -139,10 +141,10 @@ gutil::StatusOr<TypedExpr> AnalyzeTableEntryCondition(
 
 // Constructs a symbolic expressions that represents the action invocation
 // corresponding to this entry.
-gutil::StatusOr<SymbolicHeaders> AnalyzeTableEntryAction(
+absl::Status AnalyzeTableEntryAction(
     const ir::Table &table, const pdpi::IrTableEntry &entry,
     const google::protobuf::Map<std::string, ir::Action> &actions,
-    const SymbolicHeaders &headers) {
+    SymbolicHeaders *headers, const z3::expr &guard) {
   // Check that the action invoked by entry exists.
   const std::string &table_name = table.table_definition().preamble().name();
   const std::string &action_name = entry.action().name();
@@ -154,21 +156,50 @@ gutil::StatusOr<SymbolicHeaders> AnalyzeTableEntryAction(
 
   // Instantiate the action's symbolic expression with the entry values.
   const ir::Action &action = actions.at(action_name);
-  return action::EvaluateAction(action, entry.action().params(), headers);
+  return action::EvaluateAction(action, entry.action().params(), headers,
+                                guard);
 }
 
 }  // namespace
 
-gutil::StatusOr<control::SymbolicHeadersAndTrace> EvaluateTable(
+gutil::StatusOr<SymbolicTrace> EvaluateTable(
     const Dataplane data_plane, const ir::Table &table,
-    const std::vector<pdpi::IrTableEntry> &entries,
-    const SymbolicHeaders &headers) {
+    const std::vector<pdpi::IrTableEntry> &entries, SymbolicHeaders *headers,
+    const z3::expr &guard) {
   // The overall structure describing the match on this table.
   SymbolicTableMatch table_match = EmptyTableMatch(table);
-  table_match.matched = TypedExpr(Z3Context().bool_val(true));
+  table_match.matched = Z3Context().bool_val(true);
   const std::string &table_name = table.table_definition().preamble().name();
 
-  // Begin with the default entry.
+  // The table semantically is just a bunch of if conditions, one per
+  // table entry, we construct this big if-elseif-...-else construct via
+  // this simpler representation.
+  // Traverse in reverse order: from least to highest priority, since we are
+  // building the if-elseif-...-else statement inside out.
+  // TODO(babman): sort by priority.
+  z3::expr no_row_matched = guard;
+  for (int row = entries.size() - 1; row >= 0; row--) {
+    const pdpi::IrTableEntry &entry = entries.at(row);
+    ASSIGN_OR_RETURN(z3::expr row_match,
+                     AnalyzeTableEntryCondition(table, entry, *headers));
+    ASSIGN_OR_RETURN(row_match, operators::And(no_row_matched, row_match));
+    RETURN_IF_ERROR(AnalyzeTableEntryAction(
+        table, entry, data_plane.program.actions(), headers, row_match));
+
+    // Using this alias makes it simpler to put constraints on packet later.
+    ASSIGN_OR_RETURN(table_match.matched,
+                     operators::Or(table_match.matched, row_match));
+    ASSIGN_OR_RETURN(table_match.entry_index,
+                     operators::Ite(row_match, Z3Context().int_val(row),
+                                    table_match.entry_index));
+    // Aggregate the condition for matching on this row with previous guards.
+    ASSIGN_OR_RETURN(z3::expr row_missed, operators::Not(row_match));
+    ASSIGN_OR_RETURN(no_row_matched,
+                     operators::And(no_row_matched, row_missed));
+  }
+
+  // Finally, do the default entry. The guard is the negation of all previously
+  // evaluated entries guards.
   pdpi::IrTableEntry default_entry;
   default_entry.mutable_action()->set_name(
       table.table_implementation().default_action());
@@ -178,39 +209,13 @@ gutil::StatusOr<control::SymbolicHeadersAndTrace> EvaluateTable(
         *(default_entry.mutable_action()->add_params()->mutable_value()),
         util::StringToIrValue(parameter_value));
   }
-  ASSIGN_OR_RETURN(
-      SymbolicHeaders modified_headers,
-      AnalyzeTableEntryAction(table, default_entry,
-                              data_plane.program.actions(), headers));
-
-  // The table semantically is just a bunch of if conditions, one per
-  // table entry, we construct this big if-elseif-...-else construct via
-  // this simpler representation.
-  // Traverse in reverse order: from least to highest priority, since we are
-  // building the if-elseif-...-else statement inside out.
-  for (int row = entries.size() - 1; row >= 0; row--) {
-    const pdpi::IrTableEntry &entry = entries.at(row);
-    ASSIGN_OR_RETURN(TypedExpr row_match,
-                     AnalyzeTableEntryCondition(table, entry, headers));
-    ASSIGN_OR_RETURN(SymbolicHeaders row_headers,
-                     AnalyzeTableEntryAction(
-                         table, entry, data_plane.program.actions(), headers));
-
-    // Using this alias makes it simpler to put constraints on packet later.
-    table_match.matched = table_match.matched || row_match;
-    table_match.entry_index =
-        TypedExpr::ite(row_match, TypedExpr(Z3Context().int_val(row)),
-                       table_match.entry_index);
-
-    // Apply the changes to the header fields if the symbolic condition to match
-    // on this entry is satisified.
-    modified_headers =
-        util::MergeHeadersOnCondition(modified_headers, row_headers, row_match);
-  }
+  RETURN_IF_ERROR(AnalyzeTableEntryAction(table, default_entry,
+                                          data_plane.program.actions(), headers,
+                                          no_row_matched));
 
   // This table has been completely evaluated, the result of the evaluation
-  // is now in "modified_headers" and "table_match". Time to evaluate the next
-  // control construct.
+  // is now in "headers" and "table_match".
+  // Time to evaluate the next control construct.
   std::string next_control;
   bool first = true;
   // We only support tables that always have the same next control construct
@@ -230,22 +235,20 @@ gutil::StatusOr<control::SymbolicHeadersAndTrace> EvaluateTable(
 
   // Evaluate the next control.
   ASSIGN_OR_RETURN(
-      control::SymbolicHeadersAndTrace result,
-      control::EvaluateControl(data_plane, next_control, modified_headers));
+      SymbolicTrace result,
+      control::EvaluateControl(data_plane, next_control, headers, guard));
 
   // Add this table's match to the trace, and return it.
   // Mark the packet as dropped if this table ends up dropping it.
-  result.trace.matched_entries.at(table_name) = table_match;
-  result.trace.dropped =
-      result.trace.dropped || modified_headers.at("$dropped$");
+  result.matched_entries.at(table_name) = table_match;
   return result;
 }
 
 SymbolicTableMatch EmptyTableMatch(const ir::Table &table) {
   return {
-      TypedExpr(Z3Context().bool_val(false)),  // No match yet!
-      TypedExpr(Z3Context().int_val(-1)),      // No match index.
-      TypedExpr(Z3Context().int_val(-1))       // TODO(babman): bitvector.
+      Z3Context().bool_val(false),  // No match yet!
+      Z3Context().int_val(-1),      // No match index.
+      Z3Context().int_val(-1)       // TODO(babman): bitvector.
   };
 }
 

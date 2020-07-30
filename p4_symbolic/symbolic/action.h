@@ -28,7 +28,7 @@
 #include "p4_pdpi/ir.pb.h"
 #include "p4_symbolic/ir/ir.pb.h"
 #include "p4_symbolic/symbolic/symbolic.h"
-#include "p4_symbolic/symbolic/typed.h"
+#include "z3++.h"
 
 namespace p4_symbolic {
 namespace symbolic {
@@ -38,11 +38,10 @@ namespace action {
 // This produces a symbolic expression on the symbolic parameters that is
 // semantically equivalent to the behavior of the action on its concrete
 // parameters.
-gutil::StatusOr<SymbolicHeaders> EvaluateAction(
-    const ir::Action &action,
-    const google::protobuf::RepeatedPtrField<
-        pdpi::IrActionInvocation::IrActionParam> &args,
-    const SymbolicHeaders &headers);
+absl::Status EvaluateAction(const ir::Action &action,
+                            const google::protobuf::RepeatedPtrField<
+                                pdpi::IrActionInvocation::IrActionParam> &args,
+                            SymbolicHeaders *headers, const z3::expr &guard);
 
 // Internal functions used to Evaluate statements and expressions within an
 // action body. These are internal functions not used beyond this header and its
@@ -51,56 +50,56 @@ gutil::StatusOr<SymbolicHeaders> EvaluateAction(
 // The scope of this action: maps local variable names to their symbolic values.
 struct ActionContext {
   std::string action_name;
-  std::unordered_map<std::string, TypedExpr> scope;
+  std::unordered_map<std::string, z3::expr> scope;
 };
 
 // Performs a switch case over support statement types and call the
 // appropriate function.
-gutil::StatusOr<SymbolicHeaders> EvaluateStatement(
-    const ir::Statement &statement, const SymbolicHeaders &headers,
-    ActionContext *context);
+absl::Status EvaluateStatement(const ir::Statement &statement,
+                               SymbolicHeaders *headers, ActionContext *context,
+                               const z3::expr &guard);
 
 // Constructs a symbolic expression for the assignment value, and either
 // constrains it in an enclosing assignment expression, or stores it in
 // the action scope.
-gutil::StatusOr<SymbolicHeaders> EvaluateAssignmentStatement(
-    const ir::AssignmentStatement &assignment, const SymbolicHeaders &headers,
-    ActionContext *context);
+absl::Status EvaluateAssignmentStatement(
+    const ir::AssignmentStatement &assignment, SymbolicHeaders *headers,
+    ActionContext *context, const z3::expr &guard);
 
 // Constructs a symbolic expression corresponding to this value, according
 // to its type.
-gutil::StatusOr<TypedExpr> EvaluateRValue(const ir::RValue &rvalue,
-                                          const SymbolicHeaders &headers,
-                                          ActionContext *context);
+gutil::StatusOr<z3::expr> EvaluateRValue(const ir::RValue &rvalue,
+                                         const SymbolicHeaders &headers,
+                                         ActionContext *context);
 
 // Extract the field symbolic value from the symbolic state.
-gutil::StatusOr<TypedExpr> EvaluateFieldValue(const ir::FieldValue &field_value,
-                                              const SymbolicHeaders &headers,
-                                              ActionContext *context);
+gutil::StatusOr<z3::expr> EvaluateFieldValue(const ir::FieldValue &field_value,
+                                             const SymbolicHeaders &headers,
+                                             ActionContext *context);
 
 // Parse and format literal values as symbolic expression.
-gutil::StatusOr<TypedExpr> EvaluateHexStr(const ir::HexstrValue &hexstr,
-                                          const SymbolicHeaders &headers,
-                                          ActionContext *context);
+gutil::StatusOr<z3::expr> EvaluateHexStr(const ir::HexstrValue &hexstr,
+                                         const SymbolicHeaders &headers,
+                                         ActionContext *context);
 
-gutil::StatusOr<TypedExpr> EvaluateBool(const ir::BoolValue &bool_value,
-                                        const SymbolicHeaders &headers,
-                                        ActionContext *context);
+gutil::StatusOr<z3::expr> EvaluateBool(const ir::BoolValue &bool_value,
+                                       const SymbolicHeaders &headers,
+                                       ActionContext *context);
 
-gutil::StatusOr<TypedExpr> EvaluateString(const ir::StringValue &string_value,
-                                          const SymbolicHeaders &headers,
-                                          ActionContext *context);
+gutil::StatusOr<z3::expr> EvaluateString(const ir::StringValue &string_value,
+                                         const SymbolicHeaders &headers,
+                                         ActionContext *context);
 
 // Looks up the symbolic value of the variable in the action scope.
-gutil::StatusOr<TypedExpr> EvaluateVariable(const ir::Variable &variable,
-                                            const SymbolicHeaders &headers,
-                                            ActionContext *context);
+gutil::StatusOr<z3::expr> EvaluateVariable(const ir::Variable &variable,
+                                           const SymbolicHeaders &headers,
+                                           ActionContext *context);
 
 // Evaluate expression by recursively evaluating operands and applying the
 // symbolic version of the operator to them.
-gutil::StatusOr<TypedExpr> EvaluateRExpression(const ir::RExpression &expr,
-                                               const SymbolicHeaders &headers,
-                                               ActionContext *context);
+gutil::StatusOr<z3::expr> EvaluateRExpression(const ir::RExpression &expr,
+                                              const SymbolicHeaders &headers,
+                                              ActionContext *context);
 
 }  // namespace action
 }  // namespace symbolic

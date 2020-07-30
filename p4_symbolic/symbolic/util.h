@@ -18,13 +18,13 @@
 #define P4_SYMBOLIC_SYMBOLIC_UTIL_H_
 
 #include <string>
+#include <unordered_map>
 
 #include "google/protobuf/map.h"
 #include "gutil/status.h"
 #include "p4_pdpi/ir.pb.h"
 #include "p4_symbolic/ir/ir.pb.h"
 #include "p4_symbolic/symbolic/symbolic.h"
-#include "p4_symbolic/symbolic/typed.h"
 #include "z3++.h"
 
 namespace p4_symbolic {
@@ -33,29 +33,23 @@ namespace util {
 
 // Free (unconstrained) symbolic headers consisting of free symbolic variables
 // for every field in every header instance defined in the P4 program.
-gutil::StatusOr<SymbolicHeaders> FreeSymbolicHeaders(
+gutil::StatusOr<std::unordered_map<std::string, z3::expr>> FreeSymbolicHeaders(
     const google::protobuf::Map<std::string, ir::HeaderType> &headers);
 
 // Extract a concrete context by evaluating every component's corresponding
 // expression in the model.
 ConcreteContext ExtractFromModel(SymbolicContext context, z3::model model);
 
-// Merges two symbolic states into a single state. A field in the new state
-// has the value of the changed state if the condition is true, and the value
+// Merges two symbolic traces into a single trace. A field in the new trace
+// has the value of the changed trace if the condition is true, and the value
 // of the original one otherwise.
-// Assertion: both headers should contain the same set of field names.
-SymbolicHeaders MergeHeadersOnCondition(const SymbolicHeaders &original,
-                                        const SymbolicHeaders &changed,
-                                        const TypedExpr &condition);
-
-// Similar to MergeHeadersOnCondition but for traces.
 // Assertion: both traces must contain matches for the same set of table names.
-SymbolicTrace MergeTracesOnCondition(const SymbolicTrace &original,
-                                     const SymbolicTrace &changed,
-                                     const TypedExpr &condition);
+gutil::StatusOr<SymbolicTrace> MergeTracesOnCondition(
+    const SymbolicTrace &original, const SymbolicTrace &changed,
+    const z3::expr &condition);
 
 // Transforms a value read from a TableEntry to a z3::expr.
-gutil::StatusOr<TypedExpr> IrValueToZ3Expr(const pdpi::IrValue &value);
+gutil::StatusOr<z3::expr> IrValueToZ3Expr(const pdpi::IrValue &value);
 
 // Transforms a string value from bmv2 json to a pdpi::IrValue
 gutil::StatusOr<pdpi::IrValue> StringToIrValue(std::string value);

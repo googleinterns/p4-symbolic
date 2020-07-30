@@ -20,13 +20,14 @@
 #include <locale>
 #include <sstream>
 #include <string>
-#include <unordered_map>
+#include <vector>
 
 #include "absl/strings/match.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/str_split.h"
 #include "absl/strings/strip.h"
 #include "p4_pdpi/utils/ir.h"
+#include "p4_symbolic/symbolic/operators.h"
 #include "p4_symbolic/symbolic/packet.h"
 
 namespace p4_symbolic {
@@ -46,17 +47,17 @@ bool Z3BooltoBool(Z3_lbool z3_bool) {
 
 }  // namespace
 
-gutil::StatusOr<SymbolicHeaders> FreeSymbolicHeaders(
+gutil::StatusOr<std::unordered_map<std::string, z3::expr>> FreeSymbolicHeaders(
     const google::protobuf::Map<std::string, ir::HeaderType> &headers) {
   // Loop over every header instance in the p4 program.
   // Find its type, and loop over every field in it, creating a symbolic free
   // variable for every field in every header instance.
-  SymbolicHeaders symbolic_headers;
+  std::unordered_map<std::string, z3::expr> symbolic_headers;
   for (const auto &[header_name, header_type] : headers) {
     // Special validity field.
     std::string valid_field_name = absl::StrFormat("%s.$valid$", header_name);
-    TypedExpr valid_expression =
-        TypedExpr(Z3Context().bool_const(valid_field_name.c_str()));
+    z3::expr valid_expression =
+        Z3Context().bool_const(valid_field_name.c_str());
     symbolic_headers.insert({valid_field_name, valid_expression});
 
     // Regular fields defined in the p4 program or v1model.
@@ -68,25 +69,22 @@ gutil::StatusOr<SymbolicHeaders> FreeSymbolicHeaders(
 
       std::string field_full_name =
           absl::StrFormat("%s.%s", header_name, field_name);
-      TypedExpr field_expression = TypedExpr(
-          Z3Context().bv_const(field_full_name.c_str(), field.bitwidth()));
+      z3::expr field_expression =
+          Z3Context().bv_const(field_full_name.c_str(), field.bitwidth());
       symbolic_headers.insert({field_full_name, field_expression});
     }
   }
 
   // Finally, we have a special field marking if the packet represented by
   // these headers was dropped.
-  symbolic_headers.insert(
-      {"$dropped$", TypedExpr(Z3Context().bool_val(false))});
+  symbolic_headers.insert({"$dropped$", Z3Context().bool_val(false)});
   return symbolic_headers;
 }
 
 ConcreteContext ExtractFromModel(SymbolicContext context, z3::model model) {
   // Extract ports.
-  std::string ingress_port =
-      model.eval(context.ingress_port.expr(), true).to_string();
-  std::string egress_port =
-      model.eval(context.egress_port.expr(), true).to_string();
+  std::string ingress_port = model.eval(context.ingress_port, true).to_string();
+  std::string egress_port = model.eval(context.egress_port, true).to_string();
 
   // Extract an input packet and its predicted output.
   ConcretePacket ingress_packet =
@@ -97,22 +95,22 @@ ConcreteContext ExtractFromModel(SymbolicContext context, z3::model model) {
   // Extract the ingress and egress headers.
   ConcreteHeaders ingress_headers;
   for (const auto &[name, expr] : context.ingress_headers) {
-    ingress_headers[name] = model.eval(expr.expr(), true).to_string();
+    ingress_headers[name] = model.eval(expr, true).to_string();
   }
   ConcreteHeaders egress_headers;
   for (const auto &[name, expr] : context.egress_headers) {
-    egress_headers[name] = model.eval(expr.expr(), true).to_string();
+    egress_headers[name] = model.eval(expr, true).to_string();
   }
 
   // Extract the trace (matches on every table).
   bool dropped =
-      Z3BooltoBool(model.eval(context.trace.dropped.expr(), true).bool_value());
+      Z3BooltoBool(model.eval(context.trace.dropped, true).bool_value());
   std::unordered_map<std::string, ConcreteTableMatch> matches;
   for (const auto &[table, match] : context.trace.matched_entries) {
     matches[table] = {
-        Z3BooltoBool(model.eval(match.matched.expr(), true).bool_value()),
-        model.eval(match.entry_index.expr(), true).get_numeral_int(),
-        model.eval(match.value.expr(), true).to_string()};
+        Z3BooltoBool(model.eval(match.matched, true).bool_value()),
+        model.eval(match.entry_index, true).get_numeral_int(),
+        model.eval(match.value, true).to_string()};
   }
   ConcreteTrace trace = {matches, dropped};
 
@@ -120,41 +118,34 @@ ConcreteContext ExtractFromModel(SymbolicContext context, z3::model model) {
           ingress_headers, egress_headers, trace};
 }
 
-SymbolicHeaders MergeHeadersOnCondition(const SymbolicHeaders &original,
-                                        const SymbolicHeaders &changed,
-                                        const TypedExpr &condition) {
-  SymbolicHeaders merged;
-  for (const auto &[name, expr] : changed) {
-    // SymbolicHeaders have the same set of fields always, and they are assigned
-    // prior to any evaluation.
-    // Hence, it is safe to access original.at(name) directly.
-    merged.insert({name, TypedExpr::ite(condition, expr, original.at(name))});
-  }
-  return merged;
-}
-
-SymbolicTrace MergeTracesOnCondition(const SymbolicTrace &original,
-                                     const SymbolicTrace &changed,
-                                     const TypedExpr &condition) {
-  SymbolicTrace merged = {{}, TypedExpr(Z3Context().bool_val(false))};
-  merged.dropped = TypedExpr::ite(condition, changed.dropped, original.dropped);
+gutil::StatusOr<SymbolicTrace> MergeTracesOnCondition(
+    const SymbolicTrace &original, const SymbolicTrace &changed,
+    const z3::expr &condition) {
+  SymbolicTrace merged = {{}, Z3Context().bool_val(false)};
+  ASSIGN_OR_RETURN(merged.dropped, operators::Ite(condition, changed.dropped,
+                                                  original.dropped));
   for (const auto &[name, changed_match] : changed.matched_entries) {
     // SymbolicTraces have the same set of tables always, similar to
     // SymbolicHeaders, accessing with .at() is safe here.
     const auto &original_match = original.matched_entries.at(name);
-    SymbolicTableMatch merged_match = {
-        TypedExpr::ite(condition, changed_match.matched,
-                       original_match.matched),
-        TypedExpr::ite(condition, changed_match.entry_index,
-                       original_match.entry_index),
-        TypedExpr::ite(condition, changed_match.value, original_match.value)};
 
+    ASSIGN_OR_RETURN(z3::expr merged_matched,
+                     operators::Ite(condition, changed_match.matched,
+                                    original_match.matched));
+    ASSIGN_OR_RETURN(z3::expr merged_index,
+                     operators::Ite(condition, changed_match.entry_index,
+                                    original_match.entry_index));
+    ASSIGN_OR_RETURN(
+        z3::expr merged_value,
+        operators::Ite(condition, changed_match.value, original_match.value));
+    SymbolicTableMatch merged_match = {merged_matched, merged_index,
+                                       merged_value};
     merged.matched_entries.insert({name, merged_match});
   }
   return merged;
 }
 
-gutil::StatusOr<TypedExpr> IrValueToZ3Expr(const pdpi::IrValue &value) {
+gutil::StatusOr<z3::expr> IrValueToZ3Expr(const pdpi::IrValue &value) {
   switch (value.format_case()) {
     case pdpi::IrValue::kHexStr: {
       const std::string &hexstr = value.hex_str();
@@ -170,10 +161,7 @@ gutil::StatusOr<TypedExpr> IrValueToZ3Expr(const pdpi::IrValue &value) {
           bitsize++;
         }
         bitsize = (bitsize > 1 ? bitsize : 1);  // At least 1 bit.
-
-        auto result = TypedExpr(
-            Z3Context().bv_val(std::to_string(decimal).c_str(), bitsize));
-        return result;
+        return Z3Context().bv_val(std::to_string(decimal).c_str(), bitsize);
       }
 
       return absl::InvalidArgumentError(absl::StrCat(
@@ -188,7 +176,7 @@ gutil::StatusOr<TypedExpr> IrValueToZ3Expr(const pdpi::IrValue &value) {
                                      << ((3 - i) * 8);
         ip += shifted_component;
       }
-      return TypedExpr(Z3Context().bv_val(std::to_string(ip).c_str(), 32));
+      return Z3Context().bv_val(std::to_string(ip).c_str(), 32);
     }
 
     default:

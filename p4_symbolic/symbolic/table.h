@@ -37,10 +37,10 @@ namespace table {
 
 SymbolicTableMatch EmptyTableMatch(const ir::Table &table);
 
-gutil::StatusOr<control::SymbolicHeadersAndTrace> EvaluateTable(
+gutil::StatusOr<SymbolicTrace> EvaluateTable(
     const Dataplane data_plane, const ir::Table &table,
-    const std::vector<pdpi::IrTableEntry> &entries,
-    const SymbolicHeaders &headers);
+    const std::vector<pdpi::IrTableEntry> &entries, SymbolicHeaders *headers,
+    const z3::expr &guard);
 
 }  // namespace table
 }  // namespace symbolic

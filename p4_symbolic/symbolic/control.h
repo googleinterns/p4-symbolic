@@ -57,24 +57,21 @@
 #ifndef P4_SYMBOLIC_SYMBOLIC_CONTROL_H_
 #define P4_SYMBOLIC_SYMBOLIC_CONTROL_H_
 
+#include <string>
+
+#include "gutil/status.h"
 #include "p4_symbolic/symbolic/symbolic.h"
+#include "z3++.h"
 
 namespace p4_symbolic {
 namespace symbolic {
 namespace control {
 
-// Suffix trace and current values of header fields.
-// Instances of this are returned by EvaluateControl, EvaluateTable, and
-// EvaluateConditional.
-struct SymbolicHeadersAndTrace {
-  SymbolicHeaders headers;
-  SymbolicTrace trace;
-};
-
 // Evaluate the passed control construct.
-gutil::StatusOr<SymbolicHeadersAndTrace> EvaluateControl(
-    const Dataplane &data_plane, const std::string &control_name,
-    const SymbolicHeaders &headers);
+gutil::StatusOr<SymbolicTrace> EvaluateControl(const Dataplane &data_plane,
+                                               const std::string &control_name,
+                                               SymbolicHeaders *headers,
+                                               const z3::expr &guard);
 
 }  // namespace control
 }  // namespace symbolic

@@ -17,8 +17,6 @@
 
 #include "p4_symbolic/symbolic/packet.h"
 
-#include "p4_symbolic/symbolic/util.h"
-
 namespace p4_symbolic {
 namespace symbolic {
 namespace packet {
@@ -26,52 +24,52 @@ namespace packet {
 SymbolicPacket ExtractSymbolicPacket(SymbolicHeaders headers) {
   // TODO(babman): extract the packet fields from their metadata counterpart.
   return {
-      TypedExpr(Z3Context().bv_const("ingress_eth_src", 48)),
-      TypedExpr(Z3Context().bv_const("ingress_eth_dst", 48)),
-      TypedExpr(Z3Context().bv_const("ingress_eth_type", 16)),
+      Z3Context().bv_const("ingress_eth_src", 48),
+      Z3Context().bv_const("ingress_eth_dst", 48),
+      Z3Context().bv_const("ingress_eth_type", 16),
 
-      TypedExpr(Z3Context().bv_const("ingress_outer_ipv4_src", 32)),
-      TypedExpr(Z3Context().bv_const("ingress_outer_ipv4_dst", 32)),
-      TypedExpr(Z3Context().bv_const("ingress_outer_ipv6_dst_upper", 64)),
-      TypedExpr(Z3Context().bv_const("ingress_outer_ipv6_dst_lower", 64)),
-      TypedExpr(Z3Context().bv_const("ingress_outer_protocol", 8)),
-      TypedExpr(Z3Context().bv_const("ingress_outer_dscp", 6)),
-      TypedExpr(Z3Context().bv_const("ingress_outer_ttl", 8)),
+      Z3Context().bv_const("ingress_outer_ipv4_src", 32),
+      Z3Context().bv_const("ingress_outer_ipv4_dst", 32),
+      Z3Context().bv_const("ingress_outer_ipv6_dst_upper", 64),
+      Z3Context().bv_const("ingress_outer_ipv6_dst_lower", 64),
+      Z3Context().bv_const("ingress_outer_protocol", 8),
+      Z3Context().bv_const("ingress_outer_dscp", 6),
+      Z3Context().bv_const("ingress_outer_ttl", 8),
 
-      TypedExpr(Z3Context().bv_const("ingress_inner_ipv4_dst", 32)),
-      TypedExpr(Z3Context().bv_const("ingress_inner_ipv6_dst_upper", 64)),
-      TypedExpr(Z3Context().bv_const("ingress_inner_ipv6_dst_lower", 64)),
-      TypedExpr(Z3Context().bv_const("ingress_inner_protocol", 8)),
-      TypedExpr(Z3Context().bv_const("ingress_inner_dscp", 6)),
-      TypedExpr(Z3Context().bv_const("ingress_inner_ttl", 8)),
+      Z3Context().bv_const("ingress_inner_ipv4_dst", 32),
+      Z3Context().bv_const("ingress_inner_ipv6_dst_upper", 64),
+      Z3Context().bv_const("ingress_inner_ipv6_dst_lower", 64),
+      Z3Context().bv_const("ingress_inner_protocol", 8),
+      Z3Context().bv_const("ingress_inner_dscp", 6),
+      Z3Context().bv_const("ingress_inner_ttl", 8),
 
-      TypedExpr(Z3Context().bv_const("ingress_icmp_type", 8)),
-      TypedExpr(Z3Context().bv_const("ingress_vid", 12)),
+      Z3Context().bv_const("ingress_icmp_type", 8),
+      Z3Context().bv_const("ingress_vid", 12),
   };
 }
 
 ConcretePacket ExtractConcretePacket(SymbolicPacket packet, z3::model model) {
-  return {model.eval(packet.eth_src.expr(), true).to_string(),
-          model.eval(packet.eth_dst.expr(), true).to_string(),
-          model.eval(packet.eth_type.expr(), true).to_string(),
+  return {model.eval(packet.eth_src, true).to_string(),
+          model.eval(packet.eth_dst, true).to_string(),
+          model.eval(packet.eth_type, true).to_string(),
 
-          model.eval(packet.outer_ipv4_src.expr(), true).to_string(),
-          model.eval(packet.outer_ipv4_dst.expr(), true).to_string(),
-          model.eval(packet.outer_ipv6_dst_upper.expr(), true).to_string(),
-          model.eval(packet.outer_ipv6_dst_lower.expr(), true).to_string(),
-          model.eval(packet.outer_protocol.expr(), true).to_string(),
-          model.eval(packet.outer_dscp.expr(), true).to_string(),
-          model.eval(packet.outer_ttl.expr(), true).to_string(),
+          model.eval(packet.outer_ipv4_src, true).to_string(),
+          model.eval(packet.outer_ipv4_dst, true).to_string(),
+          model.eval(packet.outer_ipv6_dst_upper, true).to_string(),
+          model.eval(packet.outer_ipv6_dst_lower, true).to_string(),
+          model.eval(packet.outer_protocol, true).to_string(),
+          model.eval(packet.outer_dscp, true).to_string(),
+          model.eval(packet.outer_ttl, true).to_string(),
 
-          model.eval(packet.inner_ipv4_dst.expr(), true).to_string(),
-          model.eval(packet.inner_ipv6_dst_upper.expr(), true).to_string(),
-          model.eval(packet.inner_ipv6_dst_lower.expr(), true).to_string(),
-          model.eval(packet.inner_protocol.expr(), true).to_string(),
-          model.eval(packet.inner_dscp.expr(), true).to_string(),
-          model.eval(packet.inner_ttl.expr(), true).to_string(),
+          model.eval(packet.inner_ipv4_dst, true).to_string(),
+          model.eval(packet.inner_ipv6_dst_upper, true).to_string(),
+          model.eval(packet.inner_ipv6_dst_lower, true).to_string(),
+          model.eval(packet.inner_protocol, true).to_string(),
+          model.eval(packet.inner_dscp, true).to_string(),
+          model.eval(packet.inner_ttl, true).to_string(),
 
-          model.eval(packet.icmp_type.expr(), true).to_string(),
-          model.eval(packet.vid.expr(), true).to_string()};
+          model.eval(packet.icmp_type, true).to_string(),
+          model.eval(packet.vid, true).to_string()};
 }
 
 }  // namespace packet

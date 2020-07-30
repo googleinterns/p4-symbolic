@@ -28,7 +28,7 @@
 #include "gutil/status.h"
 #include "p4_symbolic/ir/ir.pb.h"
 #include "p4_symbolic/ir/table_entries.h"
-#include "p4_symbolic/symbolic/typed.h"
+#include "p4_symbolic/symbolic/guarded_map.h"
 #include "z3++.h"  // TODO(babman): added as a system dependency for now.
 
 namespace p4_symbolic {
@@ -50,8 +50,8 @@ using ConcreteHeaders = std::unordered_map<std::string, std::string>;
 // "standard_metadata_t", which has field "ingress_port" of type "bit<9>" in it.
 // Then, we will have:
 //     SymbolicMetadata["standard_metadata.ingress_port"] =
-//         TypedExpr<symbolic bit vector of size 9>
-using SymbolicHeaders = std::unordered_map<std::string, TypedExpr>;
+//         <symbolic bit vector of size 9>
+using SymbolicHeaders = GuardedMap;
 
 // Expresses a concrete match for a corresponding concrete packet with a
 // table in the program.
@@ -67,12 +67,12 @@ struct ConcreteTableMatch {
 // This allows encoding of constraints on which (if any) entries are matched,
 // and the value of the match.
 // e.g. for some table "<table_name>":
-// 1. (<symbolic_table_match>.entry_index == i) iff
-//    <entries>[<table_name>][i] was matched/hit.
+// (<symbolic_table_match>.entry_index == i) iff
+//  <entries>[<table_name>][i] was matched/hit.
 struct SymbolicTableMatch {
-  TypedExpr matched;
-  TypedExpr entry_index;
-  TypedExpr value;
+  z3::expr matched;
+  z3::expr entry_index;
+  z3::expr value;
 };
 
 // Specifies the expected trace in the program that the corresponding
@@ -90,7 +90,7 @@ struct ConcreteTrace {
 struct SymbolicTrace {
   // Full table name to its symbolic match.
   std::unordered_map<std::string, SymbolicTableMatch> matched_entries;
-  TypedExpr dropped;
+  z3::expr dropped;
 };
 
 // Specifies the concrete data inside a packet.
@@ -125,27 +125,27 @@ struct ConcretePacket {
 // We explicitly give these fields name in this struct to simplify how the
 // client code can impose constraints on them in assertions.
 struct SymbolicPacket {
-  TypedExpr eth_src;   // 48 bit.
-  TypedExpr eth_dst;   // 48 bit.
-  TypedExpr eth_type;  // 16 bit.
+  z3::expr eth_src;   // 48 bit.
+  z3::expr eth_dst;   // 48 bit.
+  z3::expr eth_type;  // 16 bit.
 
-  TypedExpr outer_ipv4_src;        // 32 bit, valid if eth_type = 0x0800
-  TypedExpr outer_ipv4_dst;        // 32 bit, valid if eth_type = 0x0800
-  TypedExpr outer_ipv6_dst_upper;  // 64 bit, valid if eth_type = 0x86dd
-  TypedExpr outer_ipv6_dst_lower;  // 64 bit, valid if eth_type = 0x86dd
-  TypedExpr outer_protocol;        // 8 bit, valid if eth_type is ip
-  TypedExpr outer_dscp;            // 6 bit, valid if eth_type is ip
-  TypedExpr outer_ttl;             // 8 bit, valid if eth_type is ip
+  z3::expr outer_ipv4_src;        // 32 bit, valid if eth_type = 0x0800
+  z3::expr outer_ipv4_dst;        // 32 bit, valid if eth_type = 0x0800
+  z3::expr outer_ipv6_dst_upper;  // 64 bit, valid if eth_type = 0x86dd
+  z3::expr outer_ipv6_dst_lower;  // 64 bit, valid if eth_type = 0x86dd
+  z3::expr outer_protocol;        // 8 bit, valid if eth_type is ip
+  z3::expr outer_dscp;            // 6 bit, valid if eth_type is ip
+  z3::expr outer_ttl;             // 8 bit, valid if eth_type is ip
 
-  TypedExpr inner_ipv4_dst;        // 32 bit, valid if outer_protocol = 4
-  TypedExpr inner_ipv6_dst_upper;  // 64 bit, valid if outer_protocol = 4
-  TypedExpr inner_ipv6_dst_lower;  // 64 bit, valid if outer_protocol = 41
-  TypedExpr inner_protocol;        // 8 bit, valid if outer_protocol = 4/41
-  TypedExpr inner_dscp;            // 6 bit, valid if outer_protocol = 4/41
-  TypedExpr inner_ttl;             // 8 bit, valid if outer_protocol = 4/41
+  z3::expr inner_ipv4_dst;        // 32 bit, valid if outer_protocol = 4
+  z3::expr inner_ipv6_dst_upper;  // 64 bit, valid if outer_protocol = 4
+  z3::expr inner_ipv6_dst_lower;  // 64 bit, valid if outer_protocol = 41
+  z3::expr inner_protocol;        // 8 bit, valid if outer_protocol = 4/41
+  z3::expr inner_dscp;            // 6 bit, valid if outer_protocol = 4/41
+  z3::expr inner_ttl;             // 8 bit, valid if outer_protocol = 4/41
 
-  TypedExpr icmp_type;  // 8 bit, valid if eth_type is ip
-  TypedExpr vid;        // 12 bit, valid if eth_type = 0x6007
+  z3::expr icmp_type;  // 8 bit, valid if eth_type is ip
+  z3::expr vid;        // 12 bit, valid if eth_type = 0x6007
 };
 
 // The result of solving with some assertion.
@@ -166,8 +166,8 @@ struct ConcreteContext {
 // and its trace in the program.
 // Assertions are defined on a symbolic context.
 struct SymbolicContext {
-  TypedExpr ingress_port;
-  TypedExpr egress_port;
+  z3::expr ingress_port;
+  z3::expr egress_port;
   SymbolicPacket ingress_packet;
   SymbolicPacket egress_packet;
   SymbolicHeaders ingress_headers;
@@ -217,7 +217,7 @@ struct SolverState {
 // as input, and returns constraints on symbolic handles exposed by that
 // context. For example:
 // z3::expr portIsOne(const SymbolicContext &ctx) {
-//   return ctx.ingress_port.expr() == 1;
+//   return ctx.ingress_port == 1;
 // }
 using Assertion = std::function<z3::expr(const SymbolicContext &)>;
 
