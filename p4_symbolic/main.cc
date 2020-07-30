@@ -18,6 +18,7 @@
 // Produces test packets that hit every row in the P4 program tables.
 
 #include <iostream>
+#include <map>
 #include <string>
 
 #include "absl/flags/flag.h"
@@ -65,8 +66,12 @@ absl::Status ParseAndEvaluate() {
                                                 std::vector<int>{0, 1}));
 
   // Find a packet matching every entry of every table.
+  // Loop over tables in a deterministic order for output consistency (important
+  // for ci tests).
   std::string debug_smt_formula = "";
-  for (const auto &[name, table] : dataplane.program.tables()) {
+  std::map ordered_tables(dataplane.program.tables().cbegin(),
+                          dataplane.program.tables().cend());
+  for (const auto &[name, table] : ordered_tables) {
     int row_count = static_cast<int>(dataplane.entries[name].size());
     for (int i = -1; i < row_count; i++) {
       std::cout << "Finding packet for table " << name << " and row " << i
@@ -96,14 +101,15 @@ absl::Status ParseAndEvaluate() {
                   << packet_option.value().ingress_port << std::endl;
         std::cout << "\tstandard_metadata.egress_spec = "
                   << packet_option.value().egress_port << std::endl;
-        if (packet_option.value().headers.count("ipv4.dstAddr")) {
+        if (packet_option.value().egress_headers.count("ipv4.dstAddr")) {
           std::cout << "\tipv4.dstAddr = "
-                    << packet_option.value().headers.at("ipv4.dstAddr")
+                    << packet_option.value().egress_headers.at("ipv4.dstAddr")
                     << std::endl;
         }
-        if (packet_option.value().headers.count("ethernet.dstAddr")) {
+        if (packet_option.value().egress_headers.count("ethernet.dstAddr")) {
           std::cout << "\tethernet.dstAddr = "
-                    << packet_option.value().headers.at("ethernet.dstAddr")
+                    << packet_option.value().egress_headers.at(
+                           "ethernet.dstAddr")
                     << std::endl;
         }
       } else {

@@ -156,10 +156,8 @@ struct ConcreteContext {
   std::string egress_port;
   ConcretePacket ingress_packet;  // Input packet into the program/switch.
   ConcretePacket egress_packet;   // Expected output packet.
-  // Expected header field values at the end of execution.
-  // E.g. if vrf is set to different values through out the execution of the
-  // program on this packet, this will contain the last value set for the vrf.
-  ConcreteHeaders headers;
+  ConcreteHeaders ingress_headers;
+  ConcreteHeaders egress_headers;
   ConcreteTrace trace;  // Expected trace in the program.
 };
 
@@ -172,7 +170,8 @@ struct SymbolicContext {
   TypedExpr egress_port;
   SymbolicPacket ingress_packet;
   SymbolicPacket egress_packet;
-  SymbolicHeaders headers;  // Header symbols at the end of execution.
+  SymbolicHeaders ingress_headers;
+  SymbolicHeaders egress_headers;
   SymbolicTrace trace;
 };
 

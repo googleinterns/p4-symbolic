@@ -94,11 +94,14 @@ ConcreteContext ExtractFromModel(SymbolicContext context, z3::model model) {
   ConcretePacket egress_packet =
       packet::ExtractConcretePacket(context.egress_packet, model);
 
-  // Extract the last predicited value assigned to every header field when the
-  // program is run on the input packet.
-  ConcreteHeaders concrete_headers;
-  for (const auto &[name, expr] : context.headers) {
-    concrete_headers[name] = model.eval(expr.expr(), true).to_string();
+  // Extract the ingress and egress headers.
+  ConcreteHeaders ingress_headers;
+  for (const auto &[name, expr] : context.ingress_headers) {
+    ingress_headers[name] = model.eval(expr.expr(), true).to_string();
+  }
+  ConcreteHeaders egress_headers;
+  for (const auto &[name, expr] : context.egress_headers) {
+    egress_headers[name] = model.eval(expr.expr(), true).to_string();
   }
 
   // Extract the trace (matches on every table).
@@ -113,8 +116,8 @@ ConcreteContext ExtractFromModel(SymbolicContext context, z3::model model) {
   }
   ConcreteTrace trace = {matches, dropped};
 
-  return {ingress_port,  egress_port,      ingress_packet,
-          egress_packet, concrete_headers, trace};
+  return {ingress_port,    egress_port,    ingress_packet, egress_packet,
+          ingress_headers, egress_headers, trace};
 }
 
 SymbolicHeaders MergeHeadersOnCondition(const SymbolicHeaders &original,

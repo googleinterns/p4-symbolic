@@ -38,12 +38,11 @@ gutil::StatusOr<std::unique_ptr<SolverState>> EvaluateP4Pipeline(
   // This is used to evaluate the P4 program.
   // Initially free/unconstrained and contains symbolic variables for
   // every header field.
-  ASSIGN_OR_RETURN(SymbolicHeaders symbolic_headers,
+  ASSIGN_OR_RETURN(SymbolicHeaders ingress_headers,
                    util::FreeSymbolicHeaders(data_plane.program.headers()));
-  TypedExpr ingress_port =
-      symbolic_headers.at("standard_metadata.ingress_port");
+  TypedExpr ingress_port = ingress_headers.at("standard_metadata.ingress_port");
   SymbolicPacket ingress_packet =
-      packet::ExtractSymbolicPacket(symbolic_headers);
+      packet::ExtractSymbolicPacket(ingress_headers);
 
   // Restrict ports to the available physical ports.
   z3::expr ingress_port_domain = Z3Context().bool_val(false);
@@ -60,15 +59,15 @@ gutil::StatusOr<std::unique_ptr<SolverState>> EvaluateP4Pipeline(
   ASSIGN_OR_RETURN(
       control::SymbolicHeadersAndTrace result,
       control::EvaluateControl(data_plane, data_plane.program.initial_control(),
-                               symbolic_headers));
+                               ingress_headers));
 
   // Construct a symbolic context, containing state and trace information
   // from evaluating the tables.
   TypedExpr egress_port = result.headers.at("standard_metadata.egress_spec");
   SymbolicPacket egress_packet = packet::ExtractSymbolicPacket(result.headers);
-  SymbolicContext symbolic_context = {ingress_port,   egress_port,
-                                      ingress_packet, egress_packet,
-                                      result.headers, result.trace};
+  SymbolicContext symbolic_context = {
+      ingress_port,    egress_port,    ingress_packet, egress_packet,
+      ingress_headers, result.headers, result.trace};
 
   // Construct solver state for this program.
   return std::make_unique<SolverState>(data_plane.program, data_plane.entries,
