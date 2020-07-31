@@ -44,9 +44,9 @@ namespace symbolic {
 z3::context &Z3Context();
 
 // Maps the name of a header field in the p4 program to its concrete value.
-using ConcreteHeaders = std::unordered_map<std::string, std::string>;
+using ConcretePerPacketState = std::unordered_map<std::string, std::string>;
 
-// The symbolic counterpart of ConcreteHeader.
+// The symbolic counterpart of ConcretePerPacketState.
 // Maps the name of a header field in the p4 program to its symbolic value.
 // This can be used to constrain p4 program fields inside assertions.
 // This is automatically constructred from the header type definitions
@@ -56,22 +56,18 @@ using ConcreteHeaders = std::unordered_map<std::string, std::string>;
 // Then, we will have:
 //     SymbolicMetadata["standard_metadata.ingress_port"] =
 //         <symbolic bit vector of size 9>
-using SymbolicHeaders = SymbolicGuardedMap;
-
-// Specifies our internal evaluation "context/state".
-// This store the symbolic state of the packet as it is symbolically evaluated
-// with the input dataplane.
-// It is passed and mutated between the functions responsible for symbolically
-// evaluating the program.
-using SymbolicPerPacketState = SymbolicHeaders;
+// An instace of this type is passed around and mutated by the functions
+// responsible for symbolically evaluating the program.
+using SymbolicPerPacketState = SymbolicGuardedMap;
 
 // Expresses a concrete match for a corresponding concrete packet with a
 // table in the program.
 struct ConcreteTableMatch {
   bool matched;  // false if no entry in this table was matched, true otherwise.
-  // if matched is false, these two fields are set to -1.
+  // If matched is false, this is set to -1.
+  // If matched is true, this is the index of the matched table entry, or -1 if
+  // the default entry was matched.
   int entry_index;
-  std::string value;
 };
 
 // Exposes a symbolic handle for a match between the symbolic packet and
@@ -84,7 +80,6 @@ struct ConcreteTableMatch {
 struct SymbolicTableMatch {
   z3::expr matched;
   z3::expr entry_index;
-  z3::expr value;
 };
 
 // Specifies the expected trace in the program that the corresponding
@@ -107,7 +102,7 @@ struct SymbolicTrace {
 
 // Specifies the concrete data inside a packet.
 // This is a friendly helper struct, all information in this struct
-// is extracted from ConcreteHeader.
+// is extracted from ConcretePerPacketState.
 struct ConcretePacket {
   std::string eth_src;
   std::string eth_dst;
@@ -133,7 +128,7 @@ struct ConcretePacket {
 };
 
 // A helper struct containing symbolic expressions for every field in a packet.
-// All expressions in this struct are extracted from SymbolicHeader.
+// All expressions in this struct are extracted from SymbolicPerPacketState.
 // We explicitly give these fields name in this struct to simplify how the
 // client code can impose constraints on them in assertions.
 struct SymbolicPacket {
@@ -168,8 +163,8 @@ struct ConcreteContext {
   std::string egress_port;
   ConcretePacket ingress_packet;  // Input packet into the program/switch.
   ConcretePacket egress_packet;   // Expected output packet.
-  ConcreteHeaders ingress_headers;
-  ConcreteHeaders egress_headers;
+  ConcretePerPacketState ingress_headers;
+  ConcretePerPacketState egress_headers;
   ConcreteTrace trace;  // Expected trace in the program.
 };
 
@@ -182,8 +177,8 @@ struct SymbolicContext {
   z3::expr egress_port;
   SymbolicPacket ingress_packet;
   SymbolicPacket egress_packet;
-  SymbolicHeaders ingress_headers;
-  SymbolicHeaders egress_headers;
+  SymbolicPerPacketState ingress_headers;
+  SymbolicPerPacketState egress_headers;
   SymbolicTrace trace;
 };
 

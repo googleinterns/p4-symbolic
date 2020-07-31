@@ -26,7 +26,7 @@ namespace symbolic {
 namespace packet {
 
 // Extract the packet fields from their p4 program counterparts.
-SymbolicPacket ExtractSymbolicPacket(SymbolicHeaders headers);
+SymbolicPacket ExtractSymbolicPacket(SymbolicPerPacketState state);
 
 // Extract a concrete packet by evaluating every field's corresponding
 // expression in the model.

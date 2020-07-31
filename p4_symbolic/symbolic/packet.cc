@@ -21,7 +21,7 @@ namespace p4_symbolic {
 namespace symbolic {
 namespace packet {
 
-SymbolicPacket ExtractSymbolicPacket(SymbolicHeaders headers) {
+SymbolicPacket ExtractSymbolicPacket(SymbolicPerPacketState state) {
   // TODO(babman): extract the packet fields from their metadata counterpart.
   return {
       Z3Context().bv_const("ingress_eth_src", 48),

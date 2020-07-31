@@ -168,7 +168,6 @@ gutil::StatusOr<SymbolicTrace> EvaluateTable(
   const std::string &table_name = table.table_definition().preamble().name();
 
   // TODO(babman): sort entries by priority.
-  // TODO(babman): compute table value.
   // The table semantically is just a bunch of if conditions, one per
   // table entry, we construct this big if-elseif-...-else symbolically.
   //
@@ -318,8 +317,7 @@ gutil::StatusOr<SymbolicTrace> EvaluateTable(
   }
 
   // Add this table's match to the trace, and return it.
-  SymbolicTableMatch table_match = {guard, match_index,
-                                    Z3Context().int_val(-1)};
+  SymbolicTableMatch table_match = {guard, match_index};
   result.matched_entries.insert({table_name, table_match});
   return result;
 }

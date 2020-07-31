@@ -84,8 +84,7 @@ gutil::StatusOr<std::unordered_map<std::string, z3::expr>> FreeSymbolicHeaders(
 SymbolicTableMatch DefaultTableMatch() {
   return {
       Z3Context().bool_val(false),  // No match yet!
-      Z3Context().int_val(-1),      // No match index.
-      Z3Context().int_val(-1)       // TODO(babman): bitvector.
+      Z3Context().int_val(-1)       // No match index.
   };
 }
 
@@ -101,11 +100,11 @@ ConcreteContext ExtractFromModel(SymbolicContext context, z3::model model) {
       packet::ExtractConcretePacket(context.egress_packet, model);
 
   // Extract the ingress and egress headers.
-  ConcreteHeaders ingress_headers;
+  ConcretePerPacketState ingress_headers;
   for (const auto &[name, expr] : context.ingress_headers) {
     ingress_headers[name] = model.eval(expr, true).to_string();
   }
-  ConcreteHeaders egress_headers;
+  ConcretePerPacketState egress_headers;
   for (const auto &[name, expr] : context.egress_headers) {
     egress_headers[name] = model.eval(expr, true).to_string();
   }
@@ -117,8 +116,7 @@ ConcreteContext ExtractFromModel(SymbolicContext context, z3::model model) {
   for (const auto &[table, match] : context.trace.matched_entries) {
     matches[table] = {
         Z3BooltoBool(model.eval(match.matched, true).bool_value()),
-        model.eval(match.entry_index, true).get_numeral_int(),
-        model.eval(match.value, true).to_string()};
+        model.eval(match.entry_index, true).get_numeral_int()};
   }
   ConcreteTrace trace = {matches, dropped};
 
@@ -151,9 +149,7 @@ gutil::StatusOr<SymbolicTrace> MergeTracesOnCondition(
     ASSIGN_OR_RETURN(z3::expr index,
                      operators::Ite(condition, true_match.entry_index,
                                     false_match.entry_index));
-    ASSIGN_OR_RETURN(z3::expr value, operators::Ite(condition, true_match.value,
-                                                    false_match.value));
-    merged.matched_entries.insert({name, {matched, index, value}});
+    merged.matched_entries.insert({name, {matched, index}});
   }
 
   // Merge all tables matches in false_trace only.
@@ -170,9 +166,7 @@ gutil::StatusOr<SymbolicTrace> MergeTracesOnCondition(
     ASSIGN_OR_RETURN(z3::expr index,
                      operators::Ite(condition, true_match.entry_index,
                                     false_match.entry_index));
-    ASSIGN_OR_RETURN(z3::expr value, operators::Ite(condition, true_match.value,
-                                                    false_match.value));
-    merged.matched_entries.insert({name, {matched, index, value}});
+    merged.matched_entries.insert({name, {matched, index}});
   }
 
   return merged;
