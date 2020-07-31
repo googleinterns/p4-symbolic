@@ -70,7 +70,7 @@ namespace control {
 // Evaluate the passed control construct.
 gutil::StatusOr<SymbolicTrace> EvaluateControl(const Dataplane &data_plane,
                                                const std::string &control_name,
-                                               SymbolicHeaders *headers,
+                                               SymbolicPerPacketState *state,
                                                const z3::expr &guard);
 
 }  // namespace control

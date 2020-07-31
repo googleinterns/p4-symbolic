@@ -28,10 +28,9 @@ namespace p4_symbolic {
 namespace symbolic {
 namespace conditional {
 
-gutil::StatusOr<SymbolicTrace> EvaluateConditional(const Dataplane data_plane,
-                                                   const ir::Conditional &table,
-                                                   SymbolicHeaders *headers,
-                                                   const z3::expr &guard);
+gutil::StatusOr<SymbolicTrace> EvaluateConditional(
+    const Dataplane data_plane, const ir::Conditional &table,
+    SymbolicPerPacketState *state, const z3::expr &guard);
 
 }  // namespace conditional
 }  // namespace symbolic

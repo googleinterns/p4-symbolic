@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Defines our GuardedMap class.
+// Defines our SymbolicGuardedMap class.
 
 #include "p4_symbolic/symbolic/guarded_map.h"
 
@@ -24,34 +24,33 @@
 namespace p4_symbolic {
 namespace symbolic {
 
-GuardedMap::GuardedMap(
+gutil::StatusOr<SymbolicGuardedMap>
+SymbolicGuardedMap::CreateSymbolicGuardedMap(
     const google::protobuf::Map<std::string, ir::HeaderType> &headers) {
-  gutil::StatusOr<std::unordered_map<std::string, z3::expr>> map_or_error =
-      util::FreeSymbolicHeaders(headers);
-  this->status_ = map_or_error.status();
-  if (map_or_error.ok()) {
-    this->map_ = map_or_error.value();
-  }
+  ASSIGN_OR_RETURN(auto map, util::FreeSymbolicHeaders(headers));
+  return SymbolicGuardedMap(map);
 }
 
-size_t GuardedMap::Count(const std::string &key) const {
-  return this->map_.count(key);
+bool SymbolicGuardedMap::ContainsKey(const std::string &key) const {
+  return this->map_.count(key) == 1;
 }
 
-gutil::StatusOr<z3::expr> GuardedMap::Get(const std::string &key) const {
-  if (this->Count(key) == 1) {
+gutil::StatusOr<z3::expr> SymbolicGuardedMap::Get(
+    const std::string &key) const {
+  if (this->ContainsKey(key)) {
     return this->map_.at(key);
   }
 
   return absl::InvalidArgumentError(
-      absl::StrCat("Cannot find key \"", key, "\" in GuardedMap!"));
+      absl::StrCat("Cannot find key \"", key, "\" in SymbolicGuardedMap!"));
 }
 
-absl::Status GuardedMap::Set(const std::string &key, const z3::expr &value,
-                             const z3::expr &guard) {
-  if (this->Count(key) != 1) {
-    return absl::InvalidArgumentError(
-        absl::StrCat("Cannot assign to key \"", key, "\" in GuardedMap!"));
+absl::Status SymbolicGuardedMap::Set(const std::string &key,
+                                     const z3::expr &value,
+                                     const z3::expr &guard) {
+  if (!this->ContainsKey(key)) {
+    return absl::InvalidArgumentError(absl::StrCat(
+        "Cannot assign to key \"", key, "\" in SymbolicGuardedMap!"));
   }
 
   z3::expr &old_value = this->map_.at(key);
@@ -67,7 +66,7 @@ absl::Status GuardedMap::Set(const std::string &key, const z3::expr &value,
       return absl::InvalidArgumentError(
           absl::StrFormat("Cannot assign to key \"%s\" a value whose bit size "
                           "%d is greater than the pre-defined bit size %d in "
-                          "GuardedMap!",
+                          "SymbolicGuardedMap!",
                           key, new_size, old_size));
     }
   }

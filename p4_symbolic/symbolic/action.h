@@ -41,7 +41,8 @@ namespace action {
 absl::Status EvaluateAction(const ir::Action &action,
                             const google::protobuf::RepeatedPtrField<
                                 pdpi::IrActionInvocation::IrActionParam> &args,
-                            SymbolicHeaders *headers, const z3::expr &guard);
+                            SymbolicPerPacketState *state,
+                            const z3::expr &guard);
 
 // Internal functions used to Evaluate statements and expressions within an
 // action body. These are internal functions not used beyond this header and its
@@ -56,50 +57,43 @@ struct ActionContext {
 // Performs a switch case over support statement types and call the
 // appropriate function.
 absl::Status EvaluateStatement(const ir::Statement &statement,
-                               SymbolicHeaders *headers, ActionContext *context,
-                               const z3::expr &guard);
+                               SymbolicPerPacketState *state,
+                               ActionContext *context, const z3::expr &guard);
 
 // Constructs a symbolic expression for the assignment value, and either
 // constrains it in an enclosing assignment expression, or stores it in
 // the action scope.
 absl::Status EvaluateAssignmentStatement(
-    const ir::AssignmentStatement &assignment, SymbolicHeaders *headers,
+    const ir::AssignmentStatement &assignment, SymbolicPerPacketState *state,
     ActionContext *context, const z3::expr &guard);
 
 // Constructs a symbolic expression corresponding to this value, according
 // to its type.
 gutil::StatusOr<z3::expr> EvaluateRValue(const ir::RValue &rvalue,
-                                         const SymbolicHeaders &headers,
-                                         ActionContext *context);
+                                         const SymbolicPerPacketState &state,
+                                         const ActionContext &context);
 
 // Extract the field symbolic value from the symbolic state.
-gutil::StatusOr<z3::expr> EvaluateFieldValue(const ir::FieldValue &field_value,
-                                             const SymbolicHeaders &headers,
-                                             ActionContext *context);
+gutil::StatusOr<z3::expr> EvaluateFieldValue(
+    const ir::FieldValue &field_value, const SymbolicPerPacketState &state,
+    const ActionContext &context);
 
 // Parse and format literal values as symbolic expression.
-gutil::StatusOr<z3::expr> EvaluateHexStr(const ir::HexstrValue &hexstr,
-                                         const SymbolicHeaders &headers,
-                                         ActionContext *context);
+gutil::StatusOr<z3::expr> EvaluateHexStr(const ir::HexstrValue &hexstr);
 
-gutil::StatusOr<z3::expr> EvaluateBool(const ir::BoolValue &bool_value,
-                                       const SymbolicHeaders &headers,
-                                       ActionContext *context);
+gutil::StatusOr<z3::expr> EvaluateBool(const ir::BoolValue &bool_value);
 
-gutil::StatusOr<z3::expr> EvaluateString(const ir::StringValue &string_value,
-                                         const SymbolicHeaders &headers,
-                                         ActionContext *context);
+gutil::StatusOr<z3::expr> EvaluateString(const ir::StringValue &string_value);
 
 // Looks up the symbolic value of the variable in the action scope.
 gutil::StatusOr<z3::expr> EvaluateVariable(const ir::Variable &variable,
-                                           const SymbolicHeaders &headers,
-                                           ActionContext *context);
+                                           const ActionContext &context);
 
 // Evaluate expression by recursively evaluating operands and applying the
 // symbolic version of the operator to them.
-gutil::StatusOr<z3::expr> EvaluateRExpression(const ir::RExpression &expr,
-                                              const SymbolicHeaders &headers,
-                                              ActionContext *context);
+gutil::StatusOr<z3::expr> EvaluateRExpression(
+    const ir::RExpression &expr, const SymbolicPerPacketState &state,
+    const ActionContext &context);
 
 }  // namespace action
 }  // namespace symbolic

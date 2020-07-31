@@ -18,6 +18,11 @@
 #ifndef P4_SYMBOLIC_SYMBOLIC_SYMBOLIC_H_
 #define P4_SYMBOLIC_SYMBOLIC_SYMBOLIC_H_
 
+// A reserved special value assigned to standard_metadata.egress_spec when
+// the packet is dropped.
+#define DROPPED_EGRESS_SPEC_VALUE "111111111"
+#define DROPPED_EGRESS_SPEC_LENGTH 9
+
 #include <memory>
 #include <optional>
 #include <string>
@@ -43,7 +48,7 @@ using ConcreteHeaders = std::unordered_map<std::string, std::string>;
 
 // The symbolic counterpart of ConcreteHeader.
 // Maps the name of a header field in the p4 program to its symbolic value.
-// This can be used to constrain p4 program fields.
+// This can be used to constrain p4 program fields inside assertions.
 // This is automatically constructred from the header type definitions
 // the p4 program has.
 // Assume the p4 program has a header instance named "standard_metadata" of type
@@ -51,7 +56,14 @@ using ConcreteHeaders = std::unordered_map<std::string, std::string>;
 // Then, we will have:
 //     SymbolicMetadata["standard_metadata.ingress_port"] =
 //         <symbolic bit vector of size 9>
-using SymbolicHeaders = GuardedMap;
+using SymbolicHeaders = SymbolicGuardedMap;
+
+// Specifies our internal evaluation "context/state".
+// This store the symbolic state of the packet as it is symbolically evaluated
+// with the input dataplane.
+// It is passed and mutated between the functions responsible for symbolically
+// evaluating the program.
+using SymbolicPerPacketState = SymbolicHeaders;
 
 // Expresses a concrete match for a corresponding concrete packet with a
 // table in the program.

@@ -39,26 +39,15 @@ gutil::StatusOr<std::unique_ptr<SolverState>> EvaluateP4Pipeline(
   // This is used to evaluate the P4 program.
   // Initially free/unconstrained and contains symbolic variables for
   // every header field.
-  SymbolicHeaders ingress_headers = GuardedMap(data_plane.program.headers());
-  SymbolicHeaders egress_headers(ingress_headers);
-  RETURN_IF_ERROR(ingress_headers.status());
+  ASSIGN_OR_RETURN(SymbolicPerPacketState ingress_headers,
+                   SymbolicGuardedMap::CreateSymbolicGuardedMap(
+                       data_plane.program.headers()));
+  SymbolicPerPacketState egress_headers(ingress_headers);
 
   ASSIGN_OR_RETURN(z3::expr ingress_port,
                    ingress_headers.Get("standard_metadata.ingress_port"));
   SymbolicPacket ingress_packet =
       packet::ExtractSymbolicPacket(ingress_headers);
-
-  // Restrict ports to the available physical ports.
-  z3::expr ingress_port_domain = Z3Context().bool_val(false);
-  unsigned int port_size = ingress_port.get_sort().bv_size();
-  for (int port : physical_ports) {
-    ASSIGN_OR_RETURN(
-        z3::expr port_eq,
-        operators::Eq(ingress_port, Z3Context().bv_val(port, port_size)));
-    ASSIGN_OR_RETURN(ingress_port_domain,
-                     operators::Or(ingress_port_domain, port_eq));
-  }
-  z3_solver->add(ingress_port_domain);
 
   // Evaluate the initial control, which will evaluate the next controls
   // internally and return the full symbolic trace.
@@ -66,18 +55,45 @@ gutil::StatusOr<std::unique_ptr<SolverState>> EvaluateP4Pipeline(
       SymbolicTrace trace,
       control::EvaluateControl(data_plane, data_plane.program.initial_control(),
                                &egress_headers, Z3Context().bool_val(true)));
-  ASSIGN_OR_RETURN(trace.dropped, egress_headers.Get("$dropped$"));
+
+  // Alias the event that the packet is dropped for ease of use in assertions.
+  z3::expr dropped_value =
+      Z3Context().bv_val(DROPPED_EGRESS_SPEC_VALUE, DROPPED_EGRESS_SPEC_LENGTH);
+  ASSIGN_OR_RETURN(trace.dropped,
+                   egress_headers.Get("standard_metadata.egress_spec"));
+  ASSIGN_OR_RETURN(trace.dropped, operators::Eq(trace.dropped, dropped_value));
 
   // Construct a symbolic context, containing state and trace information
   // from evaluating the tables.
   ASSIGN_OR_RETURN(z3::expr egress_port,
                    egress_headers.Get("standard_metadata.egress_spec"));
+
+  // Restrict ports to the available physical ports.
+  z3::expr ingress_port_domain = Z3Context().bool_val(false);
+  z3::expr egress_port_domain = trace.dropped;
+  unsigned int port_size = ingress_port.get_sort().bv_size();
+  for (int port : physical_ports) {
+    ASSIGN_OR_RETURN(
+        z3::expr ingress_port_eq,
+        operators::Eq(ingress_port, Z3Context().bv_val(port, port_size)));
+    ASSIGN_OR_RETURN(
+        z3::expr egress_port_eq,
+        operators::Eq(egress_port, Z3Context().bv_val(port, port_size)));
+
+    ASSIGN_OR_RETURN(ingress_port_domain,
+                     operators::Or(ingress_port_domain, ingress_port_eq));
+    ASSIGN_OR_RETURN(egress_port_domain,
+                     operators::Or(egress_port_domain, egress_port_eq));
+  }
+  z3_solver->add(ingress_port_domain);
+  z3_solver->add(egress_port_domain);
+
+  // Construct solver state for this program.
   SymbolicPacket egress_packet = packet::ExtractSymbolicPacket(egress_headers);
   SymbolicContext symbolic_context = {
       ingress_port,    egress_port,    ingress_packet, egress_packet,
       ingress_headers, egress_headers, trace};
 
-  // Construct solver state for this program.
   return std::make_unique<SolverState>(data_plane.program, data_plane.entries,
                                        symbolic_context, std::move(z3_solver));
 }

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Defines our GuardedMap class.
+// Defines our SymbolicGuardedMap class.
 
 #ifndef P4_SYMBOLIC_SYMBOLIC_GUARDED_MAP_H_
 #define P4_SYMBOLIC_SYMBOLIC_GUARDED_MAP_H_
@@ -29,55 +29,42 @@
 namespace p4_symbolic {
 namespace symbolic {
 
-// The GuardedMap class wraps around an internal std::unordered_map instance,
+// This class wraps around an internal std::unordered_map instance,
 // while enforcing the following:
-// 1. The GuardedMap class can only be instantiated with an instance of the IR
-//    header definitions. The resulting GuardedMap instance will be initialized
+// 1. This class can only be instantiated with an instance of the IR
+//    header definitions. The resulting instance will be initialized
 //    to have exactly the same keys as the fields defined in those header
 //    definitions. These keys are initially mapped to free symbolic variables,
 //    with the same sort (including bitsize) described in the definitions.
-// 2. The GuardedMap class is not copyable or movable, it can only be passed by
-//    pointer or reference.
-// 4. The GuardedMap class supports a const reference .get(<key>), which returns
+// 2. This class supports a const reference .Get(<key>), which returns
 //    an absl error if the key is not found in the map.
-// 5. The GuardedMap class allows mutation via .set(<key>, <value>, <guard>),
-//    which sets the value of the key to z3::ite(<guard>, <value>, <old value>),
+// 3. This class allows mutation via .Set(<key>, <value>, <guard>), which
+//    sets the value of the key to z3::ite(<guard>, <value>, <old value>),
 //    after checking that the sort of <value> matches the sort of <old value>
 //    modulo padding.
 //
 // As such, this class provides the following safety properties:
 // 1. Once initialized, the class has a fixed set of keys.
-// 2. A value mapped by a key allows has the same sort.
+// 2. A value mapped by a key always has the same sort.
 // 3. A value can only be assigned to a key given a guard.
 //
-class GuardedMap {
- private:
-  // The underlying map storing the keys and their values.
-  std::unordered_map<std::string, z3::expr> map_;
-  absl::Status status_;
-
-  // Private empty constructor.
-  GuardedMap() {}
-
+class SymbolicGuardedMap {
  public:
   // Constructor requires passing the headers definition and will fill the map
   // with a free symbolic variable per header field.
-  explicit GuardedMap(
+  static gutil::StatusOr<SymbolicGuardedMap> CreateSymbolicGuardedMap(
       const google::protobuf::Map<std::string, ir::HeaderType> &headers);
 
-  // Accessors
-  absl::Status status() { return this->status_; }
+  // Explicitly copyable and movable!
+  SymbolicGuardedMap(const SymbolicGuardedMap &other) = default;
+  SymbolicGuardedMap(SymbolicGuardedMap &&other) = default;
 
-  // Only explicitly copyable!
-  GuardedMap(const GuardedMap &other) = default;
-
-  // Not movable, not assignable.
-  GuardedMap(GuardedMap &&other) = delete;
-  GuardedMap &operator=(const GuardedMap &other) = delete;
-  GuardedMap &operator=(GuardedMap &&other) = delete;
+  // Not assignable.
+  SymbolicGuardedMap &operator=(const SymbolicGuardedMap &other) = delete;
+  SymbolicGuardedMap &operator=(SymbolicGuardedMap &&other) = delete;
 
   // Getters.
-  size_t Count(const std::string &key) const;
+  bool ContainsKey(const std::string &key) const;
   gutil::StatusOr<z3::expr> Get(const std::string &key) const;
 
   // Guarded setter.
@@ -91,6 +78,14 @@ class GuardedMap {
       std::unordered_map<std::string, z3::expr>::const_iterator;
   const_iterator begin() const noexcept { return this->map_.cbegin(); }
   const_iterator end() const noexcept { return this->map_.cend(); }
+
+ private:
+  // The underlying map storing the keys and their values.
+  std::unordered_map<std::string, z3::expr> map_;
+
+  // Private constructor used by factory.
+  explicit SymbolicGuardedMap(std::unordered_map<std::string, z3::expr> map)
+      : map_(map) {}
 };
 
 }  // namespace symbolic

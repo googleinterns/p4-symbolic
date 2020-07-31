@@ -28,12 +28,12 @@ namespace conditional {
 
 gutil::StatusOr<SymbolicTrace> EvaluateConditional(
     const Dataplane data_plane, const ir::Conditional &conditional,
-    SymbolicHeaders *headers, const z3::expr &guard) {
+    SymbolicPerPacketState *state, const z3::expr &guard) {
   // Evaluate the condition.
   action::ActionContext fake_context = {conditional.name(), {}};
   ASSIGN_OR_RETURN(
       z3::expr condition,
-      action::EvaluateRValue(conditional.condition(), *headers, &fake_context));
+      action::EvaluateRValue(conditional.condition(), *state, fake_context));
   ASSIGN_OR_RETURN(z3::expr negated_condition, operators::Not(condition));
 
   // Build new guards for each branch.
@@ -44,14 +44,14 @@ gutil::StatusOr<SymbolicTrace> EvaluateConditional(
   // Evaluate both branches.
   ASSIGN_OR_RETURN(SymbolicTrace if_trace,
                    control::EvaluateControl(data_plane, conditional.if_branch(),
-                                            headers, if_guard));
+                                            state, if_guard));
   ASSIGN_OR_RETURN(
       SymbolicTrace else_trace,
-      control::EvaluateControl(data_plane, conditional.else_branch(), headers,
+      control::EvaluateControl(data_plane, conditional.else_branch(), state,
                                else_guard));
 
-  // Now we have two headers and traces that need mergine.
-  // We should merge in a way such that the value of a header or trace is
+  // Now we have two traces that need merging.
+  // We should merge in a way such that the value of a field in the trace is
   // the one from the if branch if the condition is true, and the else branch
   // otherwise.
   return util::MergeTracesOnCondition(condition, if_trace, else_trace);

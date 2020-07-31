@@ -84,7 +84,7 @@ gutil::StatusOr<z3::expr> EvaluateSingleMatch(
 // is matched on.
 gutil::StatusOr<z3::expr> EvaluateTableEntryCondition(
     const ir::Table &table, const pdpi::IrTableEntry &entry,
-    const SymbolicHeaders &headers) {
+    const SymbolicPerPacketState &state) {
   // Make sure number of match keys is the same in the table definition and
   // table entry.
   const std::string &table_name = table.table_definition().preamble().name();
@@ -128,7 +128,7 @@ gutil::StatusOr<z3::expr> EvaluateTableEntryCondition(
     action::ActionContext fake_context = {table_name, {}};
     ASSIGN_OR_RETURN(
         z3::expr match_field_expr,
-        action::EvaluateFieldValue(match_field, headers, &fake_context));
+        action::EvaluateFieldValue(match_field, state, fake_context));
     ASSIGN_OR_RETURN(
         z3::expr match_expression,
         EvaluateSingleMatch(match_definition, match_field_expr, match));
@@ -144,7 +144,7 @@ gutil::StatusOr<z3::expr> EvaluateTableEntryCondition(
 absl::Status EvaluateTableEntryAction(
     const ir::Table &table, const pdpi::IrTableEntry &entry,
     const google::protobuf::Map<std::string, ir::Action> &actions,
-    SymbolicHeaders *headers, const z3::expr &guard) {
+    SymbolicPerPacketState *state, const z3::expr &guard) {
   // Check that the action invoked by entry exists.
   const std::string &table_name = table.table_definition().preamble().name();
   const std::string &action_name = entry.action().name();
@@ -156,16 +156,15 @@ absl::Status EvaluateTableEntryAction(
 
   // Instantiate the action's symbolic expression with the entry values.
   const ir::Action &action = actions.at(action_name);
-  return action::EvaluateAction(action, entry.action().params(), headers,
-                                guard);
+  return action::EvaluateAction(action, entry.action().params(), state, guard);
 }
 
 }  // namespace
 
 gutil::StatusOr<SymbolicTrace> EvaluateTable(
     const Dataplane data_plane, const ir::Table &table,
-    const std::vector<pdpi::IrTableEntry> &entries, SymbolicHeaders *headers,
-    const z3::expr &guard) {
+    const std::vector<pdpi::IrTableEntry> &entries,
+    SymbolicPerPacketState *state, const z3::expr &guard) {
   const std::string &table_name = table.table_definition().preamble().name();
 
   // TODO(babman): sort entries by priority.
@@ -210,10 +209,10 @@ gutil::StatusOr<SymbolicTrace> EvaluateTable(
   // Find all entries match conditions.
   std::vector<z3::expr> entries_matches;
   for (const pdpi::IrTableEntry &entry : entries) {
-    // We are passsing headers by const reference here, so we do not need
+    // We are passsing state by const reference here, so we do not need
     // any guard yet.
     ASSIGN_OR_RETURN(z3::expr entry_match,
-                     EvaluateTableEntryCondition(table, entry, *headers));
+                     EvaluateTableEntryCondition(table, entry, *state));
     entries_matches.push_back(entry_match);
   }
 
@@ -254,9 +253,9 @@ gutil::StatusOr<SymbolicTrace> EvaluateTable(
 
   // Start with the default entry
   z3::expr match_index = Z3Context().int_val(-1);
-  RETURN_IF_ERROR(EvaluateTableEntryAction(
-      table, default_entry, data_plane.program.actions(), headers,
-      default_entry_assignment_guard));
+  RETURN_IF_ERROR(EvaluateTableEntryAction(table, default_entry,
+                                           data_plane.program.actions(), state,
+                                           default_entry_assignment_guard));
 
   // Continue evaluating each table entry in reverse priority
   for (int row = entries.size() - 1; row >= 0; row--) {
@@ -273,11 +272,11 @@ gutil::StatusOr<SymbolicTrace> EvaluateTable(
     z3::expr entry_assignment_guard = assignment_guards.at(row);
     RETURN_IF_ERROR(EvaluateTableEntryAction(table, entry,
                                              data_plane.program.actions(),
-                                             headers, entry_assignment_guard));
+                                             state, entry_assignment_guard));
   }
 
   // This table has been completely evaluated, the result of the evaluation
-  // is now in "headers" and "match_index".
+  // is now in "state" and "match_index".
   // Time to evaluate the next control construct.
   std::string next_control;
 
@@ -309,7 +308,7 @@ gutil::StatusOr<SymbolicTrace> EvaluateTable(
   // Evaluate the next control.
   ASSIGN_OR_RETURN(
       SymbolicTrace result,
-      control::EvaluateControl(data_plane, next_control, headers, guard));
+      control::EvaluateControl(data_plane, next_control, state, guard));
 
   // The trace should not contain information for this table, otherwise, it
   // means we visisted the table twice in the same execution path!

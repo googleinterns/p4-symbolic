@@ -25,16 +25,22 @@ namespace symbolic {
 namespace action {
 
 absl::Status EvaluateStatement(const ir::Statement &statement,
-                               SymbolicHeaders *headers, ActionContext *context,
-                               const z3::expr &guard) {
+                               SymbolicPerPacketState *state,
+                               ActionContext *context, const z3::expr &guard) {
   switch (statement.statement_case()) {
     case ir::Statement::kAssignment: {
-      return EvaluateAssignmentStatement(statement.assignment(), headers,
-                                         context, guard);
+      return EvaluateAssignmentStatement(statement.assignment(), state, context,
+                                         guard);
     }
     case ir::Statement::kDrop: {
-      RETURN_IF_ERROR(
-          headers->Set("$dropped$", Z3Context().bool_val(true), guard));
+      // https://github.com/p4lang/p4c/blob/7ee76d16da63883c5092ab0c28321f04c2646759/p4include/v1model.p4#L435
+      const std::string &header_name = statement.drop().header().header_name();
+      z3::expr dropped_value = Z3Context().bv_val(DROPPED_EGRESS_SPEC_VALUE,
+                                                  DROPPED_EGRESS_SPEC_LENGTH);
+      RETURN_IF_ERROR(state->Set(absl::StrFormat("%s.egress_spec", header_name),
+                                 dropped_value, guard));
+      RETURN_IF_ERROR(state->Set(absl::StrFormat("%s.mcast_grp", header_name),
+                                 Z3Context().bv_val(0, 1), guard));
       return absl::OkStatus();
     }
     default:
@@ -48,24 +54,24 @@ absl::Status EvaluateStatement(const ir::Statement &statement,
 // constrains it in an enclosing assignment expression, or stores it in
 // the action scope.
 absl::Status EvaluateAssignmentStatement(
-    const ir::AssignmentStatement &assignment, SymbolicHeaders *headers,
+    const ir::AssignmentStatement &assignment, SymbolicPerPacketState *state,
     ActionContext *context, const z3::expr &guard) {
   // Evaluate RValue recursively, evaluate LValue in this function, then
   // assign RValue to the scope at LValue.
   ASSIGN_OR_RETURN(z3::expr right,
-                   EvaluateRValue(assignment.right(), *headers, context));
+                   EvaluateRValue(assignment.right(), *state, *context));
 
   switch (assignment.left().lvalue_case()) {
     case ir::LValue::kFieldValue: {
       const ir::FieldValue &field_value = assignment.left().field_value();
       std::string field_name = absl::StrFormat(
           "%s.%s", field_value.header_name(), field_value.field_name());
-      if (headers->Count(field_name) != 1) {
+      if (!state->ContainsKey(field_name)) {
         return absl::UnimplementedError(absl::StrCat(
             "Action ", context->action_name, " refers to unknown header field ",
             field_value.DebugString()));
       }
-      RETURN_IF_ERROR(headers->Set(field_name, right, guard));
+      RETURN_IF_ERROR(state->Set(field_name, right, guard));
       return absl::OkStatus();
     }
 
@@ -85,53 +91,51 @@ absl::Status EvaluateAssignmentStatement(
 // Constructs a symbolic expression corresponding to this value, according
 // to its type.
 gutil::StatusOr<z3::expr> EvaluateRValue(const ir::RValue &rvalue,
-                                         const SymbolicHeaders &headers,
-                                         ActionContext *context) {
+                                         const SymbolicPerPacketState &state,
+                                         const ActionContext &context) {
   switch (rvalue.rvalue_case()) {
     case ir::RValue::kFieldValue:
-      return EvaluateFieldValue(rvalue.field_value(), headers, context);
+      return EvaluateFieldValue(rvalue.field_value(), state, context);
 
     case ir::RValue::kHexstrValue:
-      return EvaluateHexStr(rvalue.hexstr_value(), headers, context);
+      return EvaluateHexStr(rvalue.hexstr_value());
 
     case ir::RValue::kBoolValue:
-      return EvaluateBool(rvalue.bool_value(), headers, context);
+      return EvaluateBool(rvalue.bool_value());
 
     case ir::RValue::kStringValue:
-      return EvaluateString(rvalue.string_value(), headers, context);
+      return EvaluateString(rvalue.string_value());
 
     case ir::RValue::kVariableValue:
-      return EvaluateVariable(rvalue.variable_value(), headers, context);
+      return EvaluateVariable(rvalue.variable_value(), context);
 
     case ir::RValue::kExpressionValue:
-      return EvaluateRExpression(rvalue.expression_value(), headers, context);
+      return EvaluateRExpression(rvalue.expression_value(), state, context);
 
     default:
       return absl::UnimplementedError(
-          absl::StrCat("Action ", context->action_name,
+          absl::StrCat("Action ", context.action_name,
                        " contains unsupported RValue ", rvalue.DebugString()));
   }
 }
 
-// Extract the field symbolic value from the symbolic headers.
-gutil::StatusOr<z3::expr> EvaluateFieldValue(const ir::FieldValue &field_value,
-                                             const SymbolicHeaders &headers,
-                                             ActionContext *context) {
+// Extract the field symbolic value from the symbolic state.
+gutil::StatusOr<z3::expr> EvaluateFieldValue(
+    const ir::FieldValue &field_value, const SymbolicPerPacketState &state,
+    const ActionContext &context) {
   std::string field_name = absl::StrFormat("%s.%s", field_value.header_name(),
                                            field_value.field_name());
-  if (headers.Count(field_name) != 1) {
+  if (!state.ContainsKey(field_name)) {
     return absl::UnimplementedError(absl::StrCat(
-        "Action ", context->action_name, " refers to unknown header field ",
+        "Action ", context.action_name, " refers to unknown header field ",
         field_value.DebugString()));
   }
 
-  return headers.Get(field_name);
+  return state.Get(field_name);
 }
 
 // Turns bmv2 values to Symbolic Expressions.
-gutil::StatusOr<z3::expr> EvaluateHexStr(const ir::HexstrValue &hexstr,
-                                         const SymbolicHeaders &headers,
-                                         ActionContext *context) {
+gutil::StatusOr<z3::expr> EvaluateHexStr(const ir::HexstrValue &hexstr) {
   if (hexstr.negative()) {
     return absl::UnimplementedError(
         "Negative hex string values are not supported!");
@@ -142,44 +146,39 @@ gutil::StatusOr<z3::expr> EvaluateHexStr(const ir::HexstrValue &hexstr,
   return util::IrValueToZ3Expr(parsed_value);
 }
 
-gutil::StatusOr<z3::expr> EvaluateBool(const ir::BoolValue &bool_value,
-                                       const SymbolicHeaders &headers,
-                                       ActionContext *context) {
+gutil::StatusOr<z3::expr> EvaluateBool(const ir::BoolValue &bool_value) {
   return Z3Context().bool_val(bool_value.value());
 }
 
-gutil::StatusOr<z3::expr> EvaluateString(const ir::StringValue &string_value,
-                                         const SymbolicHeaders &headers,
-                                         ActionContext *context) {
+gutil::StatusOr<z3::expr> EvaluateString(const ir::StringValue &string_value) {
   return Z3Context().string_val(string_value.value().c_str());
 }
 
 // Looks up the symbolic value of the variable in the action scope.
 gutil::StatusOr<z3::expr> EvaluateVariable(const ir::Variable &variable,
-                                           const SymbolicHeaders &headers,
-                                           ActionContext *context) {
+                                           const ActionContext &context) {
   std::string variable_name = variable.name();
-  if (context->scope.count(variable_name) != 1) {
+  if (context.scope.count(variable_name) != 1) {
     return absl::InvalidArgumentError(
-        absl::StrCat("Action ", context->action_name,
+        absl::StrCat("Action ", context.action_name,
                      " refers to undefined variable ", variable_name));
   }
 
-  return context->scope.at(variable_name);
+  return context.scope.at(variable_name);
 }
 
 // Recursively evaluate expressions.
-gutil::StatusOr<z3::expr> EvaluateRExpression(const ir::RExpression &expr,
-                                              const SymbolicHeaders &headers,
-                                              ActionContext *context) {
+gutil::StatusOr<z3::expr> EvaluateRExpression(
+    const ir::RExpression &expr, const SymbolicPerPacketState &state,
+    const ActionContext &context) {
   // TODO(babman): support remaining expressions.
   switch (expr.expression_case()) {
     case ir::RExpression::kBinaryExpression: {
       ir::BinaryExpression bin_expr = expr.binary_expression();
       ASSIGN_OR_RETURN(z3::expr left,
-                       EvaluateRValue(bin_expr.left(), headers, context));
+                       EvaluateRValue(bin_expr.left(), state, context));
       ASSIGN_OR_RETURN(z3::expr right,
-                       EvaluateRValue(bin_expr.right(), headers, context));
+                       EvaluateRValue(bin_expr.right(), state, context));
       switch (bin_expr.operation()) {
         case ir::BinaryExpression::PLUS:
           return operators::Plus(left, right);
@@ -215,7 +214,7 @@ gutil::StatusOr<z3::expr> EvaluateRExpression(const ir::RExpression &expr,
           return operators::BitXor(left, right);
         default:
           return absl::UnimplementedError(
-              absl::StrCat("Action ", context->action_name,
+              absl::StrCat("Action ", context.action_name,
                            " contains unsupported BinaryExpression ",
                            bin_expr.DebugString()));
       }
@@ -225,7 +224,7 @@ gutil::StatusOr<z3::expr> EvaluateRExpression(const ir::RExpression &expr,
     case ir::RExpression::kUnaryExpression: {
       ir::UnaryExpression un_expr = expr.unary_expression();
       ASSIGN_OR_RETURN(z3::expr operand,
-                       EvaluateRValue(un_expr.operand(), headers, context));
+                       EvaluateRValue(un_expr.operand(), state, context));
       switch (un_expr.operation()) {
         case ir::UnaryExpression::NOT:
           return operators::Not(operand);
@@ -233,7 +232,7 @@ gutil::StatusOr<z3::expr> EvaluateRExpression(const ir::RExpression &expr,
           return operators::BitNeg(operand);
         default:
           return absl::UnimplementedError(absl::StrCat(
-              "Action ", context->action_name,
+              "Action ", context.action_name,
               " contains unsupported UnaryExpression ", un_expr.DebugString()));
       }
       break;
@@ -242,11 +241,11 @@ gutil::StatusOr<z3::expr> EvaluateRExpression(const ir::RExpression &expr,
     case ir::RExpression::kTernaryExpression: {
       ir::TernaryExpression tern_expr = expr.ternary_expression();
       ASSIGN_OR_RETURN(z3::expr condition,
-                       EvaluateRValue(tern_expr.condition(), headers, context));
+                       EvaluateRValue(tern_expr.condition(), state, context));
       ASSIGN_OR_RETURN(z3::expr left,
-                       EvaluateRValue(tern_expr.left(), headers, context));
+                       EvaluateRValue(tern_expr.left(), state, context));
       ASSIGN_OR_RETURN(z3::expr right,
-                       EvaluateRValue(tern_expr.right(), headers, context));
+                       EvaluateRValue(tern_expr.right(), state, context));
       return operators::Ite(condition, left, right);
     }
 
@@ -256,7 +255,7 @@ gutil::StatusOr<z3::expr> EvaluateRExpression(const ir::RExpression &expr,
       std::vector<z3::expr> args;
       for (const auto &arg_value : builtin_expr.arguments()) {
         ASSIGN_OR_RETURN(z3::expr arg,
-                         EvaluateRValue(arg_value, headers, context));
+                         EvaluateRValue(arg_value, state, context));
         args.push_back(arg);
       }
 
@@ -267,7 +266,7 @@ gutil::StatusOr<z3::expr> EvaluateRExpression(const ir::RExpression &expr,
           return operators::ToBitVectorSort(args.at(0), 1);
         default:
           return absl::UnimplementedError(
-              absl::StrCat("Action ", context->action_name,
+              absl::StrCat("Action ", context.action_name,
                            " contains unsupported BuiltinExpression ",
                            builtin_expr.DebugString()));
       }
@@ -275,7 +274,7 @@ gutil::StatusOr<z3::expr> EvaluateRExpression(const ir::RExpression &expr,
 
     default:
       return absl::UnimplementedError(absl::StrCat(
-          "Action ", context->action_name, " contains unsupported RExpression ",
+          "Action ", context.action_name, " contains unsupported RExpression ",
           expr.DebugString()));
   }
 }
@@ -287,7 +286,8 @@ gutil::StatusOr<z3::expr> EvaluateRExpression(const ir::RExpression &expr,
 absl::Status EvaluateAction(const ir::Action &action,
                             const google::protobuf::RepeatedPtrField<
                                 pdpi::IrActionInvocation::IrActionParam> &args,
-                            SymbolicHeaders *headers, const z3::expr &guard) {
+                            SymbolicPerPacketState *state,
+                            const z3::expr &guard) {
   // Construct this action's context.
   ActionContext context;
   context.action_name = action.action_definition().preamble().name();
@@ -313,7 +313,7 @@ absl::Status EvaluateAction(const ir::Action &action,
 
   // Iterate over the body in order, and evaluate each statement.
   for (const auto &statement : action.action_implementation().action_body()) {
-    RETURN_IF_ERROR(EvaluateStatement(statement, headers, &context, guard));
+    RETURN_IF_ERROR(EvaluateStatement(statement, state, &context, guard));
   }
 
   return absl::OkStatus();
