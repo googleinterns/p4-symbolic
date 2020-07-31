@@ -171,7 +171,6 @@ gutil::StatusOr<z3::expr> EvaluateVariable(const ir::Variable &variable,
 gutil::StatusOr<z3::expr> EvaluateRExpression(
     const ir::RExpression &expr, const SymbolicPerPacketState &state,
     const ActionContext &context) {
-  // TODO(babman): support remaining expressions.
   switch (expr.expression_case()) {
     case ir::RExpression::kBinaryExpression: {
       ir::BinaryExpression bin_expr = expr.binary_expression();
