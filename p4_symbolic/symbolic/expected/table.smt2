@@ -5,10 +5,11 @@
  (let (($x46 (= standard_metadata.ingress_port (_ bv1 9))))
  (or (or false (= standard_metadata.ingress_port (_ bv0 9))) $x46)))
 (assert
- (let (($x72 (and true (and true (= standard_metadata.ingress_port (concat (_ bv0 8) (_ bv1 1)))))))
- (let (($x82 (and (and true (not $x72)) (and true (= standard_metadata.ingress_port (concat (_ bv0 8) (_ bv0 1)))))))
- (let ((?x86 (ite $x82 0 (ite $x72 1 (- 1)))))
- (and (and (not false) (or (or true $x72) $x82)) (= ?x86 (- 1)))))))
+ (let (($x73 (and true (= standard_metadata.ingress_port (concat (_ bv0 8) (_ bv1 1))))))
+ (let (($x70 (and true (= standard_metadata.ingress_port (concat (_ bv0 8) (_ bv0 1))))))
+ (let (($x74 (and true $x70)))
+ (let ((?x87 (ite $x74 0 (ite (and true $x73) 1 (- 1)))))
+ (and (and (not false) true) (= ?x87 (- 1))))))))
 (check-sat)
 
 ; 
@@ -18,12 +19,12 @@
  (let (($x46 (= standard_metadata.ingress_port (_ bv1 9))))
  (or (or false (= standard_metadata.ingress_port (_ bv0 9))) $x46)))
 (assert
- (let (($x72 (and true (and true (= standard_metadata.ingress_port (concat (_ bv0 8) (_ bv1 1)))))))
- (let (($x82 (and (and true (not $x72)) (and true (= standard_metadata.ingress_port (concat (_ bv0 8) (_ bv0 1)))))))
- (let ((?x86 (ite $x82 0 (ite $x72 1 (- 1)))))
- (let (($x84 (or (or true $x72) $x82)))
- (let (($x98 (and (not false) $x84)))
- (and $x98 (= ?x86 0))))))))
+ (let (($x73 (and true (= standard_metadata.ingress_port (concat (_ bv0 8) (_ bv1 1))))))
+ (let (($x70 (and true (= standard_metadata.ingress_port (concat (_ bv0 8) (_ bv0 1))))))
+ (let (($x74 (and true $x70)))
+ (let ((?x87 (ite $x74 0 (ite (and true $x73) 1 (- 1)))))
+ (let (($x97 (and (not false) true)))
+ (and $x97 (= ?x87 0))))))))
 (check-sat)
 
 ; 
@@ -33,9 +34,10 @@
  (let (($x46 (= standard_metadata.ingress_port (_ bv1 9))))
  (or (or false (= standard_metadata.ingress_port (_ bv0 9))) $x46)))
 (assert
- (let (($x72 (and true (and true (= standard_metadata.ingress_port (concat (_ bv0 8) (_ bv1 1)))))))
- (let (($x82 (and (and true (not $x72)) (and true (= standard_metadata.ingress_port (concat (_ bv0 8) (_ bv0 1)))))))
- (let ((?x86 (ite $x82 0 (ite $x72 1 (- 1)))))
- (and (and (not false) (or (or true $x72) $x82)) (= ?x86 1))))))
+ (let (($x73 (and true (= standard_metadata.ingress_port (concat (_ bv0 8) (_ bv1 1))))))
+ (let (($x70 (and true (= standard_metadata.ingress_port (concat (_ bv0 8) (_ bv0 1))))))
+ (let (($x74 (and true $x70)))
+ (let ((?x87 (ite $x74 0 (ite (and true $x73) 1 (- 1)))))
+ (and (and (not false) true) (= ?x87 1)))))))
 (check-sat)
 

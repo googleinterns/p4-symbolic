@@ -54,7 +54,7 @@ gutil::StatusOr<SymbolicTrace> EvaluateConditional(
   // We should merge in a way such that the value of a header or trace is
   // the one from the if branch if the condition is true, and the else branch
   // otherwise.
-  return util::MergeTracesOnCondition(else_trace, if_trace, condition);
+  return util::MergeTracesOnCondition(condition, if_trace, else_trace);
 }
 
 }  // namespace conditional

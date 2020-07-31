@@ -35,8 +35,6 @@ namespace p4_symbolic {
 namespace symbolic {
 namespace table {
 
-SymbolicTableMatch EmptyTableMatch(const ir::Table &table);
-
 gutil::StatusOr<SymbolicTrace> EvaluateTable(
     const Dataplane data_plane, const ir::Table &table,
     const std::vector<pdpi::IrTableEntry> &entries, SymbolicHeaders *headers,

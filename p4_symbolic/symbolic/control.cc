@@ -32,25 +32,13 @@ namespace p4_symbolic {
 namespace symbolic {
 namespace control {
 
-namespace {
-
-SymbolicTrace EmptyTrace(const Dataplane &data_plane) {
-  SymbolicTrace empty_trace = {{}, Z3Context().bool_val(false)};
-  for (const auto &[name, table] : data_plane.program.tables()) {
-    empty_trace.matched_entries.insert({name, table::EmptyTableMatch(table)});
-  }
-  return empty_trace;
-}
-
-}  // namespace
-
 gutil::StatusOr<SymbolicTrace> EvaluateControl(const Dataplane &data_plane,
                                                const std::string &control_name,
                                                SymbolicHeaders *headers,
                                                const z3::expr &guard) {
   // Base case: we got to the end of the evaluation, no more controls!
   if (control_name.empty()) {
-    return EmptyTrace(data_plane);
+    return SymbolicTrace{{}, Z3Context().bool_val(false)};
   }
 
   // Find out what type of control we need to evaluate.

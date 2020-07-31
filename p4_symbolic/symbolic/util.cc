@@ -81,6 +81,14 @@ gutil::StatusOr<std::unordered_map<std::string, z3::expr>> FreeSymbolicHeaders(
   return symbolic_headers;
 }
 
+SymbolicTableMatch DefaultTableMatch() {
+  return {
+      Z3Context().bool_val(false),  // No match yet!
+      Z3Context().int_val(-1),      // No match index.
+      Z3Context().int_val(-1)       // TODO(babman): bitvector.
+  };
+}
+
 ConcreteContext ExtractFromModel(SymbolicContext context, z3::model model) {
   // Extract ports.
   std::string ingress_port = model.eval(context.ingress_port, true).to_string();
@@ -119,29 +127,54 @@ ConcreteContext ExtractFromModel(SymbolicContext context, z3::model model) {
 }
 
 gutil::StatusOr<SymbolicTrace> MergeTracesOnCondition(
-    const SymbolicTrace &original, const SymbolicTrace &changed,
-    const z3::expr &condition) {
-  SymbolicTrace merged = {{}, Z3Context().bool_val(false)};
-  ASSIGN_OR_RETURN(merged.dropped, operators::Ite(condition, changed.dropped,
-                                                  original.dropped));
-  for (const auto &[name, changed_match] : changed.matched_entries) {
-    // SymbolicTraces have the same set of tables always, similar to
-    // SymbolicHeaders, accessing with .at() is safe here.
-    const auto &original_match = original.matched_entries.at(name);
+    const z3::expr &condition, const SymbolicTrace &true_trace,
+    const SymbolicTrace &false_trace) {
+  ASSIGN_OR_RETURN(
+      z3::expr merged_dropped,
+      operators::Ite(condition, true_trace.dropped, false_trace.dropped));
 
-    ASSIGN_OR_RETURN(z3::expr merged_matched,
-                     operators::Ite(condition, changed_match.matched,
-                                    original_match.matched));
-    ASSIGN_OR_RETURN(z3::expr merged_index,
-                     operators::Ite(condition, changed_match.entry_index,
-                                    original_match.entry_index));
+  // The merged trace is initially empty.
+  SymbolicTrace merged = {{}, merged_dropped};
+
+  // Merge all tables matches in true_trace (including ones in both traces).
+  for (const auto &[name, true_match] : true_trace.matched_entries) {
+    // Find match in other trace (or use default).
+    SymbolicTableMatch false_match = DefaultTableMatch();
+    if (false_trace.matched_entries.count(name) > 0) {
+      false_match = false_trace.matched_entries.at(name);
+    }
+
+    // Merge this match.
     ASSIGN_OR_RETURN(
-        z3::expr merged_value,
-        operators::Ite(condition, changed_match.value, original_match.value));
-    SymbolicTableMatch merged_match = {merged_matched, merged_index,
-                                       merged_value};
-    merged.matched_entries.insert({name, merged_match});
+        z3::expr matched,
+        operators::Ite(condition, true_match.matched, false_match.matched));
+    ASSIGN_OR_RETURN(z3::expr index,
+                     operators::Ite(condition, true_match.entry_index,
+                                    false_match.entry_index));
+    ASSIGN_OR_RETURN(z3::expr value, operators::Ite(condition, true_match.value,
+                                                    false_match.value));
+    merged.matched_entries.insert({name, {matched, index, value}});
   }
+
+  // Merge all tables matches in false_trace only.
+  for (const auto &[name, false_match] : false_trace.matched_entries) {
+    SymbolicTableMatch true_match = DefaultTableMatch();
+    if (true_trace.matched_entries.count(name) > 0) {
+      continue;  // Already covered.
+    }
+
+    // Merge this match.
+    ASSIGN_OR_RETURN(
+        z3::expr matched,
+        operators::Ite(condition, true_match.matched, false_match.matched));
+    ASSIGN_OR_RETURN(z3::expr index,
+                     operators::Ite(condition, true_match.entry_index,
+                                    false_match.entry_index));
+    ASSIGN_OR_RETURN(z3::expr value, operators::Ite(condition, true_match.value,
+                                                    false_match.value));
+    merged.matched_entries.insert({name, {matched, index, value}});
+  }
+
   return merged;
 }
 

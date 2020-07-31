@@ -36,6 +36,11 @@ namespace util {
 gutil::StatusOr<std::unordered_map<std::string, z3::expr>> FreeSymbolicHeaders(
     const google::protobuf::Map<std::string, ir::HeaderType> &headers);
 
+// Returns an symbolic table match containing default values.
+// The table match expression is false, the index is -1, and the value is
+// undefined.
+SymbolicTableMatch DefaultTableMatch();
+
 // Extract a concrete context by evaluating every component's corresponding
 // expression in the model.
 ConcreteContext ExtractFromModel(SymbolicContext context, z3::model model);
@@ -45,8 +50,8 @@ ConcreteContext ExtractFromModel(SymbolicContext context, z3::model model);
 // of the original one otherwise.
 // Assertion: both traces must contain matches for the same set of table names.
 gutil::StatusOr<SymbolicTrace> MergeTracesOnCondition(
-    const SymbolicTrace &original, const SymbolicTrace &changed,
-    const z3::expr &condition);
+    const z3::expr &condition, const SymbolicTrace &true_trace,
+    const SymbolicTrace &false_trace);
 
 // Transforms a value read from a TableEntry to a z3::expr.
 gutil::StatusOr<z3::expr> IrValueToZ3Expr(const pdpi::IrValue &value);

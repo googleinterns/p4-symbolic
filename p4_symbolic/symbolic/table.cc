@@ -36,7 +36,7 @@ namespace {
 // Analyze a single match that is part of a table entry.
 // Constructs a symbolic expression that semantically corresponds to this
 // match.
-gutil::StatusOr<z3::expr> AnalyzeSingleMatch(
+gutil::StatusOr<z3::expr> EvaluateSingleMatch(
     p4::config::v1::MatchField match_definition,
     const z3::expr &field_expression, const pdpi::IrMatch &match) {
   if (match_definition.match_case() != p4::config::v1::MatchField::kMatchType) {
@@ -82,7 +82,7 @@ gutil::StatusOr<z3::expr> AnalyzeSingleMatch(
 
 // Constructs a symbolic expression that is true if and only if this entry
 // is matched on.
-gutil::StatusOr<z3::expr> AnalyzeTableEntryCondition(
+gutil::StatusOr<z3::expr> EvaluateTableEntryCondition(
     const ir::Table &table, const pdpi::IrTableEntry &entry,
     const SymbolicHeaders &headers) {
   // Make sure number of match keys is the same in the table definition and
@@ -131,7 +131,7 @@ gutil::StatusOr<z3::expr> AnalyzeTableEntryCondition(
         action::EvaluateFieldValue(match_field, headers, &fake_context));
     ASSIGN_OR_RETURN(
         z3::expr match_expression,
-        AnalyzeSingleMatch(match_definition, match_field_expr, match));
+        EvaluateSingleMatch(match_definition, match_field_expr, match));
     ASSIGN_OR_RETURN(condition_expression,
                      operators::And(condition_expression, match_expression));
   }
@@ -141,7 +141,7 @@ gutil::StatusOr<z3::expr> AnalyzeTableEntryCondition(
 
 // Constructs a symbolic expressions that represents the action invocation
 // corresponding to this entry.
-absl::Status AnalyzeTableEntryAction(
+absl::Status EvaluateTableEntryAction(
     const ir::Table &table, const pdpi::IrTableEntry &entry,
     const google::protobuf::Map<std::string, ir::Action> &actions,
     SymbolicHeaders *headers, const z3::expr &guard) {
@@ -166,40 +166,82 @@ gutil::StatusOr<SymbolicTrace> EvaluateTable(
     const Dataplane data_plane, const ir::Table &table,
     const std::vector<pdpi::IrTableEntry> &entries, SymbolicHeaders *headers,
     const z3::expr &guard) {
-  // The overall structure describing the match on this table.
-  SymbolicTableMatch table_match = EmptyTableMatch(table);
-  table_match.matched = Z3Context().bool_val(true);
   const std::string &table_name = table.table_definition().preamble().name();
 
+  // TODO(babman): sort entries by priority.
+  // TODO(babman): compute table value.
   // The table semantically is just a bunch of if conditions, one per
-  // table entry, we construct this big if-elseif-...-else construct via
-  // this simpler representation.
-  // Traverse in reverse order: from least to highest priority, since we are
-  // building the if-elseif-...-else statement inside out.
-  // TODO(babman): sort by priority.
-  z3::expr no_row_matched = guard;
-  for (int row = entries.size() - 1; row >= 0; row--) {
-    const pdpi::IrTableEntry &entry = entries.at(row);
-    ASSIGN_OR_RETURN(z3::expr row_match,
-                     AnalyzeTableEntryCondition(table, entry, *headers));
-    ASSIGN_OR_RETURN(row_match, operators::And(no_row_matched, row_match));
-    RETURN_IF_ERROR(AnalyzeTableEntryAction(
-        table, entry, data_plane.program.actions(), headers, row_match));
+  // table entry, we construct this big if-elseif-...-else symbolically.
+  //
+  // We have to be careful about the nesting order. We should have:
+  // <header_field x> =
+  //   if <guard && condition[0]>
+  //     then <effects of entry[0] on x>
+  //     else if <guard && condition[1]>
+  //       then <effects of entry[1] on x>
+  //       else ...
+  //         ...
+  //         else <effects of default entry on x>
+  //
+  //
+  // This is important, because condition[1] may be true in cases where
+  // condition[0] is also true. But entry[0] has priority over entry[1].
+  //
+  // We do this by traversing in reverse priority order: from least to highest
+  // priority, since we are building the if-then-...-else statement inside out.
+  //
+  // Another thing to be careful about is making sure that any effects of one
+  // entry or its action are not visible when evaluating other actions,
+  // regardless of priority. I.e., if the effects of entry[1] refer to the value
+  // of field y, that value must be guarded properly so that if entry[0] or
+  // entry[2] assign a value to it, that value is unused by this reference.
+  //
+  // The simplest way to do this is first evaluate all the match conditions
+  // symbolically, then construct complete guard for every entry.
+  // Example, For entry i, all assignments/effects made by that entry's action
+  // are guarded by:
+  // guard && condition[i] && !condition[0] && ... && !condition[i-1]
+  //
+  // This way, when we evaluate entry i-1 in the next step, and we retrieve the
+  // value, we will use it in the context of the then body guarded by
+  // guard && condition[i-1], which entails that the assignment guard for
+  // effects of entry i (and all following entries) is false.
 
-    // Using this alias makes it simpler to put constraints on packet later.
-    ASSIGN_OR_RETURN(table_match.matched,
-                     operators::Or(table_match.matched, row_match));
-    ASSIGN_OR_RETURN(table_match.entry_index,
-                     operators::Ite(row_match, Z3Context().int_val(row),
-                                    table_match.entry_index));
-    // Aggregate the condition for matching on this row with previous guards.
-    ASSIGN_OR_RETURN(z3::expr row_missed, operators::Not(row_match));
-    ASSIGN_OR_RETURN(no_row_matched,
-                     operators::And(no_row_matched, row_missed));
+  // Find all entries match conditions.
+  std::vector<z3::expr> entries_matches;
+  for (const pdpi::IrTableEntry &entry : entries) {
+    // We are passsing headers by const reference here, so we do not need
+    // any guard yet.
+    ASSIGN_OR_RETURN(z3::expr entry_match,
+                     EvaluateTableEntryCondition(table, entry, *headers));
+    entries_matches.push_back(entry_match);
   }
 
-  // Finally, do the default entry. The guard is the negation of all previously
-  // evaluated entries guards.
+  // Build each entry's assignment/effect guard by negating
+  // higher priority entries.
+  z3::expr default_entry_assignment_guard = guard;
+  std::vector<z3::expr> assignment_guards;
+  if (entries_matches.size() > 0) {
+    ASSIGN_OR_RETURN(z3::expr current_guard,
+                     operators::And(guard, entries_matches.at(0)));
+    ASSIGN_OR_RETURN(z3::expr accumulator_guard,
+                     operators::Not(entries_matches.at(0)));
+    assignment_guards.push_back(current_guard);
+    for (size_t i = 1; i < entries_matches.size(); i++) {
+      ASSIGN_OR_RETURN(z3::expr tmp, operators::And(guard, accumulator_guard));
+      ASSIGN_OR_RETURN(current_guard,
+                       operators::And(tmp, entries_matches.at(i)));
+      ASSIGN_OR_RETURN(tmp, operators::Not(entries_matches.at(i)));
+      ASSIGN_OR_RETURN(accumulator_guard,
+                       operators::And(accumulator_guard, tmp));
+      assignment_guards.push_back(current_guard);
+    }
+    ASSIGN_OR_RETURN(
+        default_entry_assignment_guard,
+        operators::And(default_entry_assignment_guard, accumulator_guard));
+  }
+
+  // Build an IrTableEntry object for the default entry.
   pdpi::IrTableEntry default_entry;
   default_entry.mutable_action()->set_name(
       table.table_implementation().default_action());
@@ -209,17 +251,48 @@ gutil::StatusOr<SymbolicTrace> EvaluateTable(
         *(default_entry.mutable_action()->add_params()->mutable_value()),
         util::StringToIrValue(parameter_value));
   }
-  RETURN_IF_ERROR(AnalyzeTableEntryAction(table, default_entry,
-                                          data_plane.program.actions(), headers,
-                                          no_row_matched));
+
+  // Start with the default entry
+  z3::expr match_index = Z3Context().int_val(-1);
+  RETURN_IF_ERROR(EvaluateTableEntryAction(
+      table, default_entry, data_plane.program.actions(), headers,
+      default_entry_assignment_guard));
+
+  // Continue evaluating each table entry in reverse priority
+  for (int row = entries.size() - 1; row >= 0; row--) {
+    const pdpi::IrTableEntry &entry = entries.at(row);
+    z3::expr row_symbol = Z3Context().int_val(row);
+
+    // The condition used in the big if_else_then construct.
+    ASSIGN_OR_RETURN(z3::expr entry_match,
+                     operators::And(guard, entries_matches.at(row)));
+    ASSIGN_OR_RETURN(match_index,
+                     operators::Ite(entry_match, row_symbol, match_index));
+
+    // Evaluate the entry's action guarded by its complete assignment guard.
+    z3::expr entry_assignment_guard = assignment_guards.at(row);
+    RETURN_IF_ERROR(EvaluateTableEntryAction(table, entry,
+                                             data_plane.program.actions(),
+                                             headers, entry_assignment_guard));
+  }
 
   // This table has been completely evaluated, the result of the evaluation
-  // is now in "headers" and "table_match".
+  // is now in "headers" and "match_index".
   // Time to evaluate the next control construct.
   std::string next_control;
-  bool first = true;
+
   // We only support tables that always have the same next control construct
   // regardless of the table's matches.
+  //
+  // This can be supported by calling EvaluateControl(...)
+  // inside the above for loop for control found at
+  //   <action_to_next_control>(<action of entry>)
+  // and passing it the complete entry guard.
+  //
+  // As an optimization, the loop should not call EvaluateControl
+  // when all actions have the same next_control, and should instead
+  // execute the call once outside the loop as below.
+  bool first = true;
   for (const auto &[_, control] :
        table.table_implementation().action_to_next_control()) {
     if (first) {
@@ -238,18 +311,18 @@ gutil::StatusOr<SymbolicTrace> EvaluateTable(
       SymbolicTrace result,
       control::EvaluateControl(data_plane, next_control, headers, guard));
 
-  // Add this table's match to the trace, and return it.
-  // Mark the packet as dropped if this table ends up dropping it.
-  result.matched_entries.at(table_name) = table_match;
-  return result;
-}
+  // The trace should not contain information for this table, otherwise, it
+  // means we visisted the table twice in the same execution path!
+  if (result.matched_entries.count(table_name) == 1) {
+    return absl::InvalidArgumentError(absl::StrCat(
+        "Table \"", table_name, "\" was executed twice in the same path."));
+  }
 
-SymbolicTableMatch EmptyTableMatch(const ir::Table &table) {
-  return {
-      Z3Context().bool_val(false),  // No match yet!
-      Z3Context().int_val(-1),      // No match index.
-      Z3Context().int_val(-1)       // TODO(babman): bitvector.
-  };
+  // Add this table's match to the trace, and return it.
+  SymbolicTableMatch table_match = {guard, match_index,
+                                    Z3Context().int_val(-1)};
+  result.matched_entries.insert({table_name, table_match});
+  return result;
 }
 
 }  // namespace table
