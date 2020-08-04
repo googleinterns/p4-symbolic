@@ -108,23 +108,15 @@ struct ConcretePacket {
   std::string eth_dst;
   std::string eth_type;
 
-  std::string outer_ipv4_src;
-  std::string outer_ipv4_dst;
-  std::string outer_ipv6_dst_upper;
-  std::string outer_ipv6_dst_lower;
-  std::string outer_protocol;
-  std::string outer_dscp;
-  std::string outer_ttl;
-
-  std::string inner_ipv4_dst;
-  std::string inner_ipv6_dst_upper;
-  std::string inner_ipv6_dst_lower;
-  std::string inner_protocol;
-  std::string inner_dscp;
-  std::string inner_ttl;
+  std::string ipv4_src;
+  std::string ipv4_dst;
+  std::string ipv6_dst_upper;
+  std::string ipv6_dst_lower;
+  std::string protocol;
+  std::string dscp;
+  std::string ttl;
 
   std::string icmp_type;
-  std::string vid;
 };
 
 // A helper struct containing symbolic expressions for every field in a packet.
@@ -136,23 +128,15 @@ struct SymbolicPacket {
   z3::expr eth_dst;   // 48 bit.
   z3::expr eth_type;  // 16 bit.
 
-  z3::expr outer_ipv4_src;        // 32 bit, valid if eth_type = 0x0800
-  z3::expr outer_ipv4_dst;        // 32 bit, valid if eth_type = 0x0800
-  z3::expr outer_ipv6_dst_upper;  // 64 bit, valid if eth_type = 0x86dd
-  z3::expr outer_ipv6_dst_lower;  // 64 bit, valid if eth_type = 0x86dd
-  z3::expr outer_protocol;        // 8 bit, valid if eth_type is ip
-  z3::expr outer_dscp;            // 6 bit, valid if eth_type is ip
-  z3::expr outer_ttl;             // 8 bit, valid if eth_type is ip
-
-  z3::expr inner_ipv4_dst;        // 32 bit, valid if outer_protocol = 4
-  z3::expr inner_ipv6_dst_upper;  // 64 bit, valid if outer_protocol = 4
-  z3::expr inner_ipv6_dst_lower;  // 64 bit, valid if outer_protocol = 41
-  z3::expr inner_protocol;        // 8 bit, valid if outer_protocol = 4/41
-  z3::expr inner_dscp;            // 6 bit, valid if outer_protocol = 4/41
-  z3::expr inner_ttl;             // 8 bit, valid if outer_protocol = 4/41
+  z3::expr ipv4_src;        // 32 bit, valid if eth_type = 0x0800
+  z3::expr ipv4_dst;        // 32 bit, valid if eth_type = 0x0800
+  z3::expr ipv6_dst_upper;  // 64 bit, valid if eth_type = 0x86dd
+  z3::expr ipv6_dst_lower;  // 64 bit, valid if eth_type = 0x86dd
+  z3::expr protocol;        // 8 bit, valid if eth_type is ip
+  z3::expr dscp;            // 6 bit, valid if eth_type is ip
+  z3::expr ttl;             // 8 bit, valid if eth_type is ip
 
   z3::expr icmp_type;  // 8 bit, valid if eth_type is ip
-  z3::expr vid;        // 12 bit, valid if eth_type = 0x6007
 };
 
 // The result of solving with some assertion.
