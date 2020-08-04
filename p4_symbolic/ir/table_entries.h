@@ -24,16 +24,18 @@
 #include <vector>
 
 #include "gutil/status.h"
+#include "p4_pdpi/ir.pb.h"
 #include "p4_symbolic/ir/ir.pb.h"
 
 namespace p4_symbolic {
 namespace ir {
 
-using TableEntries = std::unordered_map<std::string, std::vector<TableEntry>>;
+using TableEntries =
+    std::unordered_map<std::string, std::vector<pdpi::IrTableEntry>>;
 
 // Parses entries read from entries_path, and fills them in given ir in place.
 gutil::StatusOr<TableEntries> ParseAndFillEntries(
-    const pdpi::IrP4Info &pdpi, const std::string &entries_path);
+    const pdpi::IrP4Info &p4info, const std::string &entries_path);
 
 }  // namespace ir
 }  // namespace p4_symbolic

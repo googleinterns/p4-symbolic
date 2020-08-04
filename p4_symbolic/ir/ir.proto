@@ -31,18 +31,13 @@ syntax = "proto3";
 
 package p4_symbolic.ir;
 
+import "p4/v1/p4runtime.proto";
 import "p4_pdpi/ir.proto";
 import "p4_symbolic/bmv2/bmv2.proto";
 
-// Table entry parsed from P4RT/simple_switch_CLI.
-message TableEntry {
-  // Name of the target action, matches the format of the key
-  // in P4Program#actions.
-  string action = 1;
-  // Values to match on.
-  repeated int32 match_values = 2;  // TODO(babman): turn to hex for bitstrings.
-  // Parameters passed to action if the match succeeds.
-  repeated int32 action_parameters = 3;  // TODO(babman): turn to hex.
+// Table entry file consisting of many entries in P4RT format.
+message TableEntriesFile {
+  repeated p4.v1.TableEntry table_entries = 1;
 }
 
 // Overall structure of a p4 program.
@@ -53,8 +48,17 @@ message P4Program {
   map<string, Action> actions = 2;
   // Table definitions and implementations, keyed by qualified table name.
   map<string, Table> tables = 3;
-  // The name of the initial table.
-  string initial_table = 6;
+  // Conditionals, keyed by their name.
+  map<string, Conditional> conditionals = 4;
+
+  // TODO(babman): If needed in the future, action calls can be added here, for
+  // action calls that are not wrapped in other control constructs.
+  // https://github.com/p4lang/behavioral-model/blob/master/docs/JSON_format.md#pipelines
+
+  // The name of the initial control construct, typically
+  // this is a table, but it might be a conditional (or an action call if
+  // action_calls mentioned above get supported).
+  string initial_control = 6;
 }
 
 // A header type definition.
@@ -80,11 +84,11 @@ message Action {
 
 // Action implementation details.
 message ActionImplementation {
-  // Type of all variables used in action_body.
-  // Maps a variable name to its bitwidth.
-  map<string, int32> variables = 1;
+  // Type of all action parameters.
+  // Maps a parameter name to its bitwidth.
+  map<string, int32> parameter_to_bitwidth = 2;
   // List of statements in action body in sequence.
-  repeated Statement action_body = 2;
+  repeated Statement action_body = 3;
 }
 
 // Overall table structure, combining definition with implementation.
@@ -105,6 +109,36 @@ message TableImplementation {
 
   // Table type with respect to action selection.
   ActionSelectorType action_selector_type = 1;
+
+  // Default action name. This action is called with the default parameters
+  // below, when none of this table's entries are matched on.
+  string default_action = 2;
+
+  // Hexstring values passed to default action as parameters.
+  repeated string default_action_parameters = 3;
+
+  // Maps every action used by this table (by name) to the next control
+  // construct to be taken (also by name) if that action was matched.
+  // if an action is not in this map, or is mapped to the empty string, then
+  // that action is at the end of the flow.
+  map<string, string> action_to_next_control = 4;
+}
+
+// A conditional statement.
+// In p4 and BMV2 JSON format, a condition is not part of an action body.
+// It is a part of the top level control block. A conditional may be the first
+// entry point in a workflow, or it may be called from other places using its
+// name.
+// Note that bmv2 accepts using a conditional name in fields that typically
+// expect a table name, such as the initial_control, or next_controls
+// attributes.
+message Conditional {
+  // The name is unique among conditionals AND tables.
+  string name = 1;
+  RValue condition = 2;
+  // If a branch does not exist or is empty, this will be the empty string.
+  string if_branch = 3;
+  string else_branch = 4;
 }
 
 // An abstract p4 statement corresponding to a top level operation within
@@ -114,6 +148,9 @@ message Statement {
   // Various statement concrete types.
   oneof statement {
     AssignmentStatement assignment = 2;
+    DropStatement drop = 3;
+    CloneStatement clone = 4;
+    HashStatement hash = 5;
   }
 }
 
@@ -124,9 +161,35 @@ message AssignmentStatement {
   RValue right = 2;
 }
 
+// A statement marking the packet (by its header or metadata)
+// to be dropped.
+message DropStatement {
+  HeaderValue header = 1;
+}
+
+// A statement cloning the packet, corresponds to `clone3`.
+message CloneStatement {
+  // We do not care about the arguments to clone3:
+  // 1. We only support one version of cloning: ingree to egress
+  // 2. The session id is not know at parsing time.
+  // 3. We do not support clone calls preserving custom fields.
+}
+
+// Hashing statement to modify a selected field based on a hash calculation.
+// Corresponds to calls to `hash`.
+message HashStatement {
+  // The field where the hash is stored.
+  FieldValue field = 1;
+  // We do not care about the remaining arguments (Hash algorithm,
+  // range size, base value, and input fields).
+  // These should perhaps be added in the future if the hash symbolic modeling
+  // becomes more sophisticated.
+}
+
 // The structure of an abstract RValue.
 message RValue {
   oneof rvalue {
+    HeaderValue header_value = 1;
     FieldValue field_value = 2;
     HexstrValue hexstr_value = 3;
     BoolValue bool_value = 4;
@@ -142,6 +205,13 @@ message LValue {
     FieldValue field_value = 1;
     Variable variable_value = 2;
   }
+}
+
+// A header accessed by name.
+// This is used in operations and statements that refer to the whole packet.
+// For example, in mark_to_drop(<header>).
+message HeaderValue {
+  string header_name = 1;
 }
 
 // A header field accessed statically.
@@ -179,9 +249,10 @@ message Variable {
 // An abstract RExpression.
 message RExpression {
   oneof expression {
-    BinaryExpression simple_binary_expression = 1;
-    UnaryExpression simple_unary_expression = 2;
+    BinaryExpression binary_expression = 1;
+    UnaryExpression unary_expression = 2;
     TernaryExpression ternary_expression = 3;
+    BuiltinExpression builtin_expression = 4;
   }
 }
 
@@ -208,8 +279,8 @@ message BinaryExpression {
   }
 
   Operation operation = 1;
-  RExpression left = 2;
-  RExpression right = 3;
+  RValue left = 2;
+  RValue right = 3;
 }
 
 // Arithmetic and boolean unary operations.
@@ -221,12 +292,23 @@ message UnaryExpression {
   }
 
   Operation operation = 1;
-  RExpression operand = 2;
+  RValue operand = 2;
 }
 
 // Ternary condition on the form <condition> ? <left> : <right>.
 message TernaryExpression {
-  RExpression condition = 1;
-  RExpression left = 2;
-  RExpression right = 3;
+  RValue condition = 1;
+  RValue left = 2;
+  RValue right = 3;
+}
+
+// Calls tp built in functions (e.g. b2d).
+message BuiltinExpression {
+  // Supported built in functions.
+  enum Function {
+    BOOL_TO_DATA = 0;
+    DATA_TO_BOOL = 1;
+  }
+  Function function = 1;
+  repeated RValue arguments = 2;
 }

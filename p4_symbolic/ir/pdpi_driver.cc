@@ -26,11 +26,7 @@ gutil::StatusOr<pdpi::IrP4Info> ParseP4InfoFile(
     const std::string &p4info_path) {
   p4::config::v1::P4Info p4info;
   RETURN_IF_ERROR(gutil::ReadProtoFromFile(p4info_path.c_str(), &p4info));
-
-  ASSIGN_OR_RETURN(std::unique_ptr<pdpi::P4InfoManager> & info_manager,
-                   pdpi::P4InfoManager::Create(p4info));
-
-  return info_manager->GetIrP4Info();
+  return pdpi::CreateIrP4Info(p4info);
 }
 
 }  // namespace ir

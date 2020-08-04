@@ -18,6 +18,8 @@
 #ifndef P4_SYMBOLIC_SYMBOLIC_UTIL_H_
 #define P4_SYMBOLIC_SYMBOLIC_UTIL_H_
 
+#include "gutil/status.h"
+#include "p4_pdpi/ir.pb.h"
 #include "p4_symbolic/symbolic/symbolic.h"
 #include "z3.h"
 
@@ -42,6 +44,9 @@ ConcreteContext ExtractFromModel(SymbolicContext context, z3::model model);
 SymbolicPerPacketState MergeStatesOnCondition(
     const SymbolicPerPacketState &original,
     const SymbolicPerPacketState &changed, const z3::expr &condition);
+
+// Transforms a value read from a TableEntry to a z3::expr.
+gutil::StatusOr<z3::expr> IrValueToZ3Expr(const pdpi::IrValue &value);
 
 }  // namespace util
 }  // namespace symbolic

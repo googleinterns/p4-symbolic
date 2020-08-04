@@ -25,6 +25,7 @@
 
 #include "google/protobuf/repeated_field.h"
 #include "gutil/status.h"
+#include "p4_pdpi/ir.pb.h"
 #include "p4_symbolic/ir/ir.pb.h"
 #include "p4_symbolic/symbolic/symbolic.h"
 #include "z3++.h"
@@ -38,7 +39,9 @@ namespace action {
 // semantically equivalent to the behavior of the action on its concrete
 // parameters.
 gutil::StatusOr<SymbolicPerPacketState> EvaluateAction(
-    const ir::Action &action, const google::protobuf::RepeatedField<int> &args,
+    const ir::Action &action,
+    const google::protobuf::RepeatedPtrField<
+        pdpi::IrActionInvocation::IrActionParam> &args,
     const SymbolicPerPacketState &state);
 
 // Internal functions used to Evaluate statements and expressions within an

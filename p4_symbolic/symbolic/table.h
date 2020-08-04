@@ -26,6 +26,7 @@
 
 #include "google/protobuf/map.h"
 #include "gutil/status.h"
+#include "p4_pdpi/ir.pb.h"
 #include "p4_symbolic/ir/ir.pb.h"
 #include "p4_symbolic/symbolic/symbolic.h"
 #include "z3++.h"
@@ -40,7 +41,7 @@ struct SymbolicPerPacketStateAndMatch {
 };
 
 gutil::StatusOr<SymbolicPerPacketStateAndMatch> EvaluateTable(
-    const ir::Table &table, const std::vector<ir::TableEntry> &entries,
+    const ir::Table &table, const std::vector<pdpi::IrTableEntry> &entries,
     const google::protobuf::Map<std::string, ir::Action> &actions,
     const SymbolicPerPacketState &state);
 

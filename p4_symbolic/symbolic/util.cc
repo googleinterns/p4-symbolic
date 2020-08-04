@@ -20,6 +20,8 @@
 #include <string>
 #include <unordered_map>
 
+#include "p4_pdpi/utils/ir.h"
+
 namespace p4_symbolic {
 namespace symbolic {
 namespace util {
@@ -203,6 +205,21 @@ SymbolicPerPacketState MergeStatesOnCondition(
   }
 
   return {merged_header, merged_metadata};
+}
+
+gutil::StatusOr<z3::expr> IrValueToZ3Expr(const pdpi::IrValue &value) {
+  switch (value.format_case()) {
+    case pdpi::IrValue::kHexStr: {
+      ASSIGN_OR_RETURN(std::string bytes, pdpi::IrValueToByteString(value));
+      // TODO(babman): Values should become Z3 bitstrings.
+      return Z3Context().int_val(static_cast<int>(bytes.at(1)));
+    }
+    default:
+      return absl::UnimplementedError(
+          absl::StrCat("Found unsupported value type ", value.DebugString()));
+  }
+
+  return Z3Context().int_val(0);
 }
 
 }  // namespace util

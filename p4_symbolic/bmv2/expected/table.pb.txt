@@ -342,6 +342,16 @@ pipelines {
     action_ids: 0
     actions: "MyIngress.set_egress_spec"
     actions: "NoAction"
+    default_entry {
+    }
+    next_tables {
+      key: "MyIngress.set_egress_spec"
+      value: ""
+    }
+    next_tables {
+      key: "NoAction"
+      value: ""
+    }
   }
 }
 pipelines {
