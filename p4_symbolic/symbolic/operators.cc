@@ -23,6 +23,7 @@
 
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
 #include "p4_symbolic/symbolic/symbolic.h"
 
 namespace p4_symbolic {
@@ -60,6 +61,29 @@ gutil::StatusOr<std::pair<z3::expr, z3::expr>> SortCheckAndPad(
   return std::make_pair(z3::expr(a), z3::expr(b));
 }
 
+// Free Variable.
+gutil::StatusOr<z3::expr> FreeVariable(const std::string &variable_base_name,
+                                       const z3::sort &sort) {
+  static unsigned int counter = 0;
+  std::string variable_name =
+      absl::StrFormat("%s.%d", variable_base_name, counter++);
+  switch (sort.sort_kind()) {
+    case Z3_BOOL_SORT: {
+      return Z3Context().bool_const(variable_name.c_str());
+    }
+    case Z3_INT_SORT: {
+      return Z3Context().int_const(variable_name.c_str());
+    }
+    case Z3_BV_SORT: {
+      return Z3Context().bv_const(variable_name.c_str(), sort.bv_size());
+    }
+    default:
+      return absl::InvalidArgumentError(
+          absl::StrCat("Unsupported sort in free variable ", sort.to_string()));
+  }
+}
+
+// Arithmetic.
 gutil::StatusOr<z3::expr> Plus(const z3::expr &a, const z3::expr &b) {
   ASSIGN_OR_RETURN(auto pair,
                    p4_symbolic::symbolic::operators::SortCheckAndPad(a, b));
