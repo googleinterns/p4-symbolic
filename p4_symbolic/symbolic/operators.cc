@@ -40,6 +40,20 @@ z3::expr Pad(const z3::expr &bitvector, int pad_size) {
   return bitvector;
 }
 
+// Extract the suffix (e.g. the portion on the least significant bit side) of
+// the bitvector of the given size.
+// If suffix_size is larger than the bitvector size, the bitvector is returned
+// as is.
+// Precondition: suffix_size > 0, bitvector is of sort bv.
+z3::expr Suffix(const z3::expr &bitvector, unsigned int suffix_size) {
+  unsigned int bitvector_size = bitvector.get_sort().bv_size();
+  if (suffix_size < bitvector_size) {
+    // ".extract(hi, lo)" is inclusive on both ends.
+    return bitvector.extract(suffix_size - 1, 0);
+  }
+  return bitvector;
+}
+
 // Check that the two expressions have compatible sorts, and return an
 // absl error otherwise.
 // If the expressions are bitvector, the shortest will be padded to match
@@ -57,6 +71,28 @@ gutil::StatusOr<std::pair<z3::expr, z3::expr>> SortCheckAndPad(
     int a_len = a.get_sort().bv_size();
     int b_len = b.get_sort().bv_size();
     return std::make_pair(Pad(a, b_len - a_len), Pad(b, a_len - b_len));
+  }
+  return std::make_pair(z3::expr(a), z3::expr(b));
+}
+
+// Check that the two expressions have compatible sorts, and return an
+// absl error otherwise.
+// If the expressions are bitvector, the longest will be trimmed to match
+// the shortest, by dropping/cutting of a portion of the most significant bits.
+// I.e. by extracting the suffix of the same size as the shortest bitvector.
+gutil::StatusOr<std::pair<z3::expr, z3::expr>> SortCheckAndExtract(
+    const z3::expr &a, const z3::expr &b) {
+  // Totally incompatible sorts (e.g. int and bitvector).
+  if (a.get_sort().sort_kind() != b.get_sort().sort_kind()) {
+    return absl::InvalidArgumentError(
+        absl::StrCat("Incompatible sorts \"", a.get_sort().to_string(),
+                     "\" and \"", b.get_sort().to_string(), "\""));
+  }
+  // If bit vectors, pad to the largest size.
+  if (a.get_sort().is_bv()) {
+    unsigned int a_len = a.get_sort().bv_size();
+    unsigned int b_len = b.get_sort().bv_size();
+    return std::make_pair(Suffix(a, b_len), Suffix(b, a_len));
   }
   return std::make_pair(z3::expr(a), z3::expr(b));
 }
@@ -146,12 +182,44 @@ gutil::StatusOr<z3::expr> Or(const z3::expr &a, const z3::expr &b) {
   return a || b;
 }
 gutil::StatusOr<z3::expr> BitNeg(const z3::expr &a) { return ~a; }
+
+// Unlike the other operators, BitAnd does not padd to the maximum bitsize
+// of the two operands. Instead, it truncates to the min (by dropping the most
+// significant x bits).
+//
+// First, we show why this preserves correcntess, then we discuss why it's
+// necessary.
+//
+// Imagine we have an expression on the form "x & y" where x is of size 10 and y
+// is of size 5. Padding y to 10 would result in adding 0 zeros to its left.
+// This causes the final output to be on the form "00000(x5&y5)...(x1&y1)".
+// In generality, padding the shorter operand results in an output that has
+// just as many zeros to the left, because this is an &.
+//
+// On the other hand, trimming to the shortest size will result in the 5 most
+// significant bits in x being removed, and an output "(x5&y5)...(x1&y1)".
+// Note that this output is equivlanet to the padding output semantically.
+// Furthermore, our symbolic pipeline allows shorter operands to be padded
+// to larger lengths anywhere, by appending zeros to the left, meaning that
+// this output can be used equivalently in any context that the padding output
+// could have been used in (this also applies to nested &).
+//
+// This is important because of a bmv2 quirk: extraction in p4
+// (e.g. header.field[0:n]), is translated to a mask bit and by the bmv2 p4c
+// backend (e.g. header.field & 1...1 (n times)). Clearly, the desired output of
+// the extraction is of size n < header.field size. However, if our & pads to
+// the maximum, it will output something of size |header.field| with
+// |header.field| - n leading zeros. This output, while semantically equivlanet,
+// cannot be used in certain contexts that expect the bitvector size to be n,
+// since our semantics do not allow arbitrary extraction to smaller sizes, but
+// do allow arbitrary padding.
 gutil::StatusOr<z3::expr> BitAnd(const z3::expr &a, const z3::expr &b) {
   ASSIGN_OR_RETURN(auto pair,
-                   p4_symbolic::symbolic::operators::SortCheckAndPad(a, b));
+                   p4_symbolic::symbolic::operators::SortCheckAndExtract(a, b));
   auto [a_expr, b_expr] = pair;
   return a_expr & b_expr;
 }
+
 gutil::StatusOr<z3::expr> BitOr(const z3::expr &a, const z3::expr &b) {
   ASSIGN_OR_RETURN(auto pair,
                    p4_symbolic::symbolic::operators::SortCheckAndPad(a, b));
