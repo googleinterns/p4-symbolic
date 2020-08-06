@@ -35,13 +35,22 @@ gutil::StatusOr<std::unique_ptr<SolverState>> EvaluateP4Pipeline(
   std::unique_ptr<z3::solver> z3_solver =
       std::make_unique<z3::solver>(Z3Context());
 
+  // Create free/unconstrainted headers variables, and then
+  // put constraints on them matching the hardcoded behavior of the parser
+  // for programs we are interested in.
+  ASSIGN_OR_RETURN(SymbolicPerPacketState ingress_headers,
+                   SymbolicGuardedMap::CreateSymbolicGuardedMap(
+                       data_plane.program.headers()));
+  ASSIGN_OR_RETURN(std::vector<z3::expr> parser_constraints,
+                   util::ParserConstraints(&ingress_headers));
+  for (z3::expr constraint : parser_constraints) {
+    z3_solver->add(constraint);
+  }
+
   // "Accumulator"-style p4 program headers.
   // This is used to evaluate the P4 program.
   // Initially free/unconstrained and contains symbolic variables for
   // every header field.
-  ASSIGN_OR_RETURN(SymbolicPerPacketState ingress_headers,
-                   SymbolicGuardedMap::CreateSymbolicGuardedMap(
-                       data_plane.program.headers()));
   SymbolicPerPacketState egress_headers(ingress_headers);
 
   ASSIGN_OR_RETURN(z3::expr ingress_port,
@@ -69,24 +78,26 @@ gutil::StatusOr<std::unique_ptr<SolverState>> EvaluateP4Pipeline(
                    egress_headers.Get("standard_metadata.egress_spec"));
 
   // Restrict ports to the available physical ports.
-  z3::expr ingress_port_domain = Z3Context().bool_val(false);
-  z3::expr egress_port_domain = trace.dropped;
-  unsigned int port_size = ingress_port.get_sort().bv_size();
-  for (int port : physical_ports) {
-    ASSIGN_OR_RETURN(
-        z3::expr ingress_port_eq,
-        operators::Eq(ingress_port, Z3Context().bv_val(port, port_size)));
-    ASSIGN_OR_RETURN(
-        z3::expr egress_port_eq,
-        operators::Eq(egress_port, Z3Context().bv_val(port, port_size)));
+  if (physical_ports.size() > 0) {
+    z3::expr ingress_port_domain = Z3Context().bool_val(false);
+    z3::expr egress_port_domain = trace.dropped;
+    unsigned int port_size = ingress_port.get_sort().bv_size();
+    for (int port : physical_ports) {
+      ASSIGN_OR_RETURN(
+          z3::expr ingress_port_eq,
+          operators::Eq(ingress_port, Z3Context().bv_val(port, port_size)));
+      ASSIGN_OR_RETURN(
+          z3::expr egress_port_eq,
+          operators::Eq(egress_port, Z3Context().bv_val(port, port_size)));
 
-    ASSIGN_OR_RETURN(ingress_port_domain,
-                     operators::Or(ingress_port_domain, ingress_port_eq));
-    ASSIGN_OR_RETURN(egress_port_domain,
-                     operators::Or(egress_port_domain, egress_port_eq));
+      ASSIGN_OR_RETURN(ingress_port_domain,
+                       operators::Or(ingress_port_domain, ingress_port_eq));
+      ASSIGN_OR_RETURN(egress_port_domain,
+                       operators::Or(egress_port_domain, egress_port_eq));
+    }
+    z3_solver->add(ingress_port_domain);
+    z3_solver->add(egress_port_domain);
   }
-  z3_solver->add(ingress_port_domain);
-  z3_solver->add(egress_port_domain);
 
   // Construct solver state for this program.
   SymbolicPacket egress_packet = packet::ExtractSymbolicPacket(egress_headers);

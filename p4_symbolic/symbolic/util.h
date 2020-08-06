@@ -59,6 +59,11 @@ gutil::StatusOr<z3::expr> IrValueToZ3Expr(const pdpi::IrValue &value);
 // Transforms a string value from bmv2 json to a pdpi::IrValue
 gutil::StatusOr<pdpi::IrValue> StringToIrValue(std::string value);
 
+// Creates assertions/constraints that encode some of the interesting
+// behavior of parsers in specific programs we want to analyze.
+gutil::StatusOr<std::vector<z3::expr>> ParserConstraints(
+    SymbolicPerPacketState *state);
+
 }  // namespace util
 }  // namespace symbolic
 }  // namespace p4_symbolic
