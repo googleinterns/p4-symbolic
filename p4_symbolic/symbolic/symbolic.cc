@@ -19,6 +19,7 @@
 #include "p4_symbolic/symbolic/control.h"
 #include "p4_symbolic/symbolic/operators.h"
 #include "p4_symbolic/symbolic/packet.h"
+#include "p4_symbolic/symbolic/parser.h"
 #include "p4_symbolic/symbolic/util.h"
 
 namespace p4_symbolic {
@@ -42,7 +43,7 @@ gutil::StatusOr<std::unique_ptr<SolverState>> EvaluateP4Pipeline(
                    SymbolicGuardedMap::CreateSymbolicGuardedMap(
                        data_plane.program.headers()));
   ASSIGN_OR_RETURN(std::vector<z3::expr> parser_constraints,
-                   util::ParserConstraints(&ingress_headers));
+                   parser::EvaluateHardcodedParser(&ingress_headers));
   for (z3::expr constraint : parser_constraints) {
     z3_solver->add(constraint);
   }
