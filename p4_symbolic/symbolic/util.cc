@@ -210,7 +210,7 @@ gutil::StatusOr<z3::expr> IrValueToZ3Expr(const pdpi::IrValue &value) {
       uint64_t mac = 0;  // Mac is 6 bytes, we can fit them in 8 bytes.
       std::vector<std::string> split = absl::StrSplit(value.mac(), ":");
       for (size_t i = 0; i < split.size(); i++) {
-        uint64_t decimal;  // Initially only 8 bytes, but will be shifted.
+        uint64_t decimal;  // Initially only 8 bits, but will be shifted.
         std::stringstream converter;
         converter << std::hex << split[i];
         if (converter >> decimal) {
@@ -221,6 +221,45 @@ gutil::StatusOr<z3::expr> IrValueToZ3Expr(const pdpi::IrValue &value) {
         }
       }
       return Z3Context().bv_val(std::to_string(mac).c_str(), 48);
+    }
+
+    case pdpi::IrValue::kIpv6: {
+      uint64_t ipv6 = 0;  // Ipv6 is 128 bits, do it in two 64 bits steps.
+      std::vector<std::string> split = absl::StrSplit(value.ipv6(), ":");
+
+      // Transform the most significant 64 bits.
+      for (size_t i = 0; i < split.size() / 2; i++) {
+        uint64_t decimal;  // Initially only 16 bits, but will be shifted.
+        std::stringstream converter;
+        converter << std::hex << split[i];
+        if (converter >> decimal) {
+          ipv6 += decimal << ((split.size() / 2 - i - 1) * 16);
+        } else {
+          return absl::InvalidArgumentError(absl::StrCat(
+              "Cannot process ipv6 value \"", value.ipv6(), "\"!"));
+        }
+      }
+      z3::expr hi = Z3Context().bv_val(std::to_string(ipv6).c_str(), 128);
+
+      // Transform the least significant 64 bits.
+      ipv6 = 0;
+      for (size_t i = split.size() / 2; i < split.size(); i++) {
+        uint64_t decimal;
+        std::stringstream converter;
+        converter << std::hex << split[i];
+        if (converter >> decimal) {
+          ipv6 += decimal << ((split.size() - i - 1) * 16);
+        } else {
+          return absl::InvalidArgumentError(absl::StrCat(
+              "Cannot process ipv6 value \"", value.ipv6(), "\"!"));
+        }
+      }
+      z3::expr lo = Z3Context().bv_val(std::to_string(ipv6).c_str(), 128);
+
+      // Add them together.
+      z3::expr shift = Z3Context().bv_val("18446744073709551616", 128);  // 2^64
+      ASSIGN_OR_RETURN(hi, operators::Times(hi, shift));  // shift << 64.
+      return operators::Plus(hi, lo);
     }
 
     default:
