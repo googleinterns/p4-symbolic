@@ -36,6 +36,21 @@ namespace table {
 
 namespace {
 
+// Finds a match field with the given id in the given table entry.
+// Returns the index of that match field inside the matches array in entry, or
+// -1 if no such match was found.
+int FindMatchWithName(const pdpi::IrTableEntry &entry,
+                      const std::string &name) {
+  int index = -1;
+  for (int i = 0; i < entry.matches_size(); i++) {
+    if (entry.matches(i).name() == name) {
+      index = i;
+      break;
+    }
+  }
+  return index;
+}
+
 // Sort the given table entries by priority.
 // Priority depends on the match types.
 // If the matches contain one or more ternary matches, priority is the explicit
@@ -186,30 +201,23 @@ gutil::StatusOr<z3::expr> EvaluateSingleMatch(
 gutil::StatusOr<z3::expr> EvaluateTableEntryCondition(
     const ir::Table &table, const pdpi::IrTableEntry &entry,
     const SymbolicPerPacketState &state) {
-  // Make sure number of match keys is the same in the table definition and
-  // table entry.
   const std::string &table_name = table.table_definition().preamble().name();
-  if (table.table_definition().match_fields_by_id_size() !=
-      entry.matches_size()) {
-    return absl::InvalidArgumentError(
-        absl::StrCat("Found a match entry ", entry.DebugString(), " in table",
-                     table_name, " with wrong match fields count"));
-  }
 
   // Construct the match condition expression.
   z3::expr condition_expression = Z3Context().bool_val(true);
   const google::protobuf::Map<std::string, ir::FieldValue> &match_to_fields =
       table.table_implementation().match_name_to_field();
-  for (const auto &[id, match_fields] :
-       table.table_definition().match_fields_by_id()) {
+  for (const auto &[name, match_fields] :
+       table.table_definition().match_fields_by_name()) {
     p4::config::v1::MatchField match_definition = match_fields.match_field();
 
-    // Match id is unique only within the enclosing table.
-    // https://github.com/p4lang/p4runtime/blob/master/docs/v1/p4runtime-id-notes.md
-    // Match id starts at 1, and proceeds in the same order the matches are
-    // defined in, which is identical to the order they are provided by in
-    // the table entries file.
-    const pdpi::IrMatch &match = entry.matches(id - 1);
+    int match_field_index = FindMatchWithName(entry, name);
+    if (match_field_index == -1) {
+      // Table entry does not specify a value for this match key, means
+      // it is a wildcard, no need to do any symbolic condition for it.
+      continue;
+    }
+    const pdpi::IrMatch &match = entry.matches(match_field_index);
 
     // We get the match name for pdpi/p4info for simplicity, however that
     // file only contains the match name as a string, which is the same as the
