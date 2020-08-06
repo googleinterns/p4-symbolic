@@ -171,7 +171,7 @@ gutil::StatusOr<z3::expr> EvaluateSingleMatch(
       ASSIGN_OR_RETURN(z3::expr value_expression,
                        util::IrValueToZ3Expr(match.ternary().value()));
       ASSIGN_OR_RETURN(z3::expr masked_field,
-                       operators::And(field_expression, mask_expression));
+                       operators::BitAnd(field_expression, mask_expression));
       return operators::Eq(masked_field, value_expression);
     }
 
