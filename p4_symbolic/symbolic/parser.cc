@@ -20,6 +20,7 @@
 
 #include "p4_symbolic/symbolic/parser.h"
 
+#include "p4_symbolic/symbolic/operators.h"
 #include "z3++.h"
 
 namespace p4_symbolic {
@@ -27,134 +28,82 @@ namespace symbolic {
 namespace parser {
 
 gutil::StatusOr<std::vector<z3::expr>> EvaluateHardcodedParser(
-    SymbolicPerPacketState *state) {
+    const SymbolicPerPacketState &state) {
   std::vector<z3::expr> constraints;
   // Set initial values for certain special metadata fields.
-  z3::expr true_guard = Z3Context().bool_val(true);
-  if (state->ContainsKey("local_metadata.vrf_id")) {
-    RETURN_IF_ERROR(state->Set("vrf_id", Z3Context().bv_val(0, 1), true_guard));
-  }
-  if (state->ContainsKey("local_metadata.l4_src_port")) {
-    RETURN_IF_ERROR(state->Set("local_metadata.l4_src_port",
-                               Z3Context().bv_val(0, 1), true_guard));
-  }
-  if (state->ContainsKey("local_metadata.l4_dst_port")) {
-    RETURN_IF_ERROR(state->Set("local_metadata.l4_dst_port",
-                               Z3Context().bv_val(0, 1), true_guard));
-  }
+  ASSIGN_OR_RETURN(z3::expr vrf_id, state.Get("local_metadata.vrf_id"));
+  ASSIGN_OR_RETURN(z3::expr vrf_constraint,
+                   operators::Eq(vrf_id, Z3Context().bv_val(0, 1)));
+  constraints.push_back(vrf_constraint);
+
+  ASSIGN_OR_RETURN(z3::expr l4_src_port,
+                   state.Get("local_metadata.l4_src_port"));
+  ASSIGN_OR_RETURN(z3::expr l4_src_port_constraint,
+                   operators::Eq(l4_src_port, Z3Context().bv_val(0, 1)));
+  constraints.push_back(l4_src_port_constraint);
+
+  ASSIGN_OR_RETURN(z3::expr l4_dst_port,
+                   state.Get("local_metadata.l4_dst_port"));
+  ASSIGN_OR_RETURN(z3::expr l4_dst_port_constraint,
+                   operators::Eq(l4_dst_port, Z3Context().bv_val(0, 1)));
+  constraints.push_back(l4_dst_port_constraint);
 
   // Find out which headers the program supports.
-  bool program_has_ipv4 = state->ContainsKey("ipv4.$valid$");
-  bool program_has_ipv6 = state->ContainsKey("ipv6.$valid$");
-  z3::expr ipv4_valid = Z3Context().bool_val(false);
-  z3::expr ipv6_valid = Z3Context().bool_val(false);
-  if (program_has_ipv4) {
-    ASSIGN_OR_RETURN(ipv4_valid, state->Get("ipv4.$valid$"));
-  }
-  if (program_has_ipv6) {
-    ASSIGN_OR_RETURN(ipv6_valid, state->Get("ipv6.$valid$"));
-  }
+  ASSIGN_OR_RETURN(z3::expr ipv4_valid, state.Get("ipv4.$valid$"));
+  ASSIGN_OR_RETURN(z3::expr ipv6_valid, state.Get("ipv6.$valid$"));
+  ASSIGN_OR_RETURN(z3::expr arp_valid, state.Get("arp.$valid$"));
 
   // Put restrictions on what "eth_type" can be and how it affects validity of
   // certain headers.
-  if (state->ContainsKey("ethernet.ether_type")) {
-    ASSIGN_OR_RETURN(z3::expr eth_type, state->Get("ethernet.ether_type"));
+  ASSIGN_OR_RETURN(z3::expr eth_type, state.Get("ethernet.ether_type"));
+  constraints.push_back(ipv4_valid == (eth_type == ETHERTYPE_IPV4));
+  constraints.push_back(ipv6_valid == (eth_type == ETHERTYPE_IPV6));
+  constraints.push_back(arp_valid == (eth_type == ETHERTYPE_ARP));
 
-    if (program_has_ipv4) {
-      constraints.push_back(ipv4_valid == (eth_type == ETHERTYPE_IPV4));
-    }
-    if (program_has_ipv6) {
-      constraints.push_back(ipv6_valid == (eth_type == ETHERTYPE_IPV6));
-    }
-    if (state->ContainsKey("arp.$valid$")) {
-      ASSIGN_OR_RETURN(z3::expr arp_valid, state->Get("arp.$valid$"));
-      constraints.push_back(arp_valid == (eth_type == ETHERTYPE_ARP));
-    }
+  // Put similar restrictions on the validity of protocol-specific headers.
+  // Which protocol used is specified by ipv4.protcol or ipv6.next_headers.
+  ASSIGN_OR_RETURN(z3::expr protocol, state.Get("ipv4.protocol"));
+  ASSIGN_OR_RETURN(z3::expr next_header, state.Get("ipv6.next_header"));
 
-    // Similar but for protocol used.
-    if (program_has_ipv4 || program_has_ipv6) {
-      if (state->ContainsKey("icmp.$valid$")) {
-        ASSIGN_OR_RETURN(z3::expr icmp_valid, state->Get("icmp.$valid$"));
-        z3::expr icmp_valid_constraint = Z3Context().bool_val(false);
-        if (program_has_ipv4) {
-          ASSIGN_OR_RETURN(z3::expr protocol, state->Get("ipv4.protocol"));
-          z3::expr icmp_valid_ipv4 =
-              (protocol == IP_PROTOCOL_ICMP) && ipv4_valid;
-          icmp_valid_constraint = icmp_valid_constraint || icmp_valid_ipv4;
-        }
-        if (program_has_ipv6) {
-          ASSIGN_OR_RETURN(z3::expr next_header,
-                           state->Get("ipv6.next_header"));
-          z3::expr icmp_valid_ipv6 =
-              (next_header == IP_PROTOCOL_ICMPV6) && ipv6_valid;
-          icmp_valid_constraint = icmp_valid_constraint || icmp_valid_ipv6;
-        }
-        constraints.push_back(icmp_valid == icmp_valid_constraint);
-      }
-      if (state->ContainsKey("tcp.$valid$")) {
-        ASSIGN_OR_RETURN(z3::expr tcp_valid, state->Get("tcp.$valid$"));
+  // ICMP.
+  ASSIGN_OR_RETURN(z3::expr icmp_valid, state.Get("icmp.$valid$"));
+  z3::expr icmp_valid_ipv4 = (protocol == IP_PROTOCOL_ICMP) && ipv4_valid;
+  z3::expr icmp_valid_ipv6 = (next_header == IP_PROTOCOL_ICMPV6) && ipv6_valid;
+  constraints.push_back(icmp_valid == (icmp_valid_ipv4 || icmp_valid_ipv6));
 
-        z3::expr tcp_valid_constraint = Z3Context().bool_val(false);
-        if (program_has_ipv4) {
-          ASSIGN_OR_RETURN(z3::expr protocol, state->Get("ipv4.protocol"));
-          z3::expr tcp_valid_ipv4 = (protocol == IP_PROTOCOL_TCP) && ipv4_valid;
-          tcp_valid_constraint = tcp_valid_constraint || tcp_valid_ipv4;
-        }
-        if (program_has_ipv6) {
-          ASSIGN_OR_RETURN(z3::expr next_header,
-                           state->Get("ipv6.next_header"));
-          z3::expr tcp_valid_ipv6 =
-              (next_header == IP_PROTOCOL_TCP) && ipv6_valid;
-          tcp_valid_constraint = tcp_valid_constraint || tcp_valid_ipv6;
-        }
-        constraints.push_back(tcp_valid == tcp_valid_constraint);
-        // Set l4_src_port and l4_dst_port to those of tcp header.
-        if (state->ContainsKey("local_metadata.l4_src_port") &&
-            state->ContainsKey("tcp.src_port")) {
-          ASSIGN_OR_RETURN(z3::expr tcp_src_port, state->Get("tcp.src_port"));
-          RETURN_IF_ERROR(state->Set("local_metadata.l4_src_port", tcp_src_port,
-                                     tcp_valid));
-        }
-        if (state->ContainsKey("local_metadata.l4_dst_port") &&
-            state->ContainsKey("tcp.dst_port")) {
-          ASSIGN_OR_RETURN(z3::expr tcp_dst_port, state->Get("tcp.dst_port"));
-          RETURN_IF_ERROR(state->Set("local_metadata.l4_dst_port", tcp_dst_port,
-                                     tcp_valid));
-        }
-      }
-      if (state->ContainsKey("udp.$valid$")) {
-        ASSIGN_OR_RETURN(z3::expr udp_valid, state->Get("udp.$valid$"));
+  // TCP.
+  ASSIGN_OR_RETURN(z3::expr tcp_valid, state.Get("tcp.$valid$"));
+  z3::expr tcp_valid_ipv4 = (protocol == IP_PROTOCOL_TCP) && ipv4_valid;
+  z3::expr tcp_valid_ipv6 = (next_header == IP_PROTOCOL_TCP) && ipv6_valid;
+  constraints.push_back(tcp_valid == (tcp_valid_ipv4 || tcp_valid_ipv6));
 
-        z3::expr udp_valid_constraint = Z3Context().bool_val(false);
-        if (program_has_ipv4) {
-          ASSIGN_OR_RETURN(z3::expr protocol, state->Get("ipv4.protocol"));
-          z3::expr udp_valid_ipv4 = (protocol == IP_PROTOCOL_UDP) && ipv4_valid;
-          udp_valid_constraint = udp_valid_constraint || udp_valid_ipv4;
-        }
-        if (program_has_ipv6) {
-          ASSIGN_OR_RETURN(z3::expr next_header,
-                           state->Get("ipv6.next_header"));
-          z3::expr udp_valid_ipv6 =
-              (next_header == IP_PROTOCOL_UDP) && ipv6_valid;
-          udp_valid_constraint = udp_valid_constraint || udp_valid_ipv6;
-        }
-        constraints.push_back(udp_valid == udp_valid_constraint);
-        // Set l4_src_port and l4_dst_port to those of udp header.
-        if (state->ContainsKey("local_metadata.l4_src_port") &&
-            state->ContainsKey("udp.src_port")) {
-          ASSIGN_OR_RETURN(z3::expr udp_src_port, state->Get("udp.src_port"));
-          RETURN_IF_ERROR(state->Set("local_metadata.l4_src_port", udp_src_port,
-                                     udp_valid));
-        }
-        if (state->ContainsKey("local_metadata.l4_dst_port") &&
-            state->ContainsKey("udp.dst_port")) {
-          ASSIGN_OR_RETURN(z3::expr udp_dst_port, state->Get("udp.dst_port"));
-          RETURN_IF_ERROR(state->Set("local_metadata.l4_dst_port", udp_dst_port,
-                                     udp_valid));
-        }
-      }
-    }
-  }
+  // Set l4_src_port and l4_dst_port to those of tcp header, if tcp is used.
+  ASSIGN_OR_RETURN(z3::expr tcp_src_port, state.Get("tcp.src_port"));
+  ASSIGN_OR_RETURN(z3::expr tcp_dst_port, state.Get("tcp.dst_port"));
+  ASSIGN_OR_RETURN(z3::expr l4_src_port_eq_tcp_src_port,
+                   operators::Eq(tcp_src_port, l4_src_port));
+  ASSIGN_OR_RETURN(z3::expr l4_dst_port_eq_tcp_dst_port,
+                   operators::Eq(tcp_dst_port, l4_dst_port));
+
+  constraints.push_back(z3::implies(tcp_valid, l4_src_port_eq_tcp_src_port));
+  constraints.push_back(z3::implies(tcp_valid, l4_dst_port_eq_tcp_dst_port));
+
+  // UDP.
+  ASSIGN_OR_RETURN(z3::expr udp_valid, state.Get("udp.$valid$"));
+  z3::expr udp_valid_ipv4 = (protocol == IP_PROTOCOL_UDP) && ipv4_valid;
+  z3::expr udp_valid_ipv6 = (next_header == IP_PROTOCOL_UDP) && ipv6_valid;
+  constraints.push_back(udp_valid == (udp_valid_ipv4 || udp_valid_ipv6));
+
+  // Set l4_src_port and l4_dst_port to those of udp header, if udp is used.
+  ASSIGN_OR_RETURN(z3::expr udp_src_port, state.Get("udp.src_port"));
+  ASSIGN_OR_RETURN(z3::expr udp_dst_port, state.Get("udp.dst_port"));
+  ASSIGN_OR_RETURN(z3::expr l4_src_port_eq_udp_src_port,
+                   operators::Eq(udp_src_port, l4_src_port));
+  ASSIGN_OR_RETURN(z3::expr l4_dst_port_eq_udp_dst_port,
+                   operators::Eq(udp_dst_port, l4_dst_port));
+
+  constraints.push_back(z3::implies(udp_valid, l4_src_port_eq_udp_src_port));
+  constraints.push_back(z3::implies(udp_valid, l4_dst_port_eq_udp_dst_port));
 
   // Done, return all constraints.
   return constraints;

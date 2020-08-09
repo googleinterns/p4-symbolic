@@ -42,7 +42,7 @@ namespace parser {
 // Creates assertions/constraints that encode some of the interesting
 // behavior of parsers in specific programs we want to analyze.
 gutil::StatusOr<std::vector<z3::expr>> EvaluateHardcodedParser(
-    SymbolicPerPacketState *state);
+    const SymbolicPerPacketState &state);
 
 }  // namespace parser
 }  // namespace symbolic
