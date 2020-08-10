@@ -30,23 +30,21 @@ namespace parser {
 gutil::StatusOr<std::vector<z3::expr>> EvaluateHardcodedParser(
     const SymbolicPerPacketState &state) {
   std::vector<z3::expr> constraints;
-  // Set initial values for certain special metadata fields.
-  ASSIGN_OR_RETURN(z3::expr vrf_id, state.Get("local_metadata.vrf_id"));
+
+  // Set initial value for vrf.
+  ASSIGN_OR_RETURN(z3::expr vrf_id, state.Get("scalars.userMetadata.vrf_id"));
   ASSIGN_OR_RETURN(z3::expr vrf_constraint,
                    operators::Eq(vrf_id, Z3Context().bv_val(0, 1)));
   constraints.push_back(vrf_constraint);
 
+  // l4_src_port and l4_dst_port are extracted from the headers if tcp or udp
+  // were used, and set to zero otherwise.
+  // We must be careful that these values are guarded by the proper validity
+  // guards, or we will impose contradictory constraints.
   ASSIGN_OR_RETURN(z3::expr l4_src_port,
-                   state.Get("local_metadata.l4_src_port"));
-  ASSIGN_OR_RETURN(z3::expr l4_src_port_constraint,
-                   operators::Eq(l4_src_port, Z3Context().bv_val(0, 1)));
-  constraints.push_back(l4_src_port_constraint);
-
+                   state.Get("scalars.userMetadata.l4_src_port"));
   ASSIGN_OR_RETURN(z3::expr l4_dst_port,
-                   state.Get("local_metadata.l4_dst_port"));
-  ASSIGN_OR_RETURN(z3::expr l4_dst_port_constraint,
-                   operators::Eq(l4_dst_port, Z3Context().bv_val(0, 1)));
-  constraints.push_back(l4_dst_port_constraint);
+                   state.Get("scalars.userMetadata.l4_dst_port"));
 
   // Find out which headers the program supports.
   ASSIGN_OR_RETURN(z3::expr ipv4_valid, state.Get("ipv4.$valid$"));
@@ -104,6 +102,16 @@ gutil::StatusOr<std::vector<z3::expr>> EvaluateHardcodedParser(
 
   constraints.push_back(z3::implies(udp_valid, l4_src_port_eq_udp_src_port));
   constraints.push_back(z3::implies(udp_valid, l4_dst_port_eq_udp_dst_port));
+
+  // Default values for l4_src_port and l4_dst_port.
+  ASSIGN_OR_RETURN(z3::expr tcp_or_udp_valid,
+                   operators::Or(tcp_valid, udp_valid));
+  ASSIGN_OR_RETURN(z3::expr l4_src_port_constraint,
+                   operators::Eq(l4_src_port, Z3Context().bv_val(0, 1)));
+  ASSIGN_OR_RETURN(z3::expr l4_dst_port_constraint,
+                   operators::Eq(l4_dst_port, Z3Context().bv_val(0, 1)));
+  constraints.push_back(z3::implies(!tcp_or_udp_valid, l4_src_port_constraint));
+  constraints.push_back(z3::implies(!tcp_or_udp_valid, l4_dst_port_constraint));
 
   // Done, return all constraints.
   return constraints;
