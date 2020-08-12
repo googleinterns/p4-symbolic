@@ -99,19 +99,46 @@ absl::Status ParseAndEvaluate() {
           p4_symbolic::symbolic::Solve(solver_state, table_entry_assertion));
 
       if (packet_option) {
+        // Whether packet was dropped or not!
+        std::cout << "\tDropped = " << packet_option.value().trace.dropped
+                  << std::endl;
+
+        // Ports
         std::cout << "\tstandard_metadata.ingress_port = "
                   << packet_option.value().ingress_port << std::endl;
         std::cout << "\tstandard_metadata.egress_spec = "
                   << packet_option.value().egress_port << std::endl;
+        // IPV4
+        if (packet_option.value().egress_headers.count("ipv4.srcAddr")) {
+          std::cout << "\tipv4.srcAddr = "
+                    << packet_option.value().egress_headers.at("ipv4.srcAddr")
+                    << std::endl;
+        }
         if (packet_option.value().egress_headers.count("ipv4.dstAddr")) {
           std::cout << "\tipv4.dstAddr = "
                     << packet_option.value().egress_headers.at("ipv4.dstAddr")
                     << std::endl;
         }
+        // Ethernet
         if (packet_option.value().egress_headers.count("ethernet.dstAddr")) {
           std::cout << "\tethernet.dstAddr = "
                     << packet_option.value().egress_headers.at(
                            "ethernet.dstAddr")
+                    << std::endl;
+        }
+        // VRF
+        if (packet_option.value().egress_headers.count(
+                "scalars.userMetadata.vrf")) {
+          std::cout << "\tscalars.userMetadata.vrf = "
+                    << packet_option.value().egress_headers.at(
+                           "scalars.userMetadata.vrf")
+                    << std::endl;
+        }
+        if (packet_option.value().egress_headers.count(
+                "scalars.userMetadata.vrf_is_valid")) {
+          std::cout << "\tscalars.userMetadata.vrf_is_valid = "
+                    << packet_option.value().egress_headers.at(
+                           "scalars.userMetadata.vrf_is_valid")
                     << std::endl;
         }
       } else {
