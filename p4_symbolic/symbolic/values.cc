@@ -29,6 +29,7 @@
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/str_split.h"
+#include "absl/strings/string_view.h"
 #include "absl/strings/strip.h"
 #include "p4_pdpi/utils/ir.h"
 #include "p4_symbolic/symbolic/operators.h"
@@ -37,6 +38,56 @@
 namespace p4_symbolic {
 namespace symbolic {
 namespace values {
+
+namespace {
+
+// Finds the minimum bit size required for representing the given value.
+unsigned int FindBitsize(uint64_t value) {
+  unsigned int bitsize = 0;
+  uint64_t pow = 1;
+  while (bitsize <= 64 && pow <= value) {
+    pow = pow * 2;
+    bitsize++;
+  }
+  return (bitsize > 1 ? bitsize : 1);  // At least 1 bit.
+}
+
+// Normalize the given value: transforms it into a binary representation
+// without any leading zeros.
+std::string NormalizeBits(std::string value) {
+  static std::unordered_map<char, std::string> hex_to_bin = {
+      {'0', "0000"}, {'1', "0001"}, {'2', "0010"}, {'3', "0011"},
+      {'4', "0100"}, {'5', "0101"}, {'6', "0110"}, {'7', "0111"},
+      {'8', "1000"}, {'9', "1001"}, {'a', "1010"}, {'b', "1011"},
+      {'c', "1100"}, {'d', "1101"}, {'e', "1110"}, {'f', "1111"}};
+
+  std::string stripped = "";
+  if (absl::StartsWith(value, "#x")) {
+    // Turn hex to binary.
+    absl::string_view stripped_value = absl::StripPrefix(value, "#x");
+    for (char c : stripped_value) {
+      absl::StrAppend(&stripped, hex_to_bin.at(c));
+    }
+  } else if (absl::StartsWith(value, "#b")) {
+    // Strip leading #b for binary strings.
+    stripped = absl::StripPrefix(value, "#b");
+  } else {
+    // No normalization requied for bools or ints.
+    return value;
+  }
+
+  // Remove leading zeros.
+  size_t first_zero_index = stripped.size() - 1;
+  for (size_t i = 0; i < stripped.size(); i++) {
+    if (stripped.at(i) == '1') {
+      first_zero_index = i;
+      break;
+    }
+  }
+  return stripped.substr(first_zero_index);
+}
+
+}  // namespace
 
 gutil::StatusOr<pdpi::IrValue> ParseIrValue(std::string value) {
   // Format according to type.
@@ -58,14 +109,8 @@ gutil::StatusOr<z3::expr> Bmv2ValueZ3Expr(const pdpi::IrValue &value) {
       std::stringstream converter;
       converter << std::hex << hexstr;
       if (converter >> decimal) {
-        unsigned int bitsize = 0;
-        uint64_t pow = 1;
-        while (bitsize <= 64 && pow <= decimal) {
-          pow = pow * 2;
-          bitsize++;
-        }
-        bitsize = (bitsize > 1 ? bitsize : 1);  // At least 1 bit.
-        return Z3Context().bv_val(std::to_string(decimal).c_str(), bitsize);
+        return Z3Context().bv_val(std::to_string(decimal).c_str(),
+                                  FindBitsize(decimal));
       }
 
       return absl::InvalidArgumentError(absl::StrCat(
@@ -166,7 +211,7 @@ gutil::StatusOr<z3::expr> P4RTValueZ3Expr(const std::string field_name,
           bitvector_to_string.insert({field_name, {}});
         }
         bitvector_to_string.at(field_name)
-            .insert({z3_value.to_string(), string_value});
+            .insert({NormalizeBits(z3_value.to_string()), string_value});
         return z3_value;
       } else {
         // First time encountering this value. Come up with some bitvector
@@ -184,13 +229,7 @@ gutil::StatusOr<z3::expr> P4RTValueZ3Expr(const std::string field_name,
         // If the context expects a smaller bitsize, the context will return an
         // error, since that means the number of unique strings used exceed the
         // total size of the actual domain as defined in the p4 program.
-        unsigned int bitsize = 0;
-        uint64_t pow = 1;
-        while (bitsize <= 64 && pow <= int_value) {
-          pow = pow * 2;
-          bitsize++;
-        }
-        bitsize = (bitsize > 1 ? bitsize : 1);  // At least 1 bit.
+        unsigned int bitsize = FindBitsize(int_value);
         z3::expr z3_value = Z3Context().bv_val(int_value, bitsize);
 
         // Store this z3::expr and its corresponding string value in the mapping
@@ -201,7 +240,8 @@ gutil::StatusOr<z3::expr> P4RTValueZ3Expr(const std::string field_name,
           bitvector_to_string.insert({field_name, {}});
         }
         bitvector_to_string.at(field_name)
-            .insert({z3_value.to_string(), string_value});
+            .insert({NormalizeBits(z3_value.to_string()), string_value});
+        return z3_value;
       }
     }
     default: {
@@ -242,20 +282,24 @@ std::unordered_map<std::string, uint64_t> &FieldNameToStringCountMap() {
   return *field_name_to_string_count_map;
 }
 
-// Reverse translation of internal values from the p4/bmv2 value domain
-// to the string domain of P4RT.
-// If this is called on values belonging to fields without a
-// @p4runtime_translation annotation, it is a no-op.
 gutil::StatusOr<std::string> TranslateValueToString(
     const std::string field_name, const std::string &value) {
+  std::string normalized_value = NormalizeBits(value);
+  // Try to translate the value.
+  const auto &reverse_map = BitVectorToStringTranslationMap();
+  if (reverse_map.count(field_name) == 1) {
+    if (reverse_map.at(field_name).count(normalized_value) == 1) {
+      return reverse_map.at(field_name).at(normalized_value);
+    }
+  }
+
+  // If we got here, it means the value was not found in the reverse translation
+  // map.
+  // This is acceptable if this field is not a string translated field, but
+  // it is not if the string is, because that indicates that the field was
+  // assigned a value by the model that does not correspond to any P4RT string.
   auto &count_map = FieldNameToStringCountMap();
   if (count_map.count(field_name) == 1) {
-    const auto &reverse_map = BitVectorToStringTranslationMap();
-    if (reverse_map.count(field_name) == 1) {
-      if (reverse_map.at(field_name).count(value) == 1) {
-        return reverse_map.at(field_name).at(value);
-      }
-    }
     return absl::InvalidArgumentError(
         absl::StrCat("Cannot translate value ", value,
                      " to a string value for field ", field_name));
