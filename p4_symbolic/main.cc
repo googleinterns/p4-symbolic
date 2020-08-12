@@ -41,6 +41,8 @@ ABSL_FLAG(std::string, entries, "",
           "if the input p4 program contains no (explicit) tables for which "
           "entries are needed.");
 ABSL_FLAG(std::string, debug, "", "Dump the SMT program for debugging");
+ABSL_FLAG(bool, hardcoded_parser, true,
+          "Use the hardcoded parser during symbolic evaluation");
 
 namespace {
 // Parse input P4 program, analyze it symbolically
@@ -50,6 +52,7 @@ absl::Status ParseAndEvaluate() {
   const std::string &bmv2_path = absl::GetFlag(FLAGS_bmv2);
   const std::string &entries_path = absl::GetFlag(FLAGS_entries);
   const std::string &debug_path = absl::GetFlag(FLAGS_debug);
+  bool hardcoded_parser = absl::GetFlag(FLAGS_hardcoded_parser);
 
   RET_CHECK(!p4info_path.empty());
   RET_CHECK(!bmv2_path.empty());
@@ -62,8 +65,8 @@ absl::Status ParseAndEvaluate() {
   // Evaluate program symbolically.
   ASSIGN_OR_RETURN(
       const std::unique_ptr<p4_symbolic::symbolic::SolverState> &solver_state,
-      p4_symbolic::symbolic::EvaluateP4Pipeline(dataplane,
-                                                std::vector<int>{0, 1}));
+      p4_symbolic::symbolic::EvaluateP4Pipeline(
+          dataplane, std::vector<int>{0, 1}, hardcoded_parser));
 
   // Find a packet matching every entry of every table.
   // Loop over tables in a deterministic order for output consistency (important
@@ -134,10 +137,10 @@ int main(int argc, char *argv[]) {
   GOOGLE_PROTOBUF_VERIFY_VERSION;
 
   // Command line arugments and help message.
-  absl::SetProgramUsageMessage(
-      absl::StrFormat("usage: %s %s", argv[0],
-                      "--bmv2=path/to/bmv2.json --p4info=path/to/p4info.pb.txt "
-                      "[--entries=path/to/table_entries.txt]"));
+  absl::SetProgramUsageMessage(absl::StrFormat(
+      "usage: %s %s", argv[0],
+      "--bmv2=path/to/bmv2.json --p4info=path/to/p4info.pb.txt "
+      "[--entries=path/to/table_entries.txt] [--hardcoded_parser=false]"));
   absl::ParseCommandLine(argc, argv);
 
   // Run code
