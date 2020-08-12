@@ -28,6 +28,7 @@ cc_library(
         "symbolic.cc",
         "table.cc",
         "util.cc",
+        "values.cc",
     ],
     hdrs = [
         "action.h",
@@ -40,6 +41,7 @@ cc_library(
         "symbolic.h",
         "table.h",
         "util.h",
+        "values.h",
     ],
     visibility = ["//p4_symbolic:__subpackages__"],
     deps = [

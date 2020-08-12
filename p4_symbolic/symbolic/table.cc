@@ -25,9 +25,10 @@
 
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
 #include "p4_symbolic/symbolic/action.h"
 #include "p4_symbolic/symbolic/operators.h"
-#include "p4_symbolic/symbolic/util.h"
+#include "p4_symbolic/symbolic/values.h"
 #include "z3++.h"
 
 namespace p4_symbolic {
@@ -137,7 +138,7 @@ std::vector<std::pair<size_t, pdpi::IrTableEntry>> SortEntries(
 // Constructs a symbolic expression that semantically corresponds to this
 // match.
 gutil::StatusOr<z3::expr> EvaluateSingleMatch(
-    p4::config::v1::MatchField match_definition,
+    p4::config::v1::MatchField match_definition, const std::string &field_name,
     const z3::expr &field_expression, const pdpi::IrMatch &match) {
   if (match_definition.match_case() != p4::config::v1::MatchField::kMatchType) {
     // Arch-specific match type.
@@ -154,7 +155,7 @@ gutil::StatusOr<z3::expr> EvaluateSingleMatch(
                          match_definition.DebugString()));
       }
       ASSIGN_OR_RETURN(z3::expr value_expression,
-                       util::IrValueToZ3Expr(match.exact()));
+                       values::P4RTValueZ3Expr(field_name, match.exact()));
       return operators::Eq(field_expression, value_expression);
     }
 
@@ -167,7 +168,7 @@ gutil::StatusOr<z3::expr> EvaluateSingleMatch(
       }
 
       ASSIGN_OR_RETURN(z3::expr value_expression,
-                       util::IrValueToZ3Expr(match.lpm().value()));
+                       values::Bmv2ValueZ3Expr(match.lpm().value()));
       return operators::PrefixEq(
           field_expression, value_expression,
           static_cast<unsigned int>(match.lpm().prefix_length()));
@@ -182,9 +183,9 @@ gutil::StatusOr<z3::expr> EvaluateSingleMatch(
       }
 
       ASSIGN_OR_RETURN(z3::expr mask_expression,
-                       util::IrValueToZ3Expr(match.ternary().mask()));
+                       values::Bmv2ValueZ3Expr(match.ternary().mask()));
       ASSIGN_OR_RETURN(z3::expr value_expression,
-                       util::IrValueToZ3Expr(match.ternary().value()));
+                       values::Bmv2ValueZ3Expr(match.ternary().value()));
       ASSIGN_OR_RETURN(z3::expr masked_field,
                        operators::BitAnd(field_expression, mask_expression));
       return operators::Eq(masked_field, value_expression);
@@ -234,13 +235,15 @@ gutil::StatusOr<z3::expr> EvaluateTableEntryCondition(
     }
 
     ir::FieldValue match_field = match_to_fields.at(match_definition.name());
+    std::string field_name = absl::StrFormat("%s.%s", match_field.header_name(),
+                                             match_field.field_name());
     action::ActionContext fake_context = {table_name, {}};
     ASSIGN_OR_RETURN(
         z3::expr match_field_expr,
         action::EvaluateFieldValue(match_field, state, fake_context));
-    ASSIGN_OR_RETURN(
-        z3::expr match_expression,
-        EvaluateSingleMatch(match_definition, match_field_expr, match));
+    ASSIGN_OR_RETURN(z3::expr match_expression,
+                     EvaluateSingleMatch(match_definition, field_name,
+                                         match_field_expr, match));
     ASSIGN_OR_RETURN(condition_expression,
                      operators::And(condition_expression, match_expression));
   }
@@ -359,7 +362,7 @@ gutil::StatusOr<SymbolicTrace> EvaluateTable(
        table.table_implementation().default_action_parameters()) {
     ASSIGN_OR_RETURN(
         *(default_entry.mutable_action()->add_params()->mutable_value()),
-        util::StringToIrValue(parameter_value));
+        values::ParseIrValue(parameter_value));
   }
 
   // Start with the default entry

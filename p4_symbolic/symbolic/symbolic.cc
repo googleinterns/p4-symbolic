@@ -132,8 +132,9 @@ gutil::StatusOr<std::optional<ConcreteContext>> Solve(
     case z3::sat:
     default:
       z3::model packet_model = solver_state->solver->get_model();
-      ConcreteContext result =
-          util::ExtractFromModel(solver_state->context, packet_model);
+      ASSIGN_OR_RETURN(
+          ConcreteContext result,
+          util::ExtractFromModel(solver_state->context, packet_model));
       solver_state->solver->pop();
       return std::make_optional<ConcreteContext>(result);
   }

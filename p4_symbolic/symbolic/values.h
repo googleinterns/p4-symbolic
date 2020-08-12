@@ -12,47 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Helpful utilities for managing symbolic and concrete headers and values.
+// This file is responsible for parsing values from the bmv2 json and table
+// entries.
+// It is also responsible for translating any string values to corresponding
+// bitvectors and back, for fields that have the @p4runtime_translation
+// annotation.
 
-#ifndef P4_SYMBOLIC_SYMBOLIC_UTIL_H_
-#define P4_SYMBOLIC_SYMBOLIC_UTIL_H_
+#ifndef P4_SYMBOLIC_SYMBOLIC_VALUES_H_
+#define P4_SYMBOLIC_SYMBOLIC_VALUES_H_
 
 #include <string>
 #include <unordered_map>
 
-#include "google/protobuf/map.h"
 #include "gutil/status.h"
 #include "p4_pdpi/ir.pb.h"
-#include "p4_symbolic/ir/ir.pb.h"
-#include "p4_symbolic/symbolic/symbolic.h"
 #include "z3++.h"
 
 namespace p4_symbolic {
 namespace symbolic {
-namespace util {
-
-// Free (unconstrained) symbolic headers consisting of free symbolic variables
-// for every field in every header instance defined in the P4 program.
-gutil::StatusOr<std::unordered_map<std::string, z3::expr>> FreeSymbolicHeaders(
-    const google::protobuf::Map<std::string, ir::HeaderType> &headers);
-
-// Returns an symbolic table match containing default values.
-// The table match expression is false, the index is -1, and the value is
-// undefined.
-SymbolicTableMatch DefaultTableMatch();
-
-// Extract a concrete context by evaluating every component's corresponding
-// expression in the model.
-gutil::StatusOr<ConcreteContext> ExtractFromModel(SymbolicContext context,
-                                                  z3::model model);
-
-// Merges two symbolic traces into a single trace. A field in the new trace
-// has the value of the changed trace if the condition is true, and the value
-// of the original one otherwise.
-// Assertion: both traces must contain matches for the same set of table names.
-gutil::StatusOr<SymbolicTrace> MergeTracesOnCondition(
-    const z3::expr &condition, const SymbolicTrace &true_trace,
-    const SymbolicTrace &false_trace);
+namespace values {
 
 // Transforms a hex string literal from bmv2 json to a pdpi::IrValue
 gutil::StatusOr<pdpi::IrValue> ParseIrValue(std::string value);
@@ -80,11 +58,11 @@ gutil::StatusOr<z3::expr> P4RTValueZ3Expr(const std::string field_name,
 // Exposes a static mapping from string values to bitvector values.
 // We do not need to include field names here because we assume the string
 // values are unique.
-std::unordered_map<std::string, uint64_t> &StringToBitVectorTranslationMap();
+std::unordered_map<std::string, z3::expr> &StringToBitVectorTranslationMap();
 
 // Exposes a static mapping from field names and bitvector values to
 // string values.
-std::unordered_map<std::string, std::unordered_map<uint64_t, std::string>>
+std::unordered_map<std::string, std::unordered_map<std::string, std::string>>
     &BitVectorToStringTranslationMap();
 
 // Exposes a static mapping from field name to count of strings translated
@@ -98,8 +76,8 @@ std::unordered_map<std::string, uint64_t> &FieldNameToStringCountMap();
 gutil::StatusOr<std::string> TranslateValueToString(
     const std::string field_name, const std::string &value);
 
-}  // namespace util
+}  // namespace values
 }  // namespace symbolic
 }  // namespace p4_symbolic
 
-#endif  // P4_SYMBOLIC_SYMBOLIC_UTIL_H_
+#endif  // P4_SYMBOLIC_SYMBOLIC_VALUES_H_

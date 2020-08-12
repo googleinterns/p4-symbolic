@@ -18,7 +18,7 @@
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "p4_symbolic/symbolic/operators.h"
-#include "p4_symbolic/symbolic/util.h"
+#include "p4_symbolic/symbolic/values.h"
 
 namespace p4_symbolic {
 namespace symbolic {
@@ -162,8 +162,8 @@ gutil::StatusOr<z3::expr> EvaluateHexStr(const ir::HexstrValue &hexstr) {
   }
 
   ASSIGN_OR_RETURN(pdpi::IrValue parsed_value,
-                   util::StringToIrValue(hexstr.value()));
-  return util::IrValueToZ3Expr(parsed_value);
+                   values::ParseIrValue(hexstr.value()));
+  return values::Bmv2ValueZ3Expr(parsed_value);
 }
 
 gutil::StatusOr<z3::expr> EvaluateBool(const ir::BoolValue &bool_value) {
@@ -325,8 +325,9 @@ absl::Status EvaluateAction(const ir::Action &action,
     const pdpi::IrActionDefinition::IrActionParamDefinition &parameter =
         parameters.at(i);
     const std::string &parameter_name = parameter.param().name();
-    ASSIGN_OR_RETURN(z3::expr parameter_value,
-                     util::IrValueToZ3Expr(args.at(i - 1).value()));
+    ASSIGN_OR_RETURN(
+        z3::expr parameter_value,
+        values::P4RTValueZ3Expr(parameter_name, args.at(i - 1).value()));
     context.scope.insert({parameter_name, parameter_value});
   }
 

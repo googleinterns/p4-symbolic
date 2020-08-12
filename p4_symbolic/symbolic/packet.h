@@ -18,6 +18,7 @@
 #ifndef P4_SYMBOLIC_SYMBOLIC_PACKET_H_
 #define P4_SYMBOLIC_SYMBOLIC_PACKET_H_
 
+#include "gutil/status.h"
 #include "p4_symbolic/symbolic/symbolic.h"
 #include "z3++.h"
 
@@ -30,7 +31,8 @@ SymbolicPacket ExtractSymbolicPacket(SymbolicPerPacketState state);
 
 // Extract a concrete packet by evaluating every field's corresponding
 // expression in the model.
-ConcretePacket ExtractConcretePacket(SymbolicPacket packet, z3::model model);
+gutil::StatusOr<ConcretePacket> ExtractConcretePacket(SymbolicPacket packet,
+                                                      z3::model model);
 
 }  // namespace packet
 }  // namespace symbolic
