@@ -633,13 +633,13 @@ action {
   params {
     name: "dstAddr"
     value {
-      hex_str: "0x000000000000"
+      hex_str: "0x00"
     }
   }
   params {
     name: "port"
     value {
-      hex_str: "0x0000"
+      hex_str: "0x00"
     }
   }
 }
@@ -659,13 +659,13 @@ action {
   params {
     name: "dstAddr"
     value {
-      hex_str: "0x000000000000"
+      hex_str: "0x00"
     }
   }
   params {
     name: "port"
     value {
-      hex_str: "0x0001"
+      hex_str: "0x01"
     }
   }
 }
@@ -685,13 +685,13 @@ action {
   params {
     name: "dstAddr"
     value {
-      hex_str: "0x00000000000a"
+      hex_str: "0x0a"
     }
   }
   params {
     name: "port"
     value {
-      hex_str: "0x0001"
+      hex_str: "0x01"
     }
   }
 }
@@ -717,7 +717,7 @@ action {
   params {
     name: "port"
     value {
-      hex_str: "0x0001"
+      hex_str: "0x01"
     }
   }
 }
