@@ -77,8 +77,8 @@ def end_to_end_test(
         tools = ["//p4_symbolic:main"],
         cmd = (
             "$(location //p4_symbolic:main) --bmv2=$(location %s) " +
-            "--p4info=$(location %s) %s --debug=$(location %s) &> " +
-            "$(location %s)"
+            "--p4info=$(location %s) %s --debug=$(location %s) " +
+            "--hardcoded_parser=false &> $(location %s)"
         ) % (
             ":" + p4c_name,
             p4info_file,
