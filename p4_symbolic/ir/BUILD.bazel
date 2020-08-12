@@ -27,7 +27,6 @@ proto_library(
     srcs = ["ir.proto"],
     deps = [
         "//p4_symbolic/bmv2:bmv2_proto",
-        "@com_github_p4lang_p4runtime//:p4runtime_proto",
         "@p4_pdpi//p4_pdpi:ir_proto",
     ],
 )

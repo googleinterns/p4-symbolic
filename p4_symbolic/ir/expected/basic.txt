@@ -649,6 +649,58 @@ matches {
   name: "hdr.ipv4.dstAddr"
   lpm {
     value {
+      ipv4: "10.10.0.0"
+    }
+    prefix_length: 32
+  }
+}
+action {
+  name: "MyIngress.ipv4_forward"
+  params {
+    name: "dstAddr"
+    value {
+      hex_str: "0x000000000000"
+    }
+  }
+  params {
+    name: "port"
+    value {
+      hex_str: "0x0001"
+    }
+  }
+}
+
+table_name: "MyIngress.ipv4_lpm"
+matches {
+  name: "hdr.ipv4.dstAddr"
+  lpm {
+    value {
+      ipv4: "10.0.0.0"
+    }
+    prefix_length: 8
+  }
+}
+action {
+  name: "MyIngress.ipv4_forward"
+  params {
+    name: "dstAddr"
+    value {
+      hex_str: "0x00000000000a"
+    }
+  }
+  params {
+    name: "port"
+    value {
+      hex_str: "0x0001"
+    }
+  }
+}
+
+table_name: "MyIngress.ipv4_lpm"
+matches {
+  name: "hdr.ipv4.dstAddr"
+  lpm {
+    value {
       ipv4: "20.20.0.0"
     }
     prefix_length: 16

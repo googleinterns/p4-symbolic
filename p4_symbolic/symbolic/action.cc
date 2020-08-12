@@ -43,6 +43,26 @@ absl::Status EvaluateStatement(const ir::Statement &statement,
                                  Z3Context().bv_val(0, 1), guard));
       return absl::OkStatus();
     }
+    case ir::Statement::kClone: {
+      // No-op.
+      return absl::OkStatus();
+    }
+    case ir::Statement::kHash: {
+      const ir::FieldValue &field = statement.hash().field();
+      std::string field_name =
+          absl::StrFormat("%s.%s", field.header_name(), field.field_name());
+      if (!state->ContainsKey(field_name)) {
+        return absl::UnimplementedError(absl::StrCat(
+            "Action ", context->action_name, " hashes to unknown header field ",
+            field.DebugString()));
+      }
+      ASSIGN_OR_RETURN(z3::expr old_value, state->Get(field_name));
+      ASSIGN_OR_RETURN(
+          z3::expr free_variable,
+          operators::FreeVariable(field_name, old_value.get_sort()));
+      RETURN_IF_ERROR(state->Set(field_name, free_variable, guard));
+      return absl::OkStatus();
+    }
     default:
       return absl::UnimplementedError(absl::StrCat(
           "Action ", context->action_name, " contains unsupported statement ",

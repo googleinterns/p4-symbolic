@@ -31,14 +31,8 @@ syntax = "proto3";
 
 package p4_symbolic.ir;
 
-import "p4/v1/p4runtime.proto";
 import "p4_pdpi/ir.proto";
 import "p4_symbolic/bmv2/bmv2.proto";
-
-// Table entry file consisting of many entries in P4RT format.
-message TableEntriesFile {
-  repeated p4.v1.TableEntry table_entries = 1;
-}
 
 // Overall structure of a p4 program.
 message P4Program {

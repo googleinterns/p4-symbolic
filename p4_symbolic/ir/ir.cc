@@ -60,6 +60,10 @@ gutil::StatusOr<bmv2::ExpressionType> ExpressionTypeToEnum(
       type_table = {{"header", bmv2::ExpressionType::header},
                     {"field", bmv2::ExpressionType::field},
                     {"runtime_data", bmv2::ExpressionType::runtime_data},
+                    // "local" is the same as "runtime_data", but while
+                    // runtime_data is used in parameters, local is used
+                    // in expressions.
+                    {"local", bmv2::ExpressionType::runtime_data},
                     {"hexstr", bmv2::ExpressionType::hexstr_},
                     {"bool", bmv2::ExpressionType::bool_},
                     {"string", bmv2::ExpressionType::string_},

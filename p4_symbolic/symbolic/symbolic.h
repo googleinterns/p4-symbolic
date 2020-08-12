@@ -30,6 +30,7 @@
 #include <utility>
 #include <vector>
 
+#include "absl/strings/str_cat.h"
 #include "gutil/status.h"
 #include "p4_symbolic/ir/ir.pb.h"
 #include "p4_symbolic/ir/table_entries.h"
@@ -68,6 +69,12 @@ struct ConcreteTableMatch {
   // If matched is true, this is the index of the matched table entry, or -1 if
   // the default entry was matched.
   int entry_index;
+  std::string to_string() const {
+    if (!matched) {
+      return "was not matched!";
+    }
+    return absl::StrCat("was matched on entry ", entry_index);
+  }
 };
 
 // Exposes a symbolic handle for a match between the symbolic packet and
@@ -90,6 +97,13 @@ struct ConcreteTrace {
   // flags about dropping the packet, taking specific code (e.g. if)
   // branches, vrf, other interesting events, etc.
   bool dropped;  // true if the packet was dropped.
+  std::string to_string() const {
+    auto result = absl::StrCat("dropped = ", dropped);
+    for (const auto &[table, match] : matched_entries) {
+      result = absl::StrCat(result, "\n", table, " => ", match.to_string());
+    }
+    return result;
+  }
 };
 
 // Provides symbolic handles for the trace the symbolic packet is constrained
@@ -108,23 +122,25 @@ struct ConcretePacket {
   std::string eth_dst;
   std::string eth_type;
 
-  std::string outer_ipv4_src;
-  std::string outer_ipv4_dst;
-  std::string outer_ipv6_dst_upper;
-  std::string outer_ipv6_dst_lower;
-  std::string outer_protocol;
-  std::string outer_dscp;
-  std::string outer_ttl;
-
-  std::string inner_ipv4_dst;
-  std::string inner_ipv6_dst_upper;
-  std::string inner_ipv6_dst_lower;
-  std::string inner_protocol;
-  std::string inner_dscp;
-  std::string inner_ttl;
+  std::string ipv4_src;
+  std::string ipv4_dst;
+  std::string ipv6_dst_upper;
+  std::string ipv6_dst_lower;
+  std::string protocol;
+  std::string dscp;
+  std::string ttl;
 
   std::string icmp_type;
-  std::string vid;
+
+  std::string to_string() const {
+    return absl::StrCat("eth_src = ", eth_src, "\n", "eth_dst = ", eth_dst,
+                        "\n", "eth_type = ", eth_type, "\n",
+                        "ipv4_src = ", ipv4_src, "\n", "ipv4_dst = ", ipv4_dst,
+                        "\n", "ipv6_dst_upper = ", ipv6_dst_upper, "\n",
+                        "ipv6_dst_lower = ", ipv6_dst_lower, "\n",
+                        "protocol = ", protocol, "\n", "dscp = ", dscp, "\n",
+                        "ttl = ", ttl, "\n", "icmp_type = ", icmp_type);
+  }
 };
 
 // A helper struct containing symbolic expressions for every field in a packet.
@@ -136,23 +152,15 @@ struct SymbolicPacket {
   z3::expr eth_dst;   // 48 bit.
   z3::expr eth_type;  // 16 bit.
 
-  z3::expr outer_ipv4_src;        // 32 bit, valid if eth_type = 0x0800
-  z3::expr outer_ipv4_dst;        // 32 bit, valid if eth_type = 0x0800
-  z3::expr outer_ipv6_dst_upper;  // 64 bit, valid if eth_type = 0x86dd
-  z3::expr outer_ipv6_dst_lower;  // 64 bit, valid if eth_type = 0x86dd
-  z3::expr outer_protocol;        // 8 bit, valid if eth_type is ip
-  z3::expr outer_dscp;            // 6 bit, valid if eth_type is ip
-  z3::expr outer_ttl;             // 8 bit, valid if eth_type is ip
-
-  z3::expr inner_ipv4_dst;        // 32 bit, valid if outer_protocol = 4
-  z3::expr inner_ipv6_dst_upper;  // 64 bit, valid if outer_protocol = 4
-  z3::expr inner_ipv6_dst_lower;  // 64 bit, valid if outer_protocol = 41
-  z3::expr inner_protocol;        // 8 bit, valid if outer_protocol = 4/41
-  z3::expr inner_dscp;            // 6 bit, valid if outer_protocol = 4/41
-  z3::expr inner_ttl;             // 8 bit, valid if outer_protocol = 4/41
+  z3::expr ipv4_src;        // 32 bit, valid if eth_type = 0x0800
+  z3::expr ipv4_dst;        // 32 bit, valid if eth_type = 0x0800
+  z3::expr ipv6_dst_upper;  // 64 bit, valid if eth_type = 0x86dd
+  z3::expr ipv6_dst_lower;  // 64 bit, valid if eth_type = 0x86dd
+  z3::expr protocol;        // 8 bit, valid if eth_type is ip
+  z3::expr dscp;            // 6 bit, valid if eth_type is ip
+  z3::expr ttl;             // 8 bit, valid if eth_type is ip
 
   z3::expr icmp_type;  // 8 bit, valid if eth_type is ip
-  z3::expr vid;        // 12 bit, valid if eth_type = 0x6007
 };
 
 // The result of solving with some assertion.
@@ -166,6 +174,30 @@ struct ConcreteContext {
   ConcretePerPacketState ingress_headers;
   ConcretePerPacketState egress_headers;
   ConcreteTrace trace;  // Expected trace in the program.
+
+  std::string to_string() const { return to_string(false); }
+  std::string to_string(bool verbose) const {
+    auto result = absl::StrCat(
+        "ingress_port = ", ingress_port, "\n", "egress_port = ", egress_port,
+        "\n\n", "ingress_packet:\n", ingress_packet.to_string(), "\n\n",
+        "egress_packet:\n", egress_packet.to_string(), "\n\n", "trace:\n",
+        trace.to_string());
+    if (verbose) {
+      auto ingress_string = absl::StrCat("ingress_headers", ":");
+      auto egress_string = absl::StrCat("egress_headers", ":");
+      for (const auto &[name, ingress_value] : ingress_headers) {
+        ingress_string =
+            absl::StrCat(ingress_string, "\n", name, " = ", ingress_value);
+      }
+      for (const auto &[name, egress_value] : egress_headers) {
+        egress_string =
+            absl::StrCat(egress_string, "\n", name, " = ", egress_value);
+      }
+      result =
+          absl::StrCat(result, "\n\n", ingress_string, "\n\n", egress_string);
+    }
+    return result;
+  }
 };
 
 // The symbolic context within our analysis.
@@ -232,7 +264,8 @@ using Assertion = std::function<z3::expr(const SymbolicContext &)>;
 // entries for every table in that program, and the available physical ports
 // on the switch.
 gutil::StatusOr<std::unique_ptr<SolverState>> EvaluateP4Pipeline(
-    const Dataplane &data_plane, const std::vector<int> &physical_ports);
+    const Dataplane &data_plane, const std::vector<int> &physical_ports,
+    bool hardcoded_parser);
 
 // Finds a concrete packet and flow in the program that satisfies the given
 // assertion and meets the structure constrained by solver_state.

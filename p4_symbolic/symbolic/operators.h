@@ -20,12 +20,18 @@
 #ifndef P4_SYMBOLIC_SYMBOLIC_OPERATORS_H_
 #define P4_SYMBOLIC_SYMBOLIC_OPERATORS_H_
 
+#include <string>
+
 #include "gutil/status.h"
 #include "z3++.h"
 
 namespace p4_symbolic {
 namespace symbolic {
 namespace operators {
+
+// Free variable.
+gutil::StatusOr<z3::expr> FreeVariable(const std::string &variable_base_name,
+                                       const z3::sort &sort);
 
 // Arithmetic operations.
 gutil::StatusOr<z3::expr> Plus(const z3::expr &a, const z3::expr &b);
