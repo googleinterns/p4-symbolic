@@ -25,6 +25,7 @@
 #include "p4_pdpi/ir.pb.h"
 #include "p4_symbolic/ir/ir.pb.h"
 #include "p4_symbolic/symbolic/symbolic.h"
+#include "p4_symbolic/symbolic/values.h"
 #include "z3++.h"
 
 namespace p4_symbolic {
@@ -43,8 +44,9 @@ SymbolicTableMatch DefaultTableMatch();
 
 // Extract a concrete context by evaluating every component's corresponding
 // expression in the model.
-gutil::StatusOr<ConcreteContext> ExtractFromModel(SymbolicContext context,
-                                                  z3::model model);
+gutil::StatusOr<ConcreteContext> ExtractFromModel(
+    SymbolicContext context, z3::model model,
+    const values::ValueFormatter &value_formatter);
 
 // Merges two symbolic traces into a single trace. A field in the new trace
 // has the value of the changed trace if the condition is true, and the value

@@ -22,7 +22,6 @@
 #include "p4_pdpi/utils/ir.h"
 #include "p4_symbolic/symbolic/operators.h"
 #include "p4_symbolic/symbolic/packet.h"
-#include "p4_symbolic/symbolic/values.h"
 
 namespace p4_symbolic {
 namespace symbolic {
@@ -82,30 +81,32 @@ SymbolicTableMatch DefaultTableMatch() {
   };
 }
 
-gutil::StatusOr<ConcreteContext> ExtractFromModel(SymbolicContext context,
-                                                  z3::model model) {
+gutil::StatusOr<ConcreteContext> ExtractFromModel(
+    SymbolicContext context, z3::model model,
+    const values::ValueFormatter &value_formatter) {
   // Extract ports.
   std::string ingress_port = model.eval(context.ingress_port, true).to_string();
   std::string egress_port = model.eval(context.egress_port, true).to_string();
 
   // Extract an input packet and its predicted output.
-  ASSIGN_OR_RETURN(
-      ConcretePacket ingress_packet,
-      packet::ExtractConcretePacket(context.ingress_packet, model));
+  ASSIGN_OR_RETURN(ConcretePacket ingress_packet,
+                   packet::ExtractConcretePacket(context.ingress_packet, model,
+                                                 value_formatter));
   ASSIGN_OR_RETURN(ConcretePacket egress_packet,
-                   packet::ExtractConcretePacket(context.egress_packet, model));
+                   packet::ExtractConcretePacket(context.egress_packet, model,
+                                                 value_formatter));
 
   // Extract the ingress and egress headers.
   ConcretePerPacketState ingress_headers;
   for (const auto &[name, expr] : context.ingress_headers) {
     ASSIGN_OR_RETURN(ingress_headers[name],
-                     values::TranslateValueToString(
+                     value_formatter.TranslateValueToString(
                          name, model.eval(expr, true).to_string()));
   }
   ConcretePerPacketState egress_headers;
   for (const auto &[name, expr] : context.egress_headers) {
     ASSIGN_OR_RETURN(egress_headers[name],
-                     values::TranslateValueToString(
+                     value_formatter.TranslateValueToString(
                          name, model.eval(expr, true).to_string()));
   }
 

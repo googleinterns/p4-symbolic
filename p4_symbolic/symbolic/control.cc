@@ -32,10 +32,10 @@ namespace p4_symbolic {
 namespace symbolic {
 namespace control {
 
-gutil::StatusOr<SymbolicTrace> EvaluateControl(const Dataplane &data_plane,
-                                               const std::string &control_name,
-                                               SymbolicPerPacketState *state,
-                                               const z3::expr &guard) {
+gutil::StatusOr<SymbolicTrace> EvaluateControl(
+    const Dataplane &data_plane, const std::string &control_name,
+    SymbolicPerPacketState *state, EvaluationEnvironment *environment,
+    const z3::expr &guard) {
   // Base case: we got to the end of the evaluation, no more controls!
   if (control_name.empty()) {
     return SymbolicTrace{{}, Z3Context().bool_val(false)};
@@ -49,13 +49,14 @@ gutil::StatusOr<SymbolicTrace> EvaluateControl(const Dataplane &data_plane,
     if (data_plane.entries.count(control_name) == 1) {
       table_entries = data_plane.entries.at(control_name);
     }
-    return table::EvaluateTable(data_plane, table, table_entries, state, guard);
+    return table::EvaluateTable(data_plane, table, table_entries, state,
+                                environment, guard);
   } else if (data_plane.program.conditionals().count(control_name) == 1) {
     // Conditional: let EvaluateConditional handle it.
     const ir::Conditional &conditional =
         data_plane.program.conditionals().at(control_name);
     return conditional::EvaluateConditional(data_plane, conditional, state,
-                                            guard);
+                                            environment, guard);
   } else {
     // Something else: unsupported.
     return absl::UnimplementedError(

@@ -28,6 +28,7 @@
 #include "p4_pdpi/ir.pb.h"
 #include "p4_symbolic/ir/ir.pb.h"
 #include "p4_symbolic/symbolic/symbolic.h"
+#include "p4_symbolic/symbolic/values.h"
 #include "z3++.h"
 
 namespace p4_symbolic {
@@ -42,6 +43,7 @@ absl::Status EvaluateAction(const ir::Action &action,
                             const google::protobuf::RepeatedPtrField<
                                 pdpi::IrActionInvocation::IrActionParam> &args,
                             SymbolicPerPacketState *state,
+                            EvaluationEnvironment *environment,
                             const z3::expr &guard);
 
 // Internal functions used to Evaluate statements and expressions within an

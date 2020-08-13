@@ -19,8 +19,6 @@
 
 #include <string>
 
-#include "p4_symbolic/symbolic/values.h"
-
 namespace p4_symbolic {
 namespace symbolic {
 namespace packet {
@@ -57,28 +55,29 @@ SymbolicPacket ExtractSymbolicPacket(SymbolicPerPacketState state) {
           GetOrDefault(state, "icmp.type", 8)};
 }
 
-gutil::StatusOr<ConcretePacket> ExtractConcretePacket(SymbolicPacket packet,
-                                                      z3::model model) {
+gutil::StatusOr<ConcretePacket> ExtractConcretePacket(
+    SymbolicPacket packet, z3::model model,
+    const values::ValueFormatter &value_formatter) {
   ASSIGN_OR_RETURN(
       std::string src_addr,
-      values::TranslateValueToString(
+      value_formatter.TranslateValueToString(
           "ethernet.src_addr", model.eval(packet.eth_src, true).to_string()));
   ASSIGN_OR_RETURN(
       std::string dst_addr,
-      values::TranslateValueToString(
+      value_formatter.TranslateValueToString(
           "ethernet.dst_addr", model.eval(packet.eth_dst, true).to_string()));
   ASSIGN_OR_RETURN(std::string ether_type,
-                   values::TranslateValueToString(
+                   value_formatter.TranslateValueToString(
                        "ethernet.ether_type",
                        model.eval(packet.eth_type, true).to_string()));
 
   ASSIGN_OR_RETURN(
       std::string ipv4_src_addr,
-      values::TranslateValueToString(
+      value_formatter.TranslateValueToString(
           "ipv4.src_addr", model.eval(packet.ipv4_src, true).to_string()));
   ASSIGN_OR_RETURN(
       std::string ipv4_dst_addr,
-      values::TranslateValueToString(
+      value_formatter.TranslateValueToString(
           "ipv4.dst_addr", model.eval(packet.ipv4_dst, true).to_string()));
 
   // Lower and upper ipv6_dst cant have string translations since they
@@ -91,18 +90,18 @@ gutil::StatusOr<ConcretePacket> ExtractConcretePacket(SymbolicPacket packet,
   // Remaining fields may have string translation.
   ASSIGN_OR_RETURN(
       std::string protocol,
-      values::TranslateValueToString(
+      value_formatter.TranslateValueToString(
           "ipv4.protocol", model.eval(packet.protocol, true).to_string()));
   ASSIGN_OR_RETURN(std::string dscp,
-                   values::TranslateValueToString(
+                   value_formatter.TranslateValueToString(
                        "ipv4.dscp", model.eval(packet.dscp, true).to_string()));
   ASSIGN_OR_RETURN(std::string ttl,
-                   values::TranslateValueToString(
+                   value_formatter.TranslateValueToString(
                        "ipv4.ttl", model.eval(packet.ttl, true).to_string()));
 
   ASSIGN_OR_RETURN(
       std::string icmp_type,
-      values::TranslateValueToString(
+      value_formatter.TranslateValueToString(
           "icmp.type", model.eval(packet.icmp_type, true).to_string()));
 
   return ConcretePacket{

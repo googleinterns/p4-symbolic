@@ -61,6 +61,7 @@
 
 #include "gutil/status.h"
 #include "p4_symbolic/symbolic/symbolic.h"
+#include "p4_symbolic/symbolic/values.h"
 #include "z3++.h"
 
 namespace p4_symbolic {
@@ -68,10 +69,10 @@ namespace symbolic {
 namespace control {
 
 // Evaluate the passed control construct.
-gutil::StatusOr<SymbolicTrace> EvaluateControl(const Dataplane &data_plane,
-                                               const std::string &control_name,
-                                               SymbolicPerPacketState *state,
-                                               const z3::expr &guard);
+gutil::StatusOr<SymbolicTrace> EvaluateControl(
+    const Dataplane &data_plane, const std::string &control_name,
+    SymbolicPerPacketState *state, EvaluationEnvironment *environment,
+    const z3::expr &guard);
 
 }  // namespace control
 }  // namespace symbolic

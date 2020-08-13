@@ -28,7 +28,6 @@
 #include "absl/strings/str_format.h"
 #include "p4_symbolic/symbolic/action.h"
 #include "p4_symbolic/symbolic/operators.h"
-#include "p4_symbolic/symbolic/values.h"
 #include "z3++.h"
 
 namespace p4_symbolic {
@@ -139,7 +138,8 @@ std::vector<std::pair<size_t, pdpi::IrTableEntry>> SortEntries(
 // match.
 gutil::StatusOr<z3::expr> EvaluateSingleMatch(
     p4::config::v1::MatchField match_definition, const std::string &field_name,
-    const z3::expr &field_expression, const pdpi::IrMatch &match) {
+    const z3::expr &field_expression, const pdpi::IrMatch &match,
+    EvaluationEnvironment *environment) {
   if (match_definition.match_case() != p4::config::v1::MatchField::kMatchType) {
     // Arch-specific match type.
     return absl::InvalidArgumentError(
@@ -155,7 +155,8 @@ gutil::StatusOr<z3::expr> EvaluateSingleMatch(
                          match_definition.DebugString()));
       }
       ASSIGN_OR_RETURN(z3::expr value_expression,
-                       values::P4RTValueZ3Expr(field_name, match.exact()));
+                       environment->value_formatter.FormatP4RTValue(
+                           field_name, match.exact()));
       return operators::Eq(field_expression, value_expression);
     }
 
@@ -168,7 +169,7 @@ gutil::StatusOr<z3::expr> EvaluateSingleMatch(
       }
 
       ASSIGN_OR_RETURN(z3::expr value_expression,
-                       values::Bmv2ValueZ3Expr(match.lpm().value()));
+                       values::FormatBmv2Value(match.lpm().value()));
       return operators::PrefixEq(
           field_expression, value_expression,
           static_cast<unsigned int>(match.lpm().prefix_length()));
@@ -183,9 +184,9 @@ gutil::StatusOr<z3::expr> EvaluateSingleMatch(
       }
 
       ASSIGN_OR_RETURN(z3::expr mask_expression,
-                       values::Bmv2ValueZ3Expr(match.ternary().mask()));
+                       values::FormatBmv2Value(match.ternary().mask()));
       ASSIGN_OR_RETURN(z3::expr value_expression,
-                       values::Bmv2ValueZ3Expr(match.ternary().value()));
+                       values::FormatBmv2Value(match.ternary().value()));
       ASSIGN_OR_RETURN(z3::expr masked_field,
                        operators::BitAnd(field_expression, mask_expression));
       return operators::Eq(masked_field, value_expression);
@@ -201,7 +202,7 @@ gutil::StatusOr<z3::expr> EvaluateSingleMatch(
 // is matched on.
 gutil::StatusOr<z3::expr> EvaluateTableEntryCondition(
     const ir::Table &table, const pdpi::IrTableEntry &entry,
-    const SymbolicPerPacketState &state) {
+    const SymbolicPerPacketState &state, EvaluationEnvironment *environment) {
   const std::string &table_name = table.table_definition().preamble().name();
 
   // Construct the match condition expression.
@@ -243,7 +244,7 @@ gutil::StatusOr<z3::expr> EvaluateTableEntryCondition(
         action::EvaluateFieldValue(match_field, state, fake_context));
     ASSIGN_OR_RETURN(z3::expr match_expression,
                      EvaluateSingleMatch(match_definition, field_name,
-                                         match_field_expr, match));
+                                         match_field_expr, match, environment));
     ASSIGN_OR_RETURN(condition_expression,
                      operators::And(condition_expression, match_expression));
   }
@@ -256,7 +257,8 @@ gutil::StatusOr<z3::expr> EvaluateTableEntryCondition(
 absl::Status EvaluateTableEntryAction(
     const ir::Table &table, const pdpi::IrTableEntry &entry,
     const google::protobuf::Map<std::string, ir::Action> &actions,
-    SymbolicPerPacketState *state, const z3::expr &guard) {
+    SymbolicPerPacketState *state, EvaluationEnvironment *environment,
+    const z3::expr &guard) {
   // Check that the action invoked by entry exists.
   const std::string &table_name = table.table_definition().preamble().name();
   const std::string &action_name = entry.action().name();
@@ -268,7 +270,8 @@ absl::Status EvaluateTableEntryAction(
 
   // Instantiate the action's symbolic expression with the entry values.
   const ir::Action &action = actions.at(action_name);
-  return action::EvaluateAction(action, entry.action().params(), state, guard);
+  return action::EvaluateAction(action, entry.action().params(), state,
+                                environment, guard);
 }
 
 }  // namespace
@@ -276,7 +279,8 @@ absl::Status EvaluateTableEntryAction(
 gutil::StatusOr<SymbolicTrace> EvaluateTable(
     const Dataplane data_plane, const ir::Table &table,
     const std::vector<pdpi::IrTableEntry> &entries,
-    SymbolicPerPacketState *state, const z3::expr &guard) {
+    SymbolicPerPacketState *state, EvaluationEnvironment *environment,
+    const z3::expr &guard) {
   const std::string &table_name = table.table_definition().preamble().name();
 
   // Sort entries by priority deduced from match types.
@@ -325,8 +329,9 @@ gutil::StatusOr<SymbolicTrace> EvaluateTable(
   for (const auto &[_, entry] : sorted_entries) {
     // We are passsing state by const reference here, so we do not need
     // any guard yet.
-    ASSIGN_OR_RETURN(z3::expr entry_match,
-                     EvaluateTableEntryCondition(table, entry, *state));
+    ASSIGN_OR_RETURN(
+        z3::expr entry_match,
+        EvaluateTableEntryCondition(table, entry, *state, environment));
     entries_matches.push_back(entry_match);
   }
 
@@ -367,9 +372,9 @@ gutil::StatusOr<SymbolicTrace> EvaluateTable(
 
   // Start with the default entry
   z3::expr match_index = Z3Context().int_val(-1);
-  RETURN_IF_ERROR(EvaluateTableEntryAction(table, default_entry,
-                                           data_plane.program.actions(), state,
-                                           default_entry_assignment_guard));
+  RETURN_IF_ERROR(EvaluateTableEntryAction(
+      table, default_entry, data_plane.program.actions(), state, environment,
+      default_entry_assignment_guard));
 
   // Continue evaluating each table entry in reverse priority
   for (int row = sorted_entries.size() - 1; row >= 0; row--) {
@@ -385,9 +390,9 @@ gutil::StatusOr<SymbolicTrace> EvaluateTable(
 
     // Evaluate the entry's action guarded by its complete assignment guard.
     z3::expr entry_assignment_guard = assignment_guards.at(row);
-    RETURN_IF_ERROR(EvaluateTableEntryAction(table, entry,
-                                             data_plane.program.actions(),
-                                             state, entry_assignment_guard));
+    RETURN_IF_ERROR(
+        EvaluateTableEntryAction(table, entry, data_plane.program.actions(),
+                                 state, environment, entry_assignment_guard));
   }
 
   // This table has been completely evaluated, the result of the evaluation
@@ -421,9 +426,9 @@ gutil::StatusOr<SymbolicTrace> EvaluateTable(
   }
 
   // Evaluate the next control.
-  ASSIGN_OR_RETURN(
-      SymbolicTrace result,
-      control::EvaluateControl(data_plane, next_control, state, guard));
+  ASSIGN_OR_RETURN(SymbolicTrace result,
+                   control::EvaluateControl(data_plane, next_control, state,
+                                            environment, guard));
 
   // The trace should not contain information for this table, otherwise, it
   // means we visisted the table twice in the same execution path!

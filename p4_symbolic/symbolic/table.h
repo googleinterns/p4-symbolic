@@ -30,6 +30,7 @@
 #include "p4_symbolic/ir/ir.pb.h"
 #include "p4_symbolic/symbolic/control.h"
 #include "p4_symbolic/symbolic/symbolic.h"
+#include "p4_symbolic/symbolic/values.h"
 
 namespace p4_symbolic {
 namespace symbolic {
@@ -38,7 +39,8 @@ namespace table {
 gutil::StatusOr<SymbolicTrace> EvaluateTable(
     const Dataplane data_plane, const ir::Table &table,
     const std::vector<pdpi::IrTableEntry> &entries,
-    SymbolicPerPacketState *state, const z3::expr &guard);
+    SymbolicPerPacketState *state, EvaluationEnvironment *environment,
+    const z3::expr &guard);
 
 }  // namespace table
 }  // namespace symbolic

@@ -100,7 +100,7 @@ gutil::StatusOr<pdpi::IrValue> ParseIrValue(std::string value) {
   }
 }
 
-gutil::StatusOr<z3::expr> Bmv2ValueZ3Expr(const pdpi::IrValue &value) {
+gutil::StatusOr<z3::expr> FormatBmv2Value(const pdpi::IrValue &value) {
   switch (value.format_case()) {
     case pdpi::IrValue::kHexStr: {
       const std::string &hexstr = value.hex_str();
@@ -190,37 +190,35 @@ gutil::StatusOr<z3::expr> Bmv2ValueZ3Expr(const pdpi::IrValue &value) {
   }
 }
 
-gutil::StatusOr<z3::expr> P4RTValueZ3Expr(const std::string field_name,
-                                          const pdpi::IrValue &value) {
+gutil::StatusOr<z3::expr> ValueFormatter::FormatP4RTValue(
+    const std::string field_name, const pdpi::IrValue &value) {
   switch (value.format_case()) {
     case pdpi::IrValue::kStr: {
       // Must translate the string into a bitvector.
       const std::string &string_value = value.str();
-      auto &string_to_bitvector = StringToBitVectorTranslationMap();
-      if (string_to_bitvector.count(string_value) == 1) {
+      if (this->string_to_bitvector_map_.count(string_value) == 1) {
         // This string was encountered previously and was already translated.
-        z3::expr z3_value = string_to_bitvector.at(string_value);
+        z3::expr z3_value = this->string_to_bitvector_map_.at(string_value);
         // Insert the previously translated value into the reverse mapping,
         // this is useful in case the same string value was previously
         // translated for a different field, this way that value gets tied
         // to this field as well.
         // If the value was previously translated for the same field, this
         // is a no-op.
-        auto &bitvector_to_string = BitVectorToStringTranslationMap();
-        if (bitvector_to_string.count(field_name) != 1) {
-          bitvector_to_string.insert({field_name, {}});
+        if (this->field_name_to_string_map_.count(field_name) != 1) {
+          this->field_name_to_string_map_.insert({field_name, {}});
         }
-        bitvector_to_string.at(field_name)
+        this->field_name_to_string_map_.at(field_name)
             .insert({NormalizeBits(z3_value.to_string()), string_value});
         return z3_value;
       } else {
         // First time encountering this value. Come up with some bitvector
         // value for it unique relative to this field.
-        auto &count_map = FieldNameToStringCountMap();
-        if (count_map.count(field_name) != 1) {
-          count_map.insert({field_name, 0});
+        if (this->field_name_to_string_count_map_.count(field_name) != 1) {
+          this->field_name_to_string_count_map_.insert({field_name, 0});
         }
-        uint64_t int_value = count_map.at(field_name)++;
+        uint64_t int_value =
+            this->field_name_to_string_count_map_.at(field_name)++;
 
         // Find the bitsize of int_value.
         // The bitvector will be created with that initial bitsize, if the
@@ -234,62 +232,35 @@ gutil::StatusOr<z3::expr> P4RTValueZ3Expr(const std::string field_name,
 
         // Store this z3::expr and its corresponding string value in the mapping
         // and reverse mapping for future lookups.
-        string_to_bitvector.insert({string_value, z3_value});
-        auto &bitvector_to_string = BitVectorToStringTranslationMap();
-        if (bitvector_to_string.count(field_name) != 1) {
-          bitvector_to_string.insert({field_name, {}});
+        this->string_to_bitvector_map_.insert({string_value, z3_value});
+        if (this->field_name_to_string_map_.count(field_name) != 1) {
+          this->field_name_to_string_map_.insert({field_name, {}});
         }
-        bitvector_to_string.at(field_name)
+        this->field_name_to_string_map_.at(field_name)
             .insert({NormalizeBits(z3_value.to_string()), string_value});
         return z3_value;
       }
     }
     default: {
-      if (BitVectorToStringTranslationMap().count(field_name) == 1) {
+      if (this->field_name_to_string_map_.count(field_name) == 1) {
         return absl::InvalidArgumentError(absl::StrCat(
             "A table entry provides a non-string value ", value.DebugString(),
             "to a string translated field", field_name));
       }
-      return Bmv2ValueZ3Expr(value);
+      return FormatBmv2Value(value);
     }
   }
 }
 
-// Exposes a static mapping from string values to bitvector values.
-// We do not need to include field names here because we assume the string
-// values are unique.
-std::unordered_map<std::string, z3::expr> &StringToBitVectorTranslationMap() {
-  static std::unordered_map<std::string, z3::expr> *string_to_bitvector_map =
-      new std::unordered_map<std::string, z3::expr>();
-  return *string_to_bitvector_map;
-}
-
-// Exposes a static mapping from field names and bitvector values to
-// string values.
-std::unordered_map<std::string, std::unordered_map<std::string, std::string>>
-    &BitVectorToStringTranslationMap() {
-  static std::unordered_map<std::string,
-                            std::unordered_map<std::string, std::string>>
-      *bitvector_to_string_map = new std::unordered_map<
-          std::string, std::unordered_map<std::string, std::string>>();
-  return *bitvector_to_string_map;
-}
-
-std::unordered_map<std::string, uint64_t> &FieldNameToStringCountMap() {
-  static std::unordered_map<std::string, uint64_t>
-      *field_name_to_string_count_map =
-          new std::unordered_map<std::string, uint64_t>();
-  return *field_name_to_string_count_map;
-}
-
-gutil::StatusOr<std::string> TranslateValueToString(
-    const std::string field_name, const std::string &value) {
+gutil::StatusOr<std::string> ValueFormatter::TranslateValueToString(
+    const std::string field_name, const std::string &value) const {
   std::string normalized_value = NormalizeBits(value);
   // Try to translate the value.
-  const auto &reverse_map = BitVectorToStringTranslationMap();
-  if (reverse_map.count(field_name) == 1) {
-    if (reverse_map.at(field_name).count(normalized_value) == 1) {
-      return reverse_map.at(field_name).at(normalized_value);
+  if (this->field_name_to_string_map_.count(field_name) == 1) {
+    if (this->field_name_to_string_map_.at(field_name)
+            .count(normalized_value) == 1) {
+      return this->field_name_to_string_map_.at(field_name)
+          .at(normalized_value);
     }
   }
 
@@ -298,8 +269,7 @@ gutil::StatusOr<std::string> TranslateValueToString(
   // This is acceptable if this field is not a string translated field, but
   // it is not if the string is, because that indicates that the field was
   // assigned a value by the model that does not correspond to any P4RT string.
-  auto &count_map = FieldNameToStringCountMap();
-  if (count_map.count(field_name) == 1) {
+  if (this->field_name_to_string_count_map_.count(field_name) == 1) {
     return absl::InvalidArgumentError(
         absl::StrCat("Cannot translate value ", value,
                      " to a string value for field ", field_name));
