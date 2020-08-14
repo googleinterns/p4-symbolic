@@ -23,7 +23,7 @@ typedef bit<48> mac_addr_t;
 typedef bit<32> ipv4_addr_t;
 
 @p4runtime_translation("", string) 
-typedef bit<10> vrf_t;
+type bit<10> vrf_t;
 
 header ethernet_t {
   mac_addr_t dstAddr;
