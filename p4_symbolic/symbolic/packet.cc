@@ -38,6 +38,7 @@ z3::expr GetOrDefault(SymbolicPerPacketState state, const std::string &field,
 }  // namespace
 
 SymbolicPacket ExtractSymbolicPacket(SymbolicPerPacketState state) {
+  z3::expr ipv6_src = GetOrDefault(state, "ipv6.src_addr", 128);
   z3::expr ipv6_dst = GetOrDefault(state, "ipv6.dst_addr", 128);
 
   return {GetOrDefault(state, "ethernet.src_addr", 48),
@@ -55,59 +56,20 @@ SymbolicPacket ExtractSymbolicPacket(SymbolicPerPacketState state) {
           GetOrDefault(state, "icmp.type", 8)};
 }
 
-gutil::StatusOr<ConcretePacket> ExtractConcretePacket(
-    SymbolicPacket packet, z3::model model,
-    const values::ValueFormatter &value_formatter) {
-  ASSIGN_OR_RETURN(
-      std::string src_addr,
-      value_formatter.TranslateValueToString(
-          "ethernet.src_addr", model.eval(packet.eth_src, true).to_string()));
-  ASSIGN_OR_RETURN(
-      std::string dst_addr,
-      value_formatter.TranslateValueToString(
-          "ethernet.dst_addr", model.eval(packet.eth_dst, true).to_string()));
-  ASSIGN_OR_RETURN(std::string ether_type,
-                   value_formatter.TranslateValueToString(
-                       "ethernet.ether_type",
-                       model.eval(packet.eth_type, true).to_string()));
+ConcretePacket ExtractConcretePacket(SymbolicPacket packet, z3::model model) {
+  return {model.eval(packet.eth_src, true).to_string(),
+          model.eval(packet.eth_dst, true).to_string(),
+          model.eval(packet.eth_type, true).to_string(),
 
-  ASSIGN_OR_RETURN(
-      std::string ipv4_src_addr,
-      value_formatter.TranslateValueToString(
-          "ipv4.src_addr", model.eval(packet.ipv4_src, true).to_string()));
-  ASSIGN_OR_RETURN(
-      std::string ipv4_dst_addr,
-      value_formatter.TranslateValueToString(
-          "ipv4.dst_addr", model.eval(packet.ipv4_dst, true).to_string()));
+          model.eval(packet.ipv4_src, true).to_string(),
+          model.eval(packet.ipv4_dst, true).to_string(),
+          model.eval(packet.ipv6_dst_upper, true).to_string(),
+          model.eval(packet.ipv6_dst_lower, true).to_string(),
+          model.eval(packet.protocol, true).to_string(),
+          model.eval(packet.dscp, true).to_string(),
+          model.eval(packet.ttl, true).to_string(),
 
-  // Lower and upper ipv6_dst cant have string translations since they
-  // are not whole values!
-  std::string ipv6_dst_upper =
-      model.eval(packet.ipv6_dst_upper, true).to_string();
-  std::string ipv6_dst_lower =
-      model.eval(packet.ipv6_dst_lower, true).to_string();
-
-  // Remaining fields may have string translation.
-  ASSIGN_OR_RETURN(
-      std::string protocol,
-      value_formatter.TranslateValueToString(
-          "ipv4.protocol", model.eval(packet.protocol, true).to_string()));
-  ASSIGN_OR_RETURN(std::string dscp,
-                   value_formatter.TranslateValueToString(
-                       "ipv4.dscp", model.eval(packet.dscp, true).to_string()));
-  ASSIGN_OR_RETURN(std::string ttl,
-                   value_formatter.TranslateValueToString(
-                       "ipv4.ttl", model.eval(packet.ttl, true).to_string()));
-
-  ASSIGN_OR_RETURN(
-      std::string icmp_type,
-      value_formatter.TranslateValueToString(
-          "icmp.type", model.eval(packet.icmp_type, true).to_string()));
-
-  return ConcretePacket{
-      src_addr,       dst_addr,       ether_type, ipv4_src_addr, ipv4_dst_addr,
-      ipv6_dst_upper, ipv6_dst_lower, protocol,   dscp,          ttl,
-      icmp_type};
+          model.eval(packet.icmp_type, true).to_string()};
 }
 
 }  // namespace packet

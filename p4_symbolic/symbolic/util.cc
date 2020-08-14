@@ -89,12 +89,10 @@ gutil::StatusOr<ConcreteContext> ExtractFromModel(
   std::string egress_port = model.eval(context.egress_port, true).to_string();
 
   // Extract an input packet and its predicted output.
-  ASSIGN_OR_RETURN(ConcretePacket ingress_packet,
-                   packet::ExtractConcretePacket(context.ingress_packet, model,
-                                                 value_formatter));
-  ASSIGN_OR_RETURN(ConcretePacket egress_packet,
-                   packet::ExtractConcretePacket(context.egress_packet, model,
-                                                 value_formatter));
+  ConcretePacket ingress_packet =
+      packet::ExtractConcretePacket(context.ingress_packet, model);
+  ConcretePacket egress_packet =
+      packet::ExtractConcretePacket(context.egress_packet, model);
 
   // Extract the ingress and egress headers.
   ConcretePerPacketState ingress_headers;
