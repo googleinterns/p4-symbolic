@@ -35,6 +35,7 @@
 #include "p4_symbolic/ir/ir.pb.h"
 #include "p4_symbolic/ir/table_entries.h"
 #include "p4_symbolic/symbolic/guarded_map.h"
+#include "p4_symbolic/symbolic/values.h"
 #include "z3++.h"  // TODO(babman): added as a system dependency for now.
 
 namespace p4_symbolic {
@@ -242,14 +243,18 @@ struct SolverState {
   // deductions it made while solving for one particular assertion, and re-use
   // them during solving with future assertions.
   std::unique_ptr<z3::solver> solver;
+  // Store the p4 runtime translator state for use by .Solve(...).
+  values::P4RuntimeTranslator translator;
   // Need this constructor to be defined explicity to be able to use make_unique
   // on this struct.
   SolverState(ir::P4Program program, ir::TableEntries entries,
-              SymbolicContext context, std::unique_ptr<z3::solver> &&solver)
+              SymbolicContext context, std::unique_ptr<z3::solver> &&solver,
+              values::P4RuntimeTranslator translator)
       : program(program),
         entries(entries),
         context(context),
-        solver(std::move(solver)) {}
+        solver(std::move(solver)),
+        translator(translator) {}
 };
 
 // An assertion is a user defined function that takes a symbolic context

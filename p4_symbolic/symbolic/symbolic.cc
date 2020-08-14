@@ -51,6 +51,9 @@ gutil::StatusOr<std::unique_ptr<SolverState>> EvaluateP4Pipeline(
     }
   }
 
+  // Initially, the p4runtime translator has empty state.
+  values::P4RuntimeTranslator translator;
+
   // "Accumulator"-style p4 program headers.
   // This is used to evaluate the P4 program.
   // Initially free/unconstrained and contains symbolic variables for
@@ -67,7 +70,8 @@ gutil::StatusOr<std::unique_ptr<SolverState>> EvaluateP4Pipeline(
   ASSIGN_OR_RETURN(
       SymbolicTrace trace,
       control::EvaluateControl(data_plane, data_plane.program.initial_control(),
-                               &egress_headers, Z3Context().bool_val(true)));
+                               &egress_headers, &translator,
+                               Z3Context().bool_val(true)));
 
   // Alias the event that the packet is dropped for ease of use in assertions.
   z3::expr dropped_value =
@@ -110,7 +114,8 @@ gutil::StatusOr<std::unique_ptr<SolverState>> EvaluateP4Pipeline(
       ingress_headers, egress_headers, trace};
 
   return std::make_unique<SolverState>(data_plane.program, data_plane.entries,
-                                       symbolic_context, std::move(z3_solver));
+                                       symbolic_context, std::move(z3_solver),
+                                       translator);
 }
 
 gutil::StatusOr<std::optional<ConcreteContext>> Solve(
@@ -132,8 +137,10 @@ gutil::StatusOr<std::optional<ConcreteContext>> Solve(
     case z3::sat:
     default:
       z3::model packet_model = solver_state->solver->get_model();
-      ConcreteContext result =
-          util::ExtractFromModel(solver_state->context, packet_model);
+      ASSIGN_OR_RETURN(
+          ConcreteContext result,
+          util::ExtractFromModel(solver_state->context, packet_model,
+                                 solver_state->translator));
       solver_state->solver->pop();
       return std::make_optional<ConcreteContext>(result);
   }

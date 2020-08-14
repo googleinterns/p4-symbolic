@@ -25,6 +25,7 @@
 #include "p4_pdpi/ir.pb.h"
 #include "p4_symbolic/ir/ir.pb.h"
 #include "p4_symbolic/symbolic/symbolic.h"
+#include "p4_symbolic/symbolic/values.h"
 #include "z3++.h"
 
 namespace p4_symbolic {
@@ -43,7 +44,9 @@ SymbolicTableMatch DefaultTableMatch();
 
 // Extract a concrete context by evaluating every component's corresponding
 // expression in the model.
-ConcreteContext ExtractFromModel(SymbolicContext context, z3::model model);
+gutil::StatusOr<ConcreteContext> ExtractFromModel(
+    SymbolicContext context, z3::model model,
+    const values::P4RuntimeTranslator &translator);
 
 // Merges two symbolic traces into a single trace. A field in the new trace
 // has the value of the changed trace if the condition is true, and the value
@@ -52,12 +55,6 @@ ConcreteContext ExtractFromModel(SymbolicContext context, z3::model model);
 gutil::StatusOr<SymbolicTrace> MergeTracesOnCondition(
     const z3::expr &condition, const SymbolicTrace &true_trace,
     const SymbolicTrace &false_trace);
-
-// Transforms a value read from a TableEntry to a z3::expr.
-gutil::StatusOr<z3::expr> IrValueToZ3Expr(const pdpi::IrValue &value);
-
-// Transforms a string value from bmv2 json to a pdpi::IrValue
-gutil::StatusOr<pdpi::IrValue> StringToIrValue(std::string value);
 
 }  // namespace util
 }  // namespace symbolic

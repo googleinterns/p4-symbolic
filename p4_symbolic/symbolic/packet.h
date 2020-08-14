@@ -18,6 +18,7 @@
 #ifndef P4_SYMBOLIC_SYMBOLIC_PACKET_H_
 #define P4_SYMBOLIC_SYMBOLIC_PACKET_H_
 
+#include "gutil/status.h"
 #include "p4_symbolic/symbolic/symbolic.h"
 #include "z3++.h"
 

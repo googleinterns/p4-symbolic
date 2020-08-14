@@ -15,7 +15,7 @@ updates {
           action_id: 26074559
           params {
             param_id: 1
-            value: "\02"
+            value: "VRF2"
           }
         }
       }
@@ -40,7 +40,7 @@ updates {
           action_id: 26074559
           params {
             param_id: 1
-            value: "\01"
+            value: "VRF1"
           }
         }
       }
@@ -63,7 +63,7 @@ updates {
       match {
         field_id: 2,
         exact {
-          value: "\01"
+          value: "VRF1"
         }
       }
       action {
@@ -97,7 +97,7 @@ updates {
       match {
         field_id: 2,
         exact {
-          value: "\01"
+          value: "VRF1"
         }
       }
       action {
@@ -131,7 +131,7 @@ updates {
       match {
         field_id: 2,
         exact {
-          value: "\01"
+          value: "VRF1"
         }
       }
       action {
@@ -165,7 +165,7 @@ updates {
       match {
         field_id: 2,
         exact {
-          value: "\02"
+          value: "VRF2"
         }
       }
       action {

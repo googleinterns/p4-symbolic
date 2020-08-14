@@ -18,7 +18,6 @@
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "p4_symbolic/symbolic/operators.h"
-#include "p4_symbolic/symbolic/util.h"
 
 namespace p4_symbolic {
 namespace symbolic {
@@ -162,8 +161,8 @@ gutil::StatusOr<z3::expr> EvaluateHexStr(const ir::HexstrValue &hexstr) {
   }
 
   ASSIGN_OR_RETURN(pdpi::IrValue parsed_value,
-                   util::StringToIrValue(hexstr.value()));
-  return util::IrValueToZ3Expr(parsed_value);
+                   values::ParseIrValue(hexstr.value()));
+  return values::FormatBmv2Value(parsed_value);
 }
 
 gutil::StatusOr<z3::expr> EvaluateBool(const ir::BoolValue &bool_value) {
@@ -306,6 +305,7 @@ absl::Status EvaluateAction(const ir::Action &action,
                             const google::protobuf::RepeatedPtrField<
                                 pdpi::IrActionInvocation::IrActionParam> &args,
                             SymbolicPerPacketState *state,
+                            values::P4RuntimeTranslator *translator,
                             const z3::expr &guard) {
   // Construct this action's context.
   ActionContext context;
@@ -325,8 +325,12 @@ absl::Status EvaluateAction(const ir::Action &action,
     const pdpi::IrActionDefinition::IrActionParamDefinition &parameter =
         parameters.at(i);
     const std::string &parameter_name = parameter.param().name();
-    ASSIGN_OR_RETURN(z3::expr parameter_value,
-                     util::IrValueToZ3Expr(args.at(i - 1).value()));
+    const std::string &parameter_type_name =
+        parameter.param().type_name().name();
+    ASSIGN_OR_RETURN(
+        z3::expr parameter_value,
+        values::FormatP4RTValue("", parameter_type_name, args.at(i - 1).value(),
+                                translator));
     context.scope.insert({parameter_name, parameter_value});
   }
 

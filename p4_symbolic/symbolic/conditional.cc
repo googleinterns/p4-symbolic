@@ -28,7 +28,8 @@ namespace conditional {
 
 gutil::StatusOr<SymbolicTrace> EvaluateConditional(
     const Dataplane data_plane, const ir::Conditional &conditional,
-    SymbolicPerPacketState *state, const z3::expr &guard) {
+    SymbolicPerPacketState *state, values::P4RuntimeTranslator *translator,
+    const z3::expr &guard) {
   // Evaluate the condition.
   action::ActionContext fake_context = {conditional.name(), {}};
   ASSIGN_OR_RETURN(
@@ -44,11 +45,11 @@ gutil::StatusOr<SymbolicTrace> EvaluateConditional(
   // Evaluate both branches.
   ASSIGN_OR_RETURN(SymbolicTrace if_trace,
                    control::EvaluateControl(data_plane, conditional.if_branch(),
-                                            state, if_guard));
+                                            state, translator, if_guard));
   ASSIGN_OR_RETURN(
       SymbolicTrace else_trace,
       control::EvaluateControl(data_plane, conditional.else_branch(), state,
-                               else_guard));
+                               translator, else_guard));
 
   // Now we have two traces that need merging.
   // We should merge in a way such that the value of a field in the trace is

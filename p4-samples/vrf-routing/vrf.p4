@@ -22,6 +22,9 @@ typedef bit<9> egress_spec_t;
 typedef bit<48> mac_addr_t;
 typedef bit<32> ipv4_addr_t;
 
+@p4runtime_translation("", string) 
+type bit<10> vrf_t;
+
 header ethernet_t {
   mac_addr_t dstAddr;
   mac_addr_t srcAddr;
@@ -46,7 +49,7 @@ struct headers {
   ipv4_t ipv4;
 }
 struct local_metadata_t {
-  bit<10> vrf;
+  vrf_t vrf;
   bool vrf_is_valid;
 }
 
@@ -85,7 +88,7 @@ control packet_ingress(inout headers hdr,
   }
 
   // 26074559
-  action set_vrf(bit<10> vrf) {
+  action set_vrf(vrf_t vrf) {
     local_metadata.vrf = vrf;
     local_metadata.vrf_is_valid = true;
   }
