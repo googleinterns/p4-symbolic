@@ -21,6 +21,7 @@
 #ifndef P4_SYMBOLIC_SYMBOLIC_VALUES_H_
 #define P4_SYMBOLIC_SYMBOLIC_VALUES_H_
 
+#include <cstdint>
 #include <string>
 #include <unordered_map>
 
@@ -32,30 +33,28 @@ namespace p4_symbolic {
 namespace symbolic {
 namespace values {
 
-// This class is responsible for formatting various values into consistent
-// format acceptable by z3.
-// The class transforms pdpi::IrValue instances to z3::expr, it also handles
-// translation (and reverse translation) of P4RT string values that are meant
-// to be translated to bitvectors, because of @p4runtime_translation
-// annotations.
+// This class is responsible for translating string values into consistent
+// numberic ids, that can then be used to create bitvector values to use in
+// z3.
+// It also handles the reverse translation of previously allocated ids to
+// their corresponding string value.
 class IdAllocator {
  public:
-  // Allocates an arbitrary bitvector to this string identifier.
-  // The bitvector is guaranteed to be consistent (the same bitvector is
+  // Allocates an arbitrary integer id to this string identifier.
+  // The Id is guaranteed to be consistent (the same bitvector is
   // allocated to equal strings), and unique per instance of this class.
-  z3::expr AllocateBitVector(const std::string &string_value);
+  uint64_t AllocateId(const std::string &string_value);
 
   // Reverse translation of an allocated bit vector to the string value for
   // which it was allocated.
-  gutil::StatusOr<std::string> BitVectorToString(
-      const std::string &value) const;
+  gutil::StatusOr<std::string> IdToString(uint64_t value) const;
 
  private:
   // A mapping from string values to bitvector values.
-  std::unordered_map<std::string, z3::expr> string_to_bitvector_map_;
+  std::unordered_map<std::string, uint64_t> string_to_id_map_;
 
   // A mapping from bitvector values to string values.
-  std::unordered_map<std::string, std::string> bitvector_to_string_map_;
+  std::unordered_map<uint64_t, std::string> id_to_string_map_;
 
   // Counter used to come up with new values per new allocation.
   uint64_t counter_ = 0;
@@ -65,7 +64,11 @@ class IdAllocator {
 // to internal bitvectors per custom p4 type (e.g. vrf_t), and reverse translate
 // bitvector values of fields of such a custom type to a string value.
 struct P4RuntimeTranslator {
-  // Maps type name to an allocator responsible for translating values for it.
+  // Maps a type name to an allocator responsible for translating values for
+  // that type.
+  // We have an instance of the allocator class per translatable type.
+  // The generated ids are unique only per type, different types may re-use
+  // the same id.
   std::unordered_map<std::string, IdAllocator> p4runtime_translation_allocators;
   // Maps field name to a type name, only for fields we were able to detect had
   // a custom p4 type with a @p4runtime_translation annotation attached to it.

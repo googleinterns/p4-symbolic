@@ -20,7 +20,6 @@
 
 #include "p4_symbolic/symbolic/values.h"
 
-#include <cstdint>
 #include <locale>
 #include <sstream>
 #include <vector>
@@ -52,39 +51,45 @@ unsigned int FindBitsize(uint64_t value) {
   return (bitsize > 1 ? bitsize : 1);  // At least 1 bit.
 }
 
-// Normalize the given value: transforms it into a binary representation
-// without any leading zeros.
-std::string NormalizeBits(std::string value) {
+// Turns the given z3 extracted value (as a string) to a uint64_t.
+// Z3 returns an extracted value as either a binary, hex, or int strings
+// dependening on the size of the value and the formatting flags it is
+// initialized with.
+uint64_t StringToInt(std::string value) {
   static std::unordered_map<char, std::string> hex_to_bin = {
       {'0', "0000"}, {'1', "0001"}, {'2', "0010"}, {'3', "0011"},
       {'4', "0100"}, {'5', "0101"}, {'6', "0110"}, {'7', "0111"},
       {'8', "1000"}, {'9', "1001"}, {'a', "1010"}, {'b', "1011"},
       {'c', "1100"}, {'d', "1101"}, {'e', "1110"}, {'f', "1111"}};
 
-  std::string stripped = "";
-  if (absl::StartsWith(value, "#x")) {
+  bool value_is_hex = absl::StartsWith(value, "#x");
+  bool value_is_binary = absl::StartsWith(value, "#b");
+
+  // Boolean or integer values.
+  if (!value_is_hex && !value_is_binary) {
+    if (value == "true") {
+      return 1;
+    } else if (value == "false") {
+      return 0;
+    } else {
+      return std::stoull(value);
+    }
+  }
+
+  // Make sure value is a binary string without leading base prefix.
+  std::string binary;
+  if (value_is_hex) {
     // Turn hex to binary.
     absl::string_view stripped_value = absl::StripPrefix(value, "#x");
     for (char c : stripped_value) {
-      absl::StrAppend(&stripped, hex_to_bin.at(c));
+      absl::StrAppend(&binary, hex_to_bin.at(c));
     }
-  } else if (absl::StartsWith(value, "#b")) {
+  } else if (value_is_binary) {
     // Strip leading #b for binary strings.
-    stripped = absl::StripPrefix(value, "#b");
-  } else {
-    // No normalization requied for bools or ints.
-    return value;
+    binary = absl::StripPrefix(value, "#b");
   }
 
-  // Remove leading zeros.
-  size_t first_zero_index = stripped.size() - 1;
-  for (size_t i = 0; i < stripped.size(); i++) {
-    if (stripped.at(i) == '1') {
-      first_zero_index = i;
-      break;
-    }
-  }
-  return stripped.substr(first_zero_index);
+  return std::stoull(binary);
 }
 
 }  // namespace
@@ -206,7 +211,8 @@ gutil::StatusOr<z3::expr> FormatP4RTValue(const std::string &field_name,
       const std::string &string_value = value.str();
       IdAllocator &allocator =
           translator->p4runtime_translation_allocators[type_name];
-      return allocator.AllocateBitVector(string_value);
+      uint64_t int_value = allocator.AllocateId(string_value);
+      return Z3Context().bv_val(int_value, FindBitsize(int_value));
     }
     default: {
       if (translator->fields_p4runtime_type.count(field_name)) {
@@ -232,32 +238,31 @@ gutil::StatusOr<std::string> TranslateValueToP4RT(
       translator.fields_p4runtime_type.at(field_name);
   const IdAllocator &allocator =
       translator.p4runtime_translation_allocators.at(field_type_name);
-  return allocator.BitVectorToString(value);
+
+  // Turn the value from a string to an int.
+  uint64_t int_value = StringToInt(value);
+  return allocator.IdToString(int_value);
 }
 
 // IdAllocator Implementation.
 
-z3::expr IdAllocator::AllocateBitVector(const std::string &string_value) {
+uint64_t IdAllocator::AllocateId(const std::string &string_value) {
   // If previously allocated, return the same bitvector value.
-  if (this->string_to_bitvector_map_.count(string_value)) {
-    return this->string_to_bitvector_map_.at(string_value);
+  if (this->string_to_id_map_.count(string_value)) {
+    return this->string_to_id_map_.at(string_value);
   }
 
   // Allocate new bitvector value and store it in mapping.
   uint64_t int_value = this->counter_++;
-  z3::expr z3_value = Z3Context().bv_val(int_value, FindBitsize(int_value));
-  std::string normalized_z3_value = NormalizeBits(z3_value.to_string());
-  this->string_to_bitvector_map_.insert({string_value, z3_value});
-  this->bitvector_to_string_map_.insert({normalized_z3_value, string_value});
-  return z3_value;
+  this->string_to_id_map_.insert({string_value, int_value});
+  this->id_to_string_map_.insert({int_value, string_value});
+  return int_value;
 }
 
-gutil::StatusOr<std::string> IdAllocator::BitVectorToString(
-    const std::string &value) const {
+gutil::StatusOr<std::string> IdAllocator::IdToString(uint64_t value) const {
   // Normalize the bitvector and look it up in the reverse mapping.
-  std::string normalized_value = NormalizeBits(value);
-  if (this->bitvector_to_string_map_.count(normalized_value)) {
-    return this->bitvector_to_string_map_.at(normalized_value);
+  if (this->id_to_string_map_.count(value)) {
+    return this->id_to_string_map_.at(value);
   }
 
   // Could not find the bitvector in reverse map!
