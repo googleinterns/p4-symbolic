@@ -2,7 +2,7 @@ updates {
   type: INSERT,
   entity {
     table_entry {
-      table_id: 37105383
+      table_id: 37541331
       match {
         field_id: 1,
         ternary {
@@ -12,7 +12,7 @@ updates {
       }
       action {
         action {
-          action_id: 24959910
+          action_id: 26074559
           params {
             param_id: 1
             value: "\02"
@@ -27,7 +27,7 @@ updates {
   type: INSERT,
   entity {
     table_entry {
-      table_id: 37105383
+      table_id: 37541331
       match {
         field_id: 1,
         ternary {
@@ -37,7 +37,7 @@ updates {
       }
       action {
         action {
-          action_id: 24959910
+          action_id: 26074559
           params {
             param_id: 1
             value: "\01"
@@ -52,7 +52,7 @@ updates {
   type: INSERT,
   entity {
     table_entry {
-      table_id: 45604648
+      table_id: 44809600
       match {
         field_id: 1,
         lpm {
@@ -68,7 +68,7 @@ updates {
       }
       action {
         action {
-          action_id: 28792405
+          action_id: 27807574
           params {
             param_id: 1
             value: "\000\000\000\000\000\000"
@@ -86,7 +86,7 @@ updates {
   type: INSERT,
   entity {
     table_entry {
-      table_id: 45604648
+      table_id: 44809600
       match {
         field_id: 1,
         lpm {
@@ -102,7 +102,7 @@ updates {
       }
       action {
         action {
-          action_id: 28792405
+          action_id: 27807574
           params {
             param_id: 1
             value: "\000\000\000\000\000\000"
@@ -120,7 +120,7 @@ updates {
   type: INSERT,
   entity {
     table_entry {
-      table_id: 45604648
+      table_id: 44809600
       match {
         field_id: 1,
         lpm {
@@ -136,7 +136,7 @@ updates {
       }
       action {
         action {
-          action_id: 28792405
+          action_id: 27807574
           params {
             param_id: 1
             value: "\000\000\000\000\000\n"
@@ -154,7 +154,7 @@ updates {
   type: INSERT,
   entity {
     table_entry {
-      table_id: 45604648
+      table_id: 44809600
       match {
         field_id: 1,
         lpm {
@@ -170,7 +170,7 @@ updates {
       }
       action {
         action {
-          action_id: 28792405
+          action_id: 27807574
           params {
             param_id: 1
             value: "\026\000\000\000\000\026"

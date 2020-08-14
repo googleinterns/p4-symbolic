@@ -78,18 +78,19 @@ control packet_ingress(inout headers hdr,
                        inout local_metadata_t local_metadata,
                        inout standard_metadata_t standard_metadata) {
   // NoAction: 21257015
-  // 25652968
+
+  // 26764252
   action drop() {
     mark_to_drop(standard_metadata);
   }
 
-  // 24959910
+  // 26074559
   action set_vrf(bit<10> vrf) {
     local_metadata.vrf = vrf;
     local_metadata.vrf_is_valid = true;
   }
 
-  // 28792405
+  // 27807574
   action ipv4_forward(mac_addr_t dstAddr, egress_spec_t port) {
     standard_metadata.egress_spec = port;
     hdr.ethernet.srcAddr = hdr.ethernet.dstAddr;
@@ -97,7 +98,7 @@ control packet_ingress(inout headers hdr,
     hdr.ipv4.ttl = hdr.ipv4.ttl - 1;
   }
 
-  // 37105383
+  // 37541331
   table set_vrf_table {
     key = {
       hdr.ipv4.srcAddr: ternary @format(IPV4_ADDRESS);
@@ -110,7 +111,7 @@ control packet_ingress(inout headers hdr,
     default_action = NoAction;
   }
 
-  // 45604648
+  // 44809600
   table ipv4_lpm_table {
     key = {
       hdr.ipv4.dstAddr: lpm @format(IPV4_ADDRESS);
