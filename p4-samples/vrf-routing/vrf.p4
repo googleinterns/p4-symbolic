@@ -18,14 +18,14 @@
 
 const bit<16> TYPE_IPV4 = 0x800;
 
-typedef bit<9>  egressSpec_t;
-typedef bit<48> macAddr_t;
-typedef bit<32> ip4Addr_t;
+typedef bit<9> egress_spec_t;
+typedef bit<48> mac_addr_t;
+typedef bit<32> ipv4_addr_t;
 
 header ethernet_t {
-  macAddr_t dstAddr;
-  macAddr_t srcAddr;
-  bit<16> etherType;
+  mac_addr_t dstAddr;
+  mac_addr_t srcAddr;
+  bit<16> eth_type;
 }
 header ipv4_t {
   bit<4> version;
@@ -38,8 +38,8 @@ header ipv4_t {
   bit<8> ttl;
   bit<8> protocol;
   bit<16> hdrChecksum;
-  ip4Addr_t srcAddr;
-  ip4Addr_t dstAddr;
+  ipv4_addr_t srcAddr;
+  ipv4_addr_t dstAddr;
 }
 struct headers {
   ethernet_t ethernet;
@@ -50,16 +50,16 @@ struct local_metadata_t {
   bool vrf_is_valid;
 }
 
-parser MyParser(packet_in packet, out headers hdr,
-                inout local_metadata_t local_metadata,
-                inout standard_metadata_t standard_metadata) {
+parser packet_parser(packet_in packet, out headers hdr,
+                     inout local_metadata_t local_metadata,
+                     inout standard_metadata_t standard_metadata) {
   state start {
     transition parse_ethernet;
   }
 
   state parse_ethernet {
     packet.extract(hdr.ethernet);
-    transition select(hdr.ethernet.etherType) {
+    transition select(hdr.ethernet.eth_type) {
       TYPE_IPV4: parse_ipv4;
       default: accept;
     }
@@ -74,9 +74,9 @@ parser MyParser(packet_in packet, out headers hdr,
 // Ingress processing:
 // First set vrf by matching on ipv4.srcAddr,
 // then match on vrf and ipv4.dstAddr to route.
-control MyIngress(inout headers hdr,
-                  inout local_metadata_t local_metadata,
-                  inout standard_metadata_t standard_metadata) {
+control packet_ingress(inout headers hdr,
+                       inout local_metadata_t local_metadata,
+                       inout standard_metadata_t standard_metadata) {
   // NoAction: 21257015
   // 25652968
   action drop() {
@@ -90,7 +90,7 @@ control MyIngress(inout headers hdr,
   }
 
   // 28792405
-  action ipv4_forward(macAddr_t dstAddr, egressSpec_t port) {
+  action ipv4_forward(mac_addr_t dstAddr, egress_spec_t port) {
     standard_metadata.egress_spec = port;
     hdr.ethernet.srcAddr = hdr.ethernet.dstAddr;
     hdr.ethernet.dstAddr = dstAddr;
@@ -135,39 +135,39 @@ control MyIngress(inout headers hdr,
       if (local_metadata.vrf_is_valid) {
         // If vrf was set, do lpm matching on dst to route.
         ipv4_lpm_table.apply();
-      }   
+      }
     }
   }
 }
 
-control MyDeparser(packet_out packet, in headers hdr) {
+control empty_deparser(packet_out packet, in headers hdr) {
   apply {
     packet.emit(hdr.ethernet);
     packet.emit(hdr.ipv4);
   }
 }
 
-control MyEgress(inout headers hdr, inout local_metadata_t local_metadata,
-                 inout standard_metadata_t standard_metadata) {
+control empty_egress(inout headers hdr, inout local_metadata_t local_metadata,
+                     inout standard_metadata_t standard_metadata) {
   apply {}
 }
 
 
-control MyComputeChecksum(inout headers hdr,
-                          inout local_metadata_t local_metadata) {
+control empty_compute_checksum(inout headers hdr,
+                               inout local_metadata_t local_metadata) {
   apply {}
 }
 
-control MyVerifyChecksum(inout headers hdr,
-                         inout local_metadata_t local_metadata) {   
+control empty_verify_checksum(inout headers hdr,
+                              inout local_metadata_t local_metadata) {
   apply {}
 }
 
 V1Switch(
-MyParser(),
-MyVerifyChecksum(),
-MyIngress(),
-MyEgress(),
-MyComputeChecksum(),
-MyDeparser()
+packet_parser(),
+empty_verify_checksum(),
+packet_ingress(),
+empty_egress(),
+empty_compute_checksum(),
+empty_deparser()
 ) main;
