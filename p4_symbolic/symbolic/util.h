@@ -46,7 +46,7 @@ SymbolicTableMatch DefaultTableMatch();
 // expression in the model.
 gutil::StatusOr<ConcreteContext> ExtractFromModel(
     SymbolicContext context, z3::model model,
-    const values::ValueFormatter &value_formatter);
+    const values::P4RuntimeTranslator &translator);
 
 // Merges two symbolic traces into a single trace. A field in the new trace
 // has the value of the changed trace if the condition is true, and the value

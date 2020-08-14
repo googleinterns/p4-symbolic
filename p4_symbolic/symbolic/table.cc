@@ -139,7 +139,7 @@ std::vector<std::pair<size_t, pdpi::IrTableEntry>> SortEntries(
 gutil::StatusOr<z3::expr> EvaluateSingleMatch(
     p4::config::v1::MatchField match_definition, const std::string &field_name,
     const z3::expr &field_expression, const pdpi::IrMatch &match,
-    EvaluationEnvironment *environment) {
+    values::P4RuntimeTranslator *translator) {
   if (match_definition.match_case() != p4::config::v1::MatchField::kMatchType) {
     // Arch-specific match type.
     return absl::InvalidArgumentError(
@@ -155,8 +155,9 @@ gutil::StatusOr<z3::expr> EvaluateSingleMatch(
                          match_definition.DebugString()));
       }
       ASSIGN_OR_RETURN(z3::expr value_expression,
-                       environment->value_formatter.FormatP4RTValue(
-                           field_name, match.exact()));
+                       values::FormatP4RTValue(
+                           field_name, match_definition.type_name().name(),
+                           match.exact(), translator));
       return operators::Eq(field_expression, value_expression);
     }
 
@@ -202,7 +203,8 @@ gutil::StatusOr<z3::expr> EvaluateSingleMatch(
 // is matched on.
 gutil::StatusOr<z3::expr> EvaluateTableEntryCondition(
     const ir::Table &table, const pdpi::IrTableEntry &entry,
-    const SymbolicPerPacketState &state, EvaluationEnvironment *environment) {
+    const SymbolicPerPacketState &state,
+    values::P4RuntimeTranslator *translator) {
   const std::string &table_name = table.table_definition().preamble().name();
 
   // Construct the match condition expression.
@@ -244,7 +246,7 @@ gutil::StatusOr<z3::expr> EvaluateTableEntryCondition(
         action::EvaluateFieldValue(match_field, state, fake_context));
     ASSIGN_OR_RETURN(z3::expr match_expression,
                      EvaluateSingleMatch(match_definition, field_name,
-                                         match_field_expr, match, environment));
+                                         match_field_expr, match, translator));
     ASSIGN_OR_RETURN(condition_expression,
                      operators::And(condition_expression, match_expression));
   }
@@ -257,7 +259,7 @@ gutil::StatusOr<z3::expr> EvaluateTableEntryCondition(
 absl::Status EvaluateTableEntryAction(
     const ir::Table &table, const pdpi::IrTableEntry &entry,
     const google::protobuf::Map<std::string, ir::Action> &actions,
-    SymbolicPerPacketState *state, EvaluationEnvironment *environment,
+    SymbolicPerPacketState *state, values::P4RuntimeTranslator *translator,
     const z3::expr &guard) {
   // Check that the action invoked by entry exists.
   const std::string &table_name = table.table_definition().preamble().name();
@@ -271,7 +273,7 @@ absl::Status EvaluateTableEntryAction(
   // Instantiate the action's symbolic expression with the entry values.
   const ir::Action &action = actions.at(action_name);
   return action::EvaluateAction(action, entry.action().params(), state,
-                                environment, guard);
+                                translator, guard);
 }
 
 }  // namespace
@@ -279,7 +281,7 @@ absl::Status EvaluateTableEntryAction(
 gutil::StatusOr<SymbolicTrace> EvaluateTable(
     const Dataplane data_plane, const ir::Table &table,
     const std::vector<pdpi::IrTableEntry> &entries,
-    SymbolicPerPacketState *state, EvaluationEnvironment *environment,
+    SymbolicPerPacketState *state, values::P4RuntimeTranslator *translator,
     const z3::expr &guard) {
   const std::string &table_name = table.table_definition().preamble().name();
 
@@ -331,7 +333,7 @@ gutil::StatusOr<SymbolicTrace> EvaluateTable(
     // any guard yet.
     ASSIGN_OR_RETURN(
         z3::expr entry_match,
-        EvaluateTableEntryCondition(table, entry, *state, environment));
+        EvaluateTableEntryCondition(table, entry, *state, translator));
     entries_matches.push_back(entry_match);
   }
 
@@ -373,7 +375,7 @@ gutil::StatusOr<SymbolicTrace> EvaluateTable(
   // Start with the default entry
   z3::expr match_index = Z3Context().int_val(-1);
   RETURN_IF_ERROR(EvaluateTableEntryAction(
-      table, default_entry, data_plane.program.actions(), state, environment,
+      table, default_entry, data_plane.program.actions(), state, translator,
       default_entry_assignment_guard));
 
   // Continue evaluating each table entry in reverse priority
@@ -392,7 +394,7 @@ gutil::StatusOr<SymbolicTrace> EvaluateTable(
     z3::expr entry_assignment_guard = assignment_guards.at(row);
     RETURN_IF_ERROR(
         EvaluateTableEntryAction(table, entry, data_plane.program.actions(),
-                                 state, environment, entry_assignment_guard));
+                                 state, translator, entry_assignment_guard));
   }
 
   // This table has been completely evaluated, the result of the evaluation
@@ -428,7 +430,7 @@ gutil::StatusOr<SymbolicTrace> EvaluateTable(
   // Evaluate the next control.
   ASSIGN_OR_RETURN(SymbolicTrace result,
                    control::EvaluateControl(data_plane, next_control, state,
-                                            environment, guard));
+                                            translator, guard));
 
   // The trace should not contain information for this table, otherwise, it
   // means we visisted the table twice in the same execution path!

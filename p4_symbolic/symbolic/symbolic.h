@@ -45,12 +45,6 @@ namespace symbolic {
 // evaluation.
 z3::context &Z3Context();
 
-// This struct contains any metadata or information that needs to be passed
-// around, maintained, or modified by the various evaluation functions.
-struct EvaluationEnvironment {
-  values::ValueFormatter value_formatter;
-};
-
 // Maps the name of a header field in the p4 program to its concrete value.
 using ConcretePerPacketState = std::unordered_map<std::string, std::string>;
 
@@ -249,18 +243,18 @@ struct SolverState {
   // deductions it made while solving for one particular assertion, and re-use
   // them during solving with future assertions.
   std::unique_ptr<z3::solver> solver;
-  // Store the evaluation environment for use by .Solve(...).
-  EvaluationEnvironment evaluation_environemnt;
+  // Store the p4 runtime translator state for use by .Solve(...).
+  values::P4RuntimeTranslator translator;
   // Need this constructor to be defined explicity to be able to use make_unique
   // on this struct.
   SolverState(ir::P4Program program, ir::TableEntries entries,
               SymbolicContext context, std::unique_ptr<z3::solver> &&solver,
-              EvaluationEnvironment evaluation_environemnt)
+              values::P4RuntimeTranslator translator)
       : program(program),
         entries(entries),
         context(context),
         solver(std::move(solver)),
-        evaluation_environemnt(evaluation_environemnt) {}
+        translator(translator) {}
 };
 
 // An assertion is a user defined function that takes a symbolic context

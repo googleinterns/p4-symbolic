@@ -51,10 +51,8 @@ gutil::StatusOr<std::unique_ptr<SolverState>> EvaluateP4Pipeline(
     }
   }
 
-  // Initially, the evaluation environment contains an empty value formatter.
-  // The formatter will be filled translation maps between string values and
-  // their corresponding bitvectors.
-  EvaluationEnvironment environment = {values::ValueFormatter()};
+  // Initially, the p4runtime translator has empty state.
+  values::P4RuntimeTranslator translator;
 
   // "Accumulator"-style p4 program headers.
   // This is used to evaluate the P4 program.
@@ -72,7 +70,7 @@ gutil::StatusOr<std::unique_ptr<SolverState>> EvaluateP4Pipeline(
   ASSIGN_OR_RETURN(
       SymbolicTrace trace,
       control::EvaluateControl(data_plane, data_plane.program.initial_control(),
-                               &egress_headers, &environment,
+                               &egress_headers, &translator,
                                Z3Context().bool_val(true)));
 
   // Alias the event that the packet is dropped for ease of use in assertions.
@@ -117,7 +115,7 @@ gutil::StatusOr<std::unique_ptr<SolverState>> EvaluateP4Pipeline(
 
   return std::make_unique<SolverState>(data_plane.program, data_plane.entries,
                                        symbolic_context, std::move(z3_solver),
-                                       environment);
+                                       translator);
 }
 
 gutil::StatusOr<std::optional<ConcreteContext>> Solve(
@@ -141,9 +139,8 @@ gutil::StatusOr<std::optional<ConcreteContext>> Solve(
       z3::model packet_model = solver_state->solver->get_model();
       ASSIGN_OR_RETURN(
           ConcreteContext result,
-          util::ExtractFromModel(
-              solver_state->context, packet_model,
-              solver_state->evaluation_environemnt.value_formatter));
+          util::ExtractFromModel(solver_state->context, packet_model,
+                                 solver_state->translator));
       solver_state->solver->pop();
       return std::make_optional<ConcreteContext>(result);
   }

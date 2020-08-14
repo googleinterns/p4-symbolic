@@ -83,7 +83,7 @@ SymbolicTableMatch DefaultTableMatch() {
 
 gutil::StatusOr<ConcreteContext> ExtractFromModel(
     SymbolicContext context, z3::model model,
-    const values::ValueFormatter &value_formatter) {
+    const values::P4RuntimeTranslator &translator) {
   // Extract ports.
   std::string ingress_port = model.eval(context.ingress_port, true).to_string();
   std::string egress_port = model.eval(context.egress_port, true).to_string();
@@ -98,14 +98,14 @@ gutil::StatusOr<ConcreteContext> ExtractFromModel(
   ConcretePerPacketState ingress_headers;
   for (const auto &[name, expr] : context.ingress_headers) {
     ASSIGN_OR_RETURN(ingress_headers[name],
-                     value_formatter.TranslateValueToString(
-                         name, model.eval(expr, true).to_string()));
+                     values::TranslateValueToP4RT(
+                         name, model.eval(expr, true).to_string(), translator));
   }
   ConcretePerPacketState egress_headers;
   for (const auto &[name, expr] : context.egress_headers) {
     ASSIGN_OR_RETURN(egress_headers[name],
-                     value_formatter.TranslateValueToString(
-                         name, model.eval(expr, true).to_string()));
+                     values::TranslateValueToP4RT(
+                         name, model.eval(expr, true).to_string(), translator));
   }
 
   // Extract the trace (matches on every table).

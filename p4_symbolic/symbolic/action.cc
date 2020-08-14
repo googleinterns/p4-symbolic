@@ -305,7 +305,7 @@ absl::Status EvaluateAction(const ir::Action &action,
                             const google::protobuf::RepeatedPtrField<
                                 pdpi::IrActionInvocation::IrActionParam> &args,
                             SymbolicPerPacketState *state,
-                            EvaluationEnvironment *environment,
+                            values::P4RuntimeTranslator *translator,
                             const z3::expr &guard) {
   // Construct this action's context.
   ActionContext context;
@@ -325,9 +325,12 @@ absl::Status EvaluateAction(const ir::Action &action,
     const pdpi::IrActionDefinition::IrActionParamDefinition &parameter =
         parameters.at(i);
     const std::string &parameter_name = parameter.param().name();
-    ASSIGN_OR_RETURN(z3::expr parameter_value,
-                     environment->value_formatter.FormatP4RTValue(
-                         parameter_name, args.at(i - 1).value()));
+    const std::string &parameter_type_name =
+        parameter.param().type_name().name();
+    ASSIGN_OR_RETURN(
+        z3::expr parameter_value,
+        values::FormatP4RTValue("", parameter_type_name, args.at(i - 1).value(),
+                                translator));
     context.scope.insert({parameter_name, parameter_value});
   }
 

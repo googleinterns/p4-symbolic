@@ -190,59 +190,26 @@ gutil::StatusOr<z3::expr> FormatBmv2Value(const pdpi::IrValue &value) {
   }
 }
 
-gutil::StatusOr<z3::expr> ValueFormatter::FormatP4RTValue(
-    const std::string field_name, const pdpi::IrValue &value) {
+gutil::StatusOr<z3::expr> FormatP4RTValue(const std::string &field_name,
+                                          const std::string &type_name,
+                                          const pdpi::IrValue &value,
+                                          P4RuntimeTranslator *translator) {
   switch (value.format_case()) {
     case pdpi::IrValue::kStr: {
-      // Must translate the string into a bitvector.
-      const std::string &string_value = value.str();
-      if (this->string_to_bitvector_map_.count(string_value) == 1) {
-        // This string was encountered previously and was already translated.
-        z3::expr z3_value = this->string_to_bitvector_map_.at(string_value);
-        // Insert the previously translated value into the reverse mapping,
-        // this is useful in case the same string value was previously
-        // translated for a different field, this way that value gets tied
-        // to this field as well.
-        // If the value was previously translated for the same field, this
-        // is a no-op.
-        if (this->field_name_to_string_map_.count(field_name) != 1) {
-          this->field_name_to_string_map_.insert({field_name, {}});
-        }
-        this->field_name_to_string_map_.at(field_name)
-            .insert({NormalizeBits(z3_value.to_string()), string_value});
-        return z3_value;
-      } else {
-        // First time encountering this value. Come up with some bitvector
-        // value for it unique relative to this field.
-        if (this->field_name_to_string_count_map_.count(field_name) != 1) {
-          this->field_name_to_string_count_map_.insert({field_name, 0});
-        }
-        uint64_t int_value =
-            this->field_name_to_string_count_map_.at(field_name)++;
-
-        // Find the bitsize of int_value.
-        // The bitvector will be created with that initial bitsize, if the
-        // context of this value expected a larger bitsize, the value will be
-        // padded at the context.
-        // If the context expects a smaller bitsize, the context will return an
-        // error, since that means the number of unique strings used exceed the
-        // total size of the actual domain as defined in the p4 program.
-        unsigned int bitsize = FindBitsize(int_value);
-        z3::expr z3_value = Z3Context().bv_val(int_value, bitsize);
-
-        // Store this z3::expr and its corresponding string value in the mapping
-        // and reverse mapping for future lookups.
-        this->string_to_bitvector_map_.insert({string_value, z3_value});
-        if (this->field_name_to_string_map_.count(field_name) != 1) {
-          this->field_name_to_string_map_.insert({field_name, {}});
-        }
-        this->field_name_to_string_map_.at(field_name)
-            .insert({NormalizeBits(z3_value.to_string()), string_value});
-        return z3_value;
+      // Mark that this field is a string translatable field, and map it
+      // to its custom type name (e.g. vrf_id => vrf_t).
+      if (!field_name.empty()) {
+        translator->fields_p4runtime_type[field_name] = type_name;
       }
+
+      // Must translate the string into a bitvector according to the field type.
+      const std::string &string_value = value.str();
+      IdAllocator &allocator =
+          translator->p4runtime_translation_allocators[type_name];
+      return allocator.AllocateBitVector(string_value);
     }
     default: {
-      if (this->field_name_to_string_map_.count(field_name) == 1) {
+      if (translator->fields_p4runtime_type.count(field_name)) {
         return absl::InvalidArgumentError(absl::StrCat(
             "A table entry provides a non-string value ", value.DebugString(),
             "to a string translated field", field_name));
@@ -252,29 +219,50 @@ gutil::StatusOr<z3::expr> ValueFormatter::FormatP4RTValue(
   }
 }
 
-gutil::StatusOr<std::string> ValueFormatter::TranslateValueToString(
-    const std::string field_name, const std::string &value) const {
-  std::string normalized_value = NormalizeBits(value);
-  // Try to translate the value.
-  if (this->field_name_to_string_map_.count(field_name) == 1) {
-    if (this->field_name_to_string_map_.at(field_name)
-            .count(normalized_value) == 1) {
-      return this->field_name_to_string_map_.at(field_name)
-          .at(normalized_value);
-    }
+gutil::StatusOr<std::string> TranslateValueToP4RT(
+    const std::string &field_name, const std::string &value,
+    const P4RuntimeTranslator &translator) {
+  // Not translatable: identity function.
+  if (!translator.fields_p4runtime_type.count(field_name)) {
+    return value;
   }
 
-  // If we got here, it means the value was not found in the reverse translation
-  // map.
-  // This is acceptable if this field is not a string translated field, but
-  // it is not if the string is, because that indicates that the field was
-  // assigned a value by the model that does not correspond to any P4RT string.
-  if (this->field_name_to_string_count_map_.count(field_name) == 1) {
-    return absl::InvalidArgumentError(
-        absl::StrCat("Cannot translate value ", value,
-                     " to a string value for field ", field_name));
+  // Translatable: do the reverse translation via the type name.
+  const std::string &field_type_name =
+      translator.fields_p4runtime_type.at(field_name);
+  const IdAllocator &allocator =
+      translator.p4runtime_translation_allocators.at(field_type_name);
+  return allocator.BitVectorToString(value);
+}
+
+// IdAllocator Implementation.
+
+z3::expr IdAllocator::AllocateBitVector(const std::string &string_value) {
+  // If previously allocated, return the same bitvector value.
+  if (this->string_to_bitvector_map_.count(string_value)) {
+    return this->string_to_bitvector_map_.at(string_value);
   }
-  return value;
+
+  // Allocate new bitvector value and store it in mapping.
+  uint64_t int_value = this->counter_++;
+  z3::expr z3_value = Z3Context().bv_val(int_value, FindBitsize(int_value));
+  std::string normalized_z3_value = NormalizeBits(z3_value.to_string());
+  this->string_to_bitvector_map_.insert({string_value, z3_value});
+  this->bitvector_to_string_map_.insert({normalized_z3_value, string_value});
+  return z3_value;
+}
+
+gutil::StatusOr<std::string> IdAllocator::BitVectorToString(
+    const std::string &value) const {
+  // Normalize the bitvector and look it up in the reverse mapping.
+  std::string normalized_value = NormalizeBits(value);
+  if (this->bitvector_to_string_map_.count(normalized_value)) {
+    return this->bitvector_to_string_map_.at(normalized_value);
+  }
+
+  // Could not find the bitvector in reverse map!
+  return absl::InvalidArgumentError(
+      absl::StrCat("Cannot translate bitvector ", value, " to a string value"));
 }
 
 }  // namespace values

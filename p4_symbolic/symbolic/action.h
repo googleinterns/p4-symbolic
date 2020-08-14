@@ -43,7 +43,7 @@ absl::Status EvaluateAction(const ir::Action &action,
                             const google::protobuf::RepeatedPtrField<
                                 pdpi::IrActionInvocation::IrActionParam> &args,
                             SymbolicPerPacketState *state,
-                            EvaluationEnvironment *environment,
+                            values::P4RuntimeTranslator *translator,
                             const z3::expr &guard);
 
 // Internal functions used to Evaluate statements and expressions within an

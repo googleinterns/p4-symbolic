@@ -31,7 +31,7 @@ namespace conditional {
 
 gutil::StatusOr<SymbolicTrace> EvaluateConditional(
     const Dataplane data_plane, const ir::Conditional &table,
-    SymbolicPerPacketState *state, EvaluationEnvironment *environment,
+    SymbolicPerPacketState *state, values::P4RuntimeTranslator *translator,
     const z3::expr &guard);
 
 }  // namespace conditional

@@ -39,7 +39,7 @@ namespace table {
 gutil::StatusOr<SymbolicTrace> EvaluateTable(
     const Dataplane data_plane, const ir::Table &table,
     const std::vector<pdpi::IrTableEntry> &entries,
-    SymbolicPerPacketState *state, EvaluationEnvironment *environment,
+    SymbolicPerPacketState *state, values::P4RuntimeTranslator *translator,
     const z3::expr &guard);
 
 }  // namespace table
