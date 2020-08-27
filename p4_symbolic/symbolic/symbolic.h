@@ -36,7 +36,7 @@
 #include "p4_symbolic/ir/table_entries.h"
 #include "p4_symbolic/symbolic/guarded_map.h"
 #include "p4_symbolic/symbolic/values.h"
-#include "z3++.h"  // TODO(babman): added as a system dependency for now.
+#include "z3++.h"
 
 namespace p4_symbolic {
 namespace symbolic {

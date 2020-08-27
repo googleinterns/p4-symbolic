@@ -45,6 +45,7 @@ cc_library(
     ],
     visibility = ["//p4_symbolic:__subpackages__"],
     deps = [
+        "//:z3",
         "//p4_symbolic/ir:ir_cc_proto",
         "//p4_symbolic/ir:table_entries",
         "@com_google_absl//absl/status",
