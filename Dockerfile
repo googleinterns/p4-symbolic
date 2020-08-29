@@ -18,13 +18,6 @@ RUN apt-get install -y g++-8
 RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-8 60 --slave /usr/bin/g++ g++ /usr/bin/g++-8
 RUN update-alternatives --config gcc
 
-# Install Z3.
-RUN git clone https://github.com/Z3Prover/z3.git /z3
-WORKDIR /z3/
-RUN git checkout ad55a1f1c617a7f0c3dd735c0780fc758424c7f1  # Latest release.
-RUN python scripts/mk_make.py
-RUN cd build && make -j4 && make install
-
 COPY . /p4-symbolic/
 WORKDIR /p4-symbolic/
 
